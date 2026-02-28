@@ -22,12 +22,12 @@ Combat in Hollow Kin is turn-based and active by default. The player controls a 
 
 ## **Actions Per Turn**
 
-Each creature gets one action per turn:
+Each creature takes an action per turn:
 
-* **Use an Ability** — Select from up to four equipped abilities. Costs MP.
-* **Basic Attack** — A free physical attack that scales with STR. No MP cost. Always available.
+* **Ability** — Select from up to four equipped abilities. Costs MP.
 * **Defend** — Reduce incoming damage until the creature's next turn.
 * **Swap** — Replace the active creature with one from inventory (captured creatures mid-run). The swapped-in creature acts next round, not this one.
+* **Capture** - Creatures turn is used to try and capture an enemy creature
 
 ---
 
@@ -35,13 +35,14 @@ Each creature gets one action per turn:
 
 *Proposed starting formula — subject to playtesting:*
 
-`damage = (ability_power * (attacking_stat / defending_stat)) * type_multiplier * variance`
+Damage ≈ (Attack − Defense/2) × Skill Modifier
+Key points:
 
-* `ability_power` — Base power defined on the ability object
-* `attacking_stat` — STR for physical, INT for magic, WIS for healing (defined per ability via `stat_scaling`)
-* `defending_stat` — DEF for physical attacks, WIS for magic attacks
-* `type_multiplier` — Based on the target's resistances and weaknesses (see below)
-* `variance` — Small random range (e.g., 0.9–1.1) to prevent fights from feeling deterministic
+* Defense doesn't fully cancel Attack — it's usually halved or partially reduced before subtraction, so there's always some minimum damage
+* Skills have a built-in power multiplier, similar to Pokémon's "Power" value
+* Tension (the Psyche Up system) multiplies damage by 2× per stage, stacking up to 4× (or higher in some games)
+* Elemental affinities work like resistances — monsters can absorb, null, resist, or be weak to elements, applying multipliers to the final damage
+* Some skills deal fixed damage or scale off MP/level rather than Attack
 
 ### **Resistance and Weakness Multipliers**
 
@@ -59,8 +60,6 @@ Resistances and weaknesses are per-creature, not per-archetype. There is no glob
 
 * Buffs and debuffs last a fixed number of **turns** (not rounds)
 * Default duration: 3 turns unless the ability specifies otherwise
-* Food archetype buffs are stronger but shorter (2 turns default)
-* Flora archetype buffs are weaker but longer (4 turns default)
 
 ### **Stacking**
 
@@ -73,11 +72,12 @@ Resistances and weaknesses are per-creature, not per-archetype. There is no glob
 | Effect | Description |
 | ----- | ----- |
 | ATK Up/Down | Modifies STR for physical damage |
-| MAG Up/Down | Modifies INT for magic damage |
+| INT Up/Down | Modifies INT for magic damage |
 | DEF Up/Down | Modifies DEF for physical defense |
-| RES Up/Down | Modifies WIS for magic defense |
+| WIS Up/Down | Modifies WIS for magic defense |
 | SPD Up/Down | Modifies SPD for turn order |
 | Haste | Grants bonus effective SPD (stacks additively with SPD buffs) |
+| RES Up/Down | Modifies Resistance to type damage |
 
 ---
 
@@ -107,19 +107,19 @@ Resistances and weaknesses are per-creature, not per-archetype. There is no glob
 * MP does **not** regenerate naturally between turns
 * MP regeneration sources:
   * Certain traits (e.g., MP Up trait provides a larger pool, not regen)
-  * Rest points between encounters restore MP to full
+  * Rest points between encounters restore MP by 20%
   * Specific relics may grant per-battle MP recovery
-* Running out of MP limits the creature to Basic Attack and Defend
-* MP resets to full at the start of each new encounter
+* Running out of MP limits the creature to Basic Attack and Defend. Basic attack is an auto attack function when all other abilities run out of MP
+* MP stays drained after each encounter. Players must manager their teams MP strategically
 
 ---
 
 ## **Knockout and Revival**
 
 * When a creature's HP reaches 0, it is **knocked out** for the remainder of that encounter
-* Knocked-out creatures are revived with a percentage of max HP at the end of the encounter (proposed: 25%)
+* Knocked-out creatures stay knocked-out until revived with a revival item or being healed at a rest stop
 * If all three active creatures are knocked out in one encounter, the **run ends** (see Run Failure in the GDD)
-* Revival items or relics (e.g., Phoenix Down) can revive during an encounter
+* Revival items or relics (e.g., Phoenix Down) can revive during an encounter or after an encounter
 * Knocked-out creatures do not earn mark threshold progress for that encounter
 
 ---
@@ -128,7 +128,7 @@ Resistances and weaknesses are per-creature, not per-archetype. There is no glob
 
 ### **Overview**
 
-Players can toggle auto-combat on or off at any time — during battle or from the map overview. Auto is a convenience feature for low-difficulty floors, not a replacement for active play.
+Players can toggle auto-combat on or off at any time — during battle or from the map overview. Auto is meant to be a full-featured option for players who want to take a back seat on combat and only make strategic decisions between battle.
 
 ### **Tactics Rules**
 
@@ -146,16 +146,17 @@ Inspired by Dragon Quest's tactics system. The player assigns a general behavior
 
 * Auto does not use items from inventory
 * Auto does not swap party members
-* Auto does not know enemy resistances until they've been encountered before (first encounter is always blind)
-* The player can override auto on any individual turn by selecting an action manually
+* Auto does not know enemy resistances until they've been encountered before (first encounter is always blind). We'll need to develop a monsterpedia to track creature strength/weaknesses we can leverage here
+* The player can toggle off Auto during battle at any time. Doing so will switch them to manual
 
 ---
 
 ## **Enemy Encounters**
 
-* Enemies use the same creature stat system as player creatures — same base stats, abilities, resistances
+* Enemies use the same creature stat system as player creatures — same base stats, abilities, resistances.
+* Enemies have variable ATK and Health stats of their standard version. Usually nerfing ATK and increasing health slightly so each battle is not life or death
 * Enemy creatures do not have traits or marks — those are player-only progression systems
-* Enemy difficulty scales by zone through higher base stats and more abilities
+* Enemy difficulty scales by zone through higher tier unlocks and composite levels
 * Boss creatures have unique abilities not available to player creatures and higher stat pools
 * Enemy AI follows simple priority rules: target lowest HP, use strongest available ability, apply status effects when available
 
@@ -168,5 +169,4 @@ Inspired by Dragon Quest's tactics system. The player assigns a general behavior
 * Whether evasion is a flat miss chance or calculated against accuracy
 * Detailed auto-combat AI decision trees per tactic
 * Whether bosses have multiple phases or unique mechanics beyond stat inflation
-* How party positioning works (front/back row) or if all three creatures are equivalent positionally
 * Accuracy formula — is there a hit chance, or do all attacks land unless evaded?

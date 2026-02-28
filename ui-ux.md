@@ -12,7 +12,7 @@ Hollow Kin has a lot of overlapping systems — traits, marks, abilities, stars,
 
 ## **Design Philosophy**
 
-* **Show, don't dump.** Introduce systems one at a time. The first few runs should feel simple — combat, capture, return to town. Breeding, traits, marks, and the Enhancer reveal themselves as the player naturally encounters them.
+* **Show, don't dump.** Introduce systems one at a time. The first couple of runs should feel simple — combat, capture, return to town. Breeding, traits, marks, and the Enhancer reveal themselves as the player naturally encounters them.
 * **Information on demand.** The default view should be clean. Details are available on tap/hover/click but never forced on the player.
 * **Consistent visual language.** Stars, marks, traits, and abilities each have a distinct icon style so the player can parse at a glance which system they're looking at.
 * **No hidden math.** If a stat or multiplier affects gameplay, the player should be able to see it. Damage formulas can be abstracted but the inputs (ATK vs DEF, resistance, weakness) should be visible.
@@ -49,7 +49,8 @@ The most information-dense screen. Must be scannable.
 * **Abilities:** Up to four slots with ability names and types.
 * **Longevity:** Runs remaining, with a visual indicator (green → yellow → red)
 * **Lineage:** Parent names (tappable to view parent details if not retired). Depth indicator showing how many generations deep this creature is.
-* **Breed-ready badge:** Prominent visual when the creature has hit its level cap and is eligible for breeding.
+
+Header, Marks, Longevity should be visible on initial scan. Selecting into a creature should show its Stats Block, Traits, Marks, Abilities. Lineage is another subscreen to this as most players will not care to see it.
 
 ### **Breeding Screen**
 
@@ -60,6 +61,7 @@ The most information-dense screen. Must be scannable.
   * Trait resolution preview: which slots will be chosen at birth vs. resolved during runs
   * Ability inheritance options (toggle parent abilities on/off)
   * Stat inheritance estimate (offspring base stats)
+  * If this breed combination has been used before we show the known outcome otherwise leave it a question mark
 * Optional: Breeding Relic or Stone slot (one per breeding event)
 * Confirm button with a clear warning that both parents will be retired
 
@@ -79,20 +81,19 @@ The most information-dense screen. Must be scannable.
 * Status effect icons with distinct visual treatment (poison = green pulse, burn = orange glow, etc.)
 * Auto-combat toggle always accessible
 * Turn order indicator showing who acts next
+* Option to try and capture a creature during an individual team members turn
 
 ### **Post-Encounter Screen**
 
 * Rewards summary: Plasm earned, items found, resources gathered
-* Mark threshold progress for each creature (e.g., "Ghost damage: 450/1000")
 * XP gained and level-up notifications
-* Option to capture a downed enemy (if Plasm is sufficient)
 * "Continue" to the next encounter selection
 
 ### **Bestiary**
 
 * Catalog of all discovered creatures
 * Entries unlock on first encounter (wild) or first breeding (breed-only)
-* Each entry shows: base stats, archetype, default abilities, zone availability
+* Each entry shows: base stats, archetype, default abilities
 * Breed-only entries show the parent combination once discovered
 * No spoilers — undiscovered creatures show as silhouettes with archetype icon only
 
@@ -100,15 +101,11 @@ The most information-dense screen. Must be scannable.
 
 ## **Onboarding Flow**
 
-The game should not have a tutorial screen. Instead, systems are introduced through natural play:
+The game walks players through the game in two phases.
+Phase 1: Selecting Creatures for a run, Combat, Capture, Rest, Leveling
+Phase 2: Traits, Longevity, Breeding
 
-1. **Run 1:** Combat only. Player learns basic attack, abilities, and turn order. Capture is disabled.
-2. **Run 2:** Capture is introduced. Player catches their first wild creature.
-3. **Run 3:** Longevity warning appears on a starter creature. Town introduces the Creature Box and breeding.
-4. **Run 4–5:** First breeding event. Traits system is introduced through the breeding preview.
-5. **Run 6+:** Marks begin appearing as thresholds are approached. Enhancer unlocks.
-
-Each introduction is a brief contextual tooltip, not a forced walkthrough. The player can dismiss and discover on their own.
+See the onboarding doc for more information
 
 ---
 

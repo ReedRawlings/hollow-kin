@@ -225,8 +225,6 @@ All six starter creatures begin at Star 0 with no traits unlocked, no marks, and
 
 **Trio B — Resilient** Oriented around surviving, controlling, and outlasting. Suggested archetypes: Rock for defense anchoring, Flora for healing, Spirits for debuffing. One straightforward tank, one that rewards knowing when to heal versus attack, and one that introduces status effects.
 
-Both trios follow the same internal structure — one creature that is immediately intuitive, one slightly more nuanced, and one that rewards deeper system knowledge. This creates a skill curve within each set rather than simply offering easy or hard mode.
-
 Specific species assignments and ability loadouts for all six starters are pending full roster completion.
 
 ---
@@ -241,17 +239,10 @@ Breed-only creatures cannot be found in the wild or captured during runs. They a
 * The player is not told which combinations produce breed-only results — discovery is organic
 * Once a breed-only creature has been discovered, it is added to a bestiary entry so the player can reference the recipe
 * Breed-only creatures follow all standard breeding rules (star calculation, trait inheritance, stat inheritance) — the only difference is that the offspring species is unique rather than inheriting one parent's species
-
-### **Design Constraints**
-
-* Each breed-only creature should feel like a meaningful hybrid of its parent species, not an arbitrary unlock
-* Breed-only creatures are not inherently stronger than wild creatures — they offer different trait pools, stat spreads, or ability access
-* The number of breed-only creatures per archetype and exact species combinations are pending full roster completion
+* Once a creature has been bred it can be found in the while with a low chance of being a variant version.
 
 ---
 
 ## **Open Questions**
 
-* Exact number of breed-only creatures and their triggering combinations
-* How many creatures per zone for enemy encounters
-* Whether breed-only discovery should be hinted at through in-game lore or NPC dialogue
+* How many creatures per zone for enemy encounters 

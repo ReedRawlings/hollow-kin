@@ -12,9 +12,9 @@ The tower is the procedurally generated environment where all runs take place. P
 
 ## **Run Length**
 
-* A winning run is **14 encounters** with the **15th being the boss**
-* The total run should feel completable in a single session — target 30–45 minutes for a full clear
+* A winning run is **14 encounters** with the **15th being the boss** this will be expanded beyond once we've finished playtesting combat, capture, and breeding mechanics
 * Failed runs end earlier but still consume longevity
+* Each zone will be roughly 14 encounters with 3 zone occurring over an entire rune
 
 ---
 
@@ -25,9 +25,11 @@ The tower is divided into zones. Each zone has its own enemy pool, visual identi
 ### **Zone Structure**
 
 * The exact number of zones is TBD, but the proposed structure is **3 zones per run**
-* Each zone contains roughly 4–5 encounters before a zone boss
+* Each zone contains roughly 5-7 encounters before a zone boss
 * Zone bosses are mandatory — clearing a zone boss unlocks the next zone
 * The final boss of the run appears after all zone bosses are cleared
+* Consist of 2-3 archetypes of creatures. Adding variability to each run. 
+* In the first zone of every run players will encounter 1-3 creatures per combat for the first 3 combat events giving them some time to build up experience before going into a full scale fight
 
 ### **Zone Progression Across Runs**
 
@@ -35,6 +37,7 @@ The tower is divided into zones. Each zone has its own enemy pool, visual identi
 * Starting in a later zone skips easier content but still costs full longevity
 * Later zone starts offer higher-quality rewards (more Plasm, better stones, rarer creature encounters)
 * This gives veteran players a reason to push forward rather than farming early zones repeatedly
+* To enter a higher zone players must immediately face a random prior zone boss. They earn rewards from that boss for their run. This makes sure they're ready to face the higher zone. 
 
 ---
 
@@ -44,21 +47,23 @@ Each encounter on the run map is one of the following:
 
 ### **Combat**
 
-* The majority of encounters — fight a group of enemy creatures
+* The majority of encounters — fight a group of 1-5 enemy creatures
 * Enemy composition is drawn from the current zone's creature pool
-* Higher floors within a zone have stronger enemies and more complex ability sets
+* Higher floors within a zone have stronger enemies and more complex ability sets. Stronger enemies will be present at higher tiers representing higher stats.
 
 ### **Shops**
 
-* Spend resources gathered during the run
-* Stock includes consumables, Breeding Stones, capture supplies (Plasm boosters)
-* Inventory is randomized per run
-* Prices scale with zone depth
+* Abilities to train your creatures
+* MP Recovery
+* HP Recovery
+* Revives
+* Plasm
 
 ### **Rest Points**
 
-* Restore HP and MP to the full party
-* Option to swap creatures between the active party and inventory
+* Restore some HP 
+* Restore MP to full for one pet
+* Learn a random ability for a single pet
 * No mark progress or XP is earned at rest points
 
 ### **Random Events**
@@ -85,8 +90,6 @@ After each encounter, the player chooses between 2–3 offered next encounters. 
 ### **Alternatives Under Consideration**
 
 * **Branching Map (Slay the Spire style)** — See the whole act, pick a path. May add unnecessary strategic overhead.
-* **Linear with Reward Options (Monster Train style)** — Linear path but meaningful reward choices after each encounter.
-* **Non-Linear** — Players move freely, can rush the boss for larger rewards at higher risk.
 
 ---
 
@@ -102,6 +105,13 @@ Within a single floor/encounter, the structure is minimal:
 ---
 
 ## **Boss Design**
+
+## **Mini Boss**
+
+* 1-2 per zone
+* Stronger than standard enemies, specific creatures in variant colors
+* Can be captured during runs, reverts to base stats when captured bu unlocks the variant color option
+
 
 ### **Zone Bosses**
 
@@ -120,20 +130,17 @@ Within a single floor/encounter, the structure is minimal:
 
 ## **Procedural Generation Rules**
 
-* Encounter order is randomized within constraints: at least one shop and one rest point per zone
+* Encounter order is randomized within constraints: at least one shop and two rest point per zone
+* The last event before the boss is always a rest point
 * Combat encounters never appear more than three times consecutively
+* Rest and shop encounters should never appear more than twice consecutively
 * The first encounter of each zone is always combat (to set the tone and difficulty)
-* Random events have a lower spawn rate than combat or shops — roughly 1–2 per full run
+* Random events have a lower spawn rate than combat or shops — roughly 1–2 per zone
 * Seeds can be used to reproduce a specific run layout for sharing or challenge purposes
 
 ---
 
 ## **Open Questions**
 
-* Exact number of zones (3 is proposed but untested)
-* Encounters per zone — flat 5, or variable?
-* Whether zone bosses can be rematched in future runs for farming purposes
+* Exact number of zones (3 is proposed but untested) - A run will have three zones but zones are comprised of a random combination of 2-3 archetypes each with its own boss. 
 * Visual and thematic identity for each zone
-* Whether the tower has any persistent state between runs (e.g., unlocked shortcuts, NPC appearances)
-* How creature availability maps to zones — which creatures appear where?
-* Whether failed runs reveal any information about the tower layout for future attempts
