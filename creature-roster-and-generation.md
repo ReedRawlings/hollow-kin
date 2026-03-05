@@ -16,7 +16,7 @@ Hollow Kin launches with approximately 96 creatures across 8 archetypes — 12 p
 
 | Archetype | Count | Combat Identity |
 | ----- | ----- | ----- |
-| Kami | 12 | TBD |
+| Kami | 12 | Debuffs and ice |
 | Spirits | 12 | Ghost damage and debuffs |
 | Flora | 12 | Heals and buffs |
 | Fauna | 12 | Physical, high speed |
@@ -74,7 +74,7 @@ What the player owns is an instance derived from the species template. It holds 
   nickname: null,  
   starRating: 0,  
   currentLevel: 1,  
-  longevity: 5,  
+  longevity: 2,              // Star 0 (wild) = 2 runs  
   earnedMarks: \[\],            // all marks this creature has ever earned  
   activeMarkId: null,         // the currently equipped mark  
   traitSlots: \[  

@@ -12,9 +12,11 @@ The tower is the procedurally generated environment where all runs take place. P
 
 ## **Run Length**
 
-* A winning run is **14 encounters** with the **15th being the boss** this will be expanded beyond once we've finished playtesting combat, capture, and breeding mechanics
+* A full run consists of **3 zones**
+* Each zone has **14 encounters** with a **zone boss as the 15th encounter**
+* Of the 14 encounters per zone, roughly 5–7 are combat — the rest are shops, rest points, and random events
+* A complete winning run is 45 encounters (42 standard + 3 zone bosses)
 * Failed runs end earlier but still consume longevity
-* Each zone will be roughly 14 encounters with 3 zone occurring over an entire rune
 
 ---
 
@@ -24,10 +26,9 @@ The tower is divided into zones. Each zone has its own enemy pool, visual identi
 
 ### **Zone Structure**
 
-* The exact number of zones is TBD, but the proposed structure is **3 zones per run**
-* Each zone contains roughly 5-7 encounters before a zone boss
+* **3 zones per run** — each zone has 14 encounters + 1 zone boss
+* Of the 14 encounters, roughly 5–7 are combat and the remainder are shops, rest points, and random events
 * Zone bosses are mandatory — clearing a zone boss unlocks the next zone
-* The final boss of the run appears after all zone bosses are cleared
 * Consist of 2-3 archetypes of creatures. Adding variability to each run. 
 * In the first zone of every run players will encounter 1-3 creatures per combat for the first 3 combat events giving them some time to build up experience before going into a full scale fight
 
@@ -142,5 +143,4 @@ Within a single floor/encounter, the structure is minimal:
 
 ## **Open Questions**
 
-* Exact number of zones (3 is proposed but untested) - A run will have three zones but zones are comprised of a random combination of 2-3 archetypes each with its own boss. 
 * Visual and thematic identity for each zone

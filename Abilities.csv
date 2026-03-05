@@ -1,0 +1,72 @@
+Name,Type,Power,Accuracy,Category,Description,Default Archetypes
+Thrash,Fighting,75,100,Physical,A wild thrashing attack that damages the user slightly.,Fauna;Rock;Human;Food;Mecha;Spirits
+Smash,Fighting,50,100,Physical,A solid strike with fists or body.,Fauna;Rock;Human;Food;Mecha;Kami;Spirits;Flora
+Crash,Fighting,60,90,Physical,A devastating charging attack. User loses some HP from impact.,Fauna;Rock;Human;Food;Mecha
+Bash,Fighting,55,95,Physical,A forceful bash that may lower opponent's Defense.,Fauna;Rock;Human;Food;Kami;Spirits;Flora
+Mash,Fighting,45,100,Physical,Rapid strikes that wear down the opponent.,Fauna;Food;Human;Mecha;Spirits;Flora
+Lash,Fighting,40,95,Physical,A whipping lash attack with moderate power.,Fauna;Human;Spirits;Food;Flora;Kami
+Jab,Fighting,30,100,Physical,A quick punch at the opponent. Has a high chance to hit first.,Fauna;Food;Human;Mecha;Kami;Spirits;Flora;Rock
+Cross Counter,Fighting,60,100,Physical,A powerful counter-punch. Damage increases if the opponent attacked last turn.,Human;Rock;Fauna;Food
+Seismic Slam,Fighting,70,90,Physical,A heavy strike that shakes the ground. May lower opponent's Defense.,Rock;Human;Food;Fauna
+Sunder,Fighting,65,85,Physical,Inflicts minor damage and a defense debuff on the opponent.,Rock;Human;Kami;Fauna
+Cascade,Fighting,65,95,Physical,Increases priority with each use. Medium damage.,Fauna;Mecha;Spirits
+Guillotine,Fighting,80,75,Physical,A devastating finishing blow. More powerful if the opponent's HP is already low.,Human;Fauna
+Cataclysm,Fighting,95,80,Physical,An earth-shattering strike. Lower user's Defense after use.,Rock;Human
+Crackle,Electric,35,100,Special,A crackling burst of electricity.,Mecha;Kami;Spirits;Fauna;Rock
+Spark,Electric,40,100,Special,A burst of electricity strikes the opponent.,Mecha;Kami;Fauna;Human;Food
+Flicker,Electric,45,95,Special,Quick electrical bursts that light up the area.,Mecha;Spirits;Food;Kami;Fauna
+Blitz,Electric,70,90,Physical,A fast electrical strike that may paralyze.,Mecha;Fauna;Human
+Volt Tap,Electric,40,100,Physical,The user strikes with electric energy. May paralyze.,Mecha;Fauna;Spirits;Human;Rock
+Discharge,Electric,70,100,Special,A powerful burst of electricity. May paralyze nearby opponents.,Mecha;Kami
+Thunderstrike,Electric,75,90,Physical,The user channels lightning into a strike. May paralyze the opponent.,Mecha;Rock
+Thunderbolt,Electric,85,100,Special,A powerful electrical surge. May paralyze the opponent.,Mecha
+Buffoon,Buff,—,—,Status,A silly dance that confuses the opponent and raises user's Defense.,Food;Spirits;Flora
+Typhoon,Wind,80,85,Special,A massive typhoon engulfs the battlefield.,Spirits;Fauna
+Gale,Wind,60,100,Special,A strong gale wind pushes the opponent back.,Spirits;Fauna;Flora
+Gust,Wind,40,100,Special,A gust of wind strikes the opponent from above.,Spirits;Fauna;Kami;Food;Human
+Slash,Wind,45,100,Physical,A sharp cut with claws or blades. High critical hit ratio.,Fauna;Human;Spirits;Mecha;Flora;Kami
+Cyclone,Wind,65,100,Special,A spinning vortex of wind. Lowers opponent's accuracy by 1 stage.,Spirits;Kami;Flora
+Razor Wind,Wind,70,95,Physical,Sharp winds slice the opponent. High critical hit ratio.,Fauna;Spirits;Human
+Gale Force,Wind,80,100,Special,A hurricane-force wind. User loses some HP due to strain.,Spirits
+Riptide,Wind,70,100,Physical,Hits twice. Second hit has 50% power but ignores defense.,Fauna;Human;Mecha
+Smolder,Fire,55,100,Special,A smoldering flame that slowly burns the opponent.,Mecha;Food;Rock
+Ember,Fire,40,100,Special,A small flame bursts from the user toward the opponent.,Mecha;Food;Fauna;Spirits;Kami
+Cinder,Fire,30,95,Physical,The user scratches with burning claws. May inflict burn.,Mecha;Food;Fauna;Rock;Human
+Inferno Smash,Fire,75,85,Physical,A flaming punch that crashes down with intense heat.,Mecha;Rock;Human
+Pyre,Fire,70,90,Special,Intense flames rise up in a massive pyre.,Mecha;Spirits
+Blaze,Fire,80,85,Special,An overwhelming blaze engulfs the opponent.,Mecha;Rock
+Inferno Strike,Fire,70,85,Physical,A flaming strike with intense heat. May inflict burn (30% chance).,Mecha;Human;Fauna
+Magma Burst,Fire,75,90,Special,A burst of magma erupts at the opponent. User takes 25% recoil damage.,Mecha;Rock
+Inferno Surge,Fire,80,95,Special,An intense wave of flames. May burn the opponent.,Mecha
+Meteor Strike,Fire,85,90,Physical,A flaming meteor crashes down. Has recoil damage equal to 25% of damage dealt.,Mecha
+Freeze,Ice,55,100,Special,An icy attack that may freeze the opponent solid.,Kami;Human;Spirits
+Chill,Ice,40,100,Special,An icy breath hits the opponent. May lower Speed.,Kami;Human;Flora;Fauna;Spirits
+Frost,Ice,35,90,Physical,The user coats their claws in ice and strikes. May freeze.,Human;Fauna;Rock;Kami;Food
+Permafrost,Ice,60,100,Physical,The user strikes with subzero cold. Lowers opponent's Speed by 2 stages.,Kami;Human;Rock
+Blizzard Shards,Ice,70,80,Special,Jagged ice shards rain down. May freeze the opponent (25% chance).,Kami;Spirits
+Absolute Zero,Ice,90,70,Special,An overwhelming blast of subzero energy. High chance to freeze.,Kami
+Dim Shot,Ghost,40,80,Special,A blast of negative energy,Spirits;Kami;Food;Human;Rock
+Spook,Ghost,65,95,Special,A haunting attack,Spirits;Kami
+Shadow Claw,Ghost,40,100,Physical,A ghostly claw strikes from the shadows. High critical hit ratio.,Spirits;Fauna;Human;Kami;Mecha
+Phantom,Ghost,35,100,Special,A burst of spectral energy engulfs the opponent.,Spirits;Kami;Flora;Food;Fauna
+Haunt,Ghost,55,95,Physical,A ghostly strike that lingers. Reduces opponent's Special Defense by 1 stage.,Spirits;Kami;Human
+Spectral Surge,Ghost,65,100,Special,A wave of ghostly energy. Ignores one layer of the opponent's stat boosts.,Spirits;Kami
+Phantom Assault,Ghost,75,100,Physical,A relentless barrage of ghostly strikes. Hits 2-3 times.,Spirits
+Hex,Ghost,75,100,Special,A curse strikes the opponent harder if they're already afflicted.,Spirits;Kami
+Siphon,Electric,60,95,Special,Reduces enemy Attack and increases user's Special Attack.,Kami;Mecha;Spirits
+Weaken,Debuff,—,85,Status,Lowers the opponent's Attack by 1 stage.,Kami;Spirits;Flora;Human;Food
+Scold,Debuff,—,90,Status,Minor defense debuff. Lowers opponent's Defense by 1 stage.,Kami;Spirits;Human;Food;Flora
+Fatigue,Debuff,—,75,Status,Drains the opponent's energy. Lowers Speed by 1 stage.,Kami;Spirits;Rock;Flora
+Vulnerability,Debuff,—,90,Status,Exposes the opponent's weak points. Lowers Defense and Special Defense by 1 stage.,Kami;Spirits;Mecha
+Drain,Debuff,—,100,Status,Saps the opponent's vitality. Lowers Attack and Special Attack by 1 stage each turn for 3 turns.,Kami;Spirits
+Rend,Debuff,70,95,Physical,A brutal tearing attack. Lowers opponent's Defense significantly.,Kami;Human;Fauna;Rock
+Bold,Buff,—,—,Status,Improves Attack and Fighting-type move damage by 1 stage.,Food;Fauna;Human;Rock
+Harden,Buff,—,—,Status,Hardens the user's body. Raises Defense by 1 stage.,Rock;Food;Human;Flora;Mecha
+Focus,Buff,—,—,Status,The user focuses their power. Raises Special Attack by 1 stage.,Flora;Kami;Spirits;Mecha
+Steel Skin,Buff,—,—,Status,The user's body becomes hardened. Raises both Defense and Special Defense by 1 stage.,Rock;Flora;Human
+Overdrive,Buff,—,—,Status,The user's power surges. Raises Attack and Speed by 1 stage.,Food;Fauna;Mecha;Human
+Mend,Buff,—,—,Status,The user recovers 15% of their max HP.,Flora;Food;Rock;Kami
+Soothe,Buff,—,—,Status,The user recovers 20% of their max HP.,Flora;Food;Human
+Sip,Buff,—,—,Status,The user takes a restorative breath. Recovers 25% of max HP.,Flora;Food
+Brace,Fighting,—,—,Status,The user braces themselves. Recovers 20% of max HP and raises Defense by 1 stage.,Rock;Flora;Food;Human
+Circle Heal,Buff,—,—,Status,All allies recover 25% of their max HP.,Flora

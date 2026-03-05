@@ -49,8 +49,11 @@ Hollow Kin is a browser-based creature collector roguelite. Players descend a pr
 
 ### **Run Length**
 
-* A winning run is **14 encounters** with the **15th being the boss**
-* Encounters include a mix of combat, shops, rest points, and random events
+* A full run consists of **3 zones**
+* Each zone has **14 encounters** with a **zone boss as the 15th encounter**
+* Of the 14 encounters per zone, roughly 5–7 are combat — the rest are shops, rest points, and random events
+* A complete winning run is 45 encounters (42 standard + 3 zone bosses)
+* Failed runs end earlier but still consume longevity
 
 ### **Run Shape**
 
@@ -218,8 +221,9 @@ Instead of freely choosing any three creatures, players are given a **budget** t
 
 ### **Marks and Breeding**
 
-* Marks are consumed on breeding. They either pass down to the next line or are lost  
-* The mark slot on the offspring is inherited at birth and based on the parent(s) earned marks
+* Marks are **not inherited** through breeding — they are personal to the creature that earned them
+* The only way marks influence breeding is through the retirement relic system — retire a creature with a valuable mark and use its relic at the Enhancer
+* See the Marks System doc for full rules
 
 ---
 
@@ -242,9 +246,13 @@ Instead of freely choosing any three creatures, players are given a **budget** t
 
 ### **Traits and Stars**
 
-* Creatures can hold **up to four traits**  
-* A one-star creature is simple, a four-star creature is more fully realized  
-* A one star creature only has one low level trait that it unlocks when reaching its level cap. A two star has two traits one low level and one star 2\. This continues until star 4 unlocking all four traits. At star 5 a creature can have two star 2 traits one star 3 and a star 4
+* Creatures can hold **up to four traits**, one per slot
+* Star 1: No traits
+* Star 2: Slot 1 unlocked at Trait Level 1
+* Star 3: Slot 2 unlocked at Trait Level 2
+* Star 4: Slot 3 unlocked at Trait Level 3
+* Star 5: Slot 4 unlocked at Trait Level 4 (max)
+* Stars 6–12 upgrade earlier slots to higher trait levels — see the Traits System doc for the full progression table
 
 ---
 
@@ -289,7 +297,7 @@ Eight archetypes define a creature's general identity, combat role, and default 
 
 | Archetype | Combat Identity |
 | ----- | ----- |
-| **Kami** | Ghost-type electric attacks. High defense |
+| **Kami** | Debuffs and ice |
 | **Spirits** | Ghost-type attacks and debuffs |
 | **Flora** | Heals and buffs |
 | **Fauna** | Physical attacks, high speed |
@@ -373,19 +381,51 @@ Eight archetypes define a creature's general identity, combat role, and default 
 
 ### **Trait and Ability Architecture**
 
-* Traits and abilities are stored as IDs on the creature object  
-* A `TraitLibrary` and `AbilityLibrary` map IDs to their logic functions  
-* This keeps data containers clean and behavior centralized  
+* Traits and abilities are stored as IDs on the creature object
+* A `TraitLibrary` and `AbilityLibrary` map IDs to their logic functions
+* This keeps data containers clean and behavior centralized
 * Resistances and weaknesses are arrays of damage type strings on each creature object
+
+### **Save System**
+
+* Player data is persisted via **Supabase** (hosted PostgreSQL + auth + realtime)
+* Save data includes: creature box contents, creature instances (stats, traits, marks, lineage), town upgrade levels, resource counts, bestiary progress, and breeding history
+* Saves are tied to authenticated accounts — players can resume on any browser
+* Game state syncs on key events: end of run, breeding, town upgrades, party changes
+* Species templates and ability/trait libraries are read-only client-side data loaded from exported JSON — not stored in Supabase
 
 ---
 
+## **Resolved Design Decisions**
+
+* Floor scaling for veteran bloodlines — scaling does not occur. Players can start in later zones by defeating the boss of the previous zone with their starting generation and earn boss-level rewards (run-based relics and plasm)
+* Marks/Relics/Stones — consolidated into separate reference docs (marks-catalog.md, relics.md, breeding-stones.md)
+* Save architecture — Supabase (see Technical Architecture)
+* Ability archetype distribution — DQM-style wide overlap with basic abilities available across all archetypes
+* Tension / Psyche Up — cut. Existing buff abilities (Bold, Overdrive, Focus) already cover the "spend a turn to hit harder" dynamic without adding a separate system
+* Accuracy — uses the Accuracy column from the ability CSV. Evasion is trait-driven only (Evasion Up trait + Blind status). SPD does not affect evasion — it handles turn order and crit chance only
+* Buff/debuff stages — capped at ±3, ranging from 0.75x to 1.5x. Tighter than Pokémon's system to prevent snowballing
+* Critical hits — player-only (enemies cannot crit). 5% base rate, 15% for high-crit abilities, SPD scaling. 1.5x damage that ignores target's defensive buffs
+* Damage formula terminology — standardized on STR/INT/DEF/WIS throughout combat doc
+
 ## **Open Questions**
 
-* \* Floor scaling for veteran bloodlines — scaling does not occur but players can start in later zones by defeating the boss of the previous zone with their starting generation and earn boss level rewards (run-based relics and plasm)  
-* \* Marks/Relics/Stones retirement output — naming and mechanics need consolidation across docs  
-* \* Full Enhancer upgrade tree and stone type variety  
-* \* Economy balancing framework: drop rates, building costs, Plasm scarcity, progression timelinex
+### **Combat**
+
+* **Boss phase mechanics** — do bosses have multiple phases or unique mechanics beyond stat inflation?
+
+### **Economy & Progression**
+
+* Full Enhancer upgrade tree — costs, unlock progression, and what's available at each tier
+* Catch-up / pity mechanics for players who consistently fail runs
+* Whether town building upgrades have prerequisite chains or are freely purchasable
+
+### **Content**
+
+* Star 12 special unlock (traits doc lists candidates but no decision)
+* Bestiary / Monsterpedia design — referenced in combat (auto-combat needs it) and UI/UX but no dedicated doc
+* Ability count — currently 72, target range is 80–120. Flora-flavored damage abilities (thorns, spores, vine attacks) would fill the gap
+* Visual and thematic identity for each tower zone
 
 ---
 

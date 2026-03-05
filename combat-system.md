@@ -35,14 +35,14 @@ Each creature takes an action per turn:
 
 *Proposed starting formula — subject to playtesting:*
 
-Damage ≈ (Attack − Defense/2) × Skill Modifier
+Damage ≈ (STR or INT − DEF or WIS/2) × Skill Power × Type Multiplier
 Key points:
 
-* Defense doesn't fully cancel Attack — it's usually halved or partially reduced before subtraction, so there's always some minimum damage
-* Skills have a built-in power multiplier, similar to Pokémon's "Power" value
-* Tension (the Psyche Up system) multiplies damage by 2× per stage, stacking up to 4× (or higher in some games)
-* Elemental affinities work like resistances — monsters can absorb, null, resist, or be weak to elements, applying multipliers to the final damage
-* Some skills deal fixed damage or scale off MP/level rather than Attack
+* Physical abilities scale off STR vs DEF, special abilities scale off INT vs WIS
+* Defense doesn't fully cancel attack — it's halved before subtraction, so there's always minimum damage
+* Skills have a built-in Power value (matches the Power column in the ability library)
+* Type multipliers apply based on the target's resistances and weaknesses (see below)
+* Some skills deal fixed damage or scale off MP/level rather than STR/INT
 
 ### **Resistance and Weakness Multipliers**
 
@@ -54,6 +54,52 @@ Resistances and weaknesses are per-creature, not per-archetype. There is no glob
 
 ---
 
+## **Accuracy and Evasion**
+
+### **Hit Chance**
+
+Each ability has an Accuracy value (from the ability library CSV). Hit chance is calculated as:
+
+`hit_chance = ability_accuracy - target_evasion_modifier`
+
+* Most abilities have 95–100 accuracy and will almost always land
+* Powerful abilities trade accuracy for damage (e.g., Absolute Zero at 70 accuracy, Cataclysm at 80)
+* The base evasion modifier for all creatures is **0** — abilities hit at their listed accuracy unless modified by traits or buffs
+* Evasion modifiers come from: the Evasion Up trait (adds a flat evasion bonus scaling with trait level) and the Blind status effect (reduces attacker accuracy by a flat percentage)
+* SPD does **not** affect evasion — SPD controls turn order and crit chance only
+* Minimum hit chance is **30%** — no amount of evasion stacking makes a creature untouchable
+* A miss deals zero damage and does not apply secondary effects (status, debuffs)
+
+### **Design Intent**
+
+Most combat plays out with full accuracy. Evasion is a bonus that procs occasionally on fast or trait-invested creatures, not a core strategy you build entire teams around. The real accuracy tension comes from the powerful-but-inaccurate abilities — taking Absolute Zero means accepting a 30% miss rate in exchange for massive damage.
+
+---
+
+## **Critical Hits**
+
+### **Player-Only**
+
+**Enemies cannot land critical hits.** Crits are a player-side mechanic only. This prevents run-ending RNG from enemy crits while making crit investment feel like a progression reward.
+
+### **Crit Chance**
+
+Base crit rate for all player creatures is **5%**. Modifiers:
+
+* Abilities with "high critical hit ratio" (Slash, Shadow Claw, Razor Wind) have a **15%** crit rate instead of the base 5%
+* The SPD stat provides a minor crit bonus: **+1% per 10 SPD** (so a creature with 50 SPD has +5% on top of base)
+* Traits can further modify crit rate (specific trait effects TBD during balancing)
+
+### **Crit Damage**
+
+Critical hits deal **1.5x damage** and **ignore the target's stat buffs** (DEF Up, WIS Up, Steel Skin, etc. are treated as if they weren't active for that hit). They do not ignore base DEF/WIS — only temporary buffs.
+
+### **Design Intent**
+
+Crits reward speed-oriented and crit-ability builds without being dominant. At 5% base rate they're a pleasant surprise, not a strategy. The SPD scaling gives fast archetypes (Fauna, Mecha) a natural edge. The buff-ignoring effect makes crits especially valuable against enemies that stack defensive buffs, giving the player a way to punch through turtling without needing a dedicated debuffer.
+
+---
+
 ## **Buff and Debuff System**
 
 ### **Duration**
@@ -61,11 +107,27 @@ Resistances and weaknesses are per-creature, not per-archetype. There is no glob
 * Buffs and debuffs last a fixed number of **turns** (not rounds)
 * Default duration: 3 turns unless the ability specifies otherwise
 
+### **Stages**
+
+Buffs and debuffs modify stats in stages. Each stage applies a multiplier to the base stat. Stages cap at **±3**.
+
+| Stage | Multiplier |
+| ----- | ----- |
+| -3 | 0.75x |
+| -2 | 0.85x |
+| -1 | 0.9x |
+| 0 (base) | 1.0x |
+| +1 | 1.1x |
+| +2 | 1.25x |
+| +3 | 1.5x |
+
+A creature at +3 ATK deals 1.5x its base STR in damage. A creature at -3 DEF takes damage as if its DEF were 0.75x of base. Stages cannot exceed +3 or -3.
+
 ### **Stacking**
 
 * The same buff/debuff does **not** stack with itself — reapplying refreshes the duration
 * Different buffs/debuffs affecting different stats stack freely
-* A creature can have both an ATK buff and an ATK debuff simultaneously — they cancel proportionally
+* A creature can have both an ATK buff and an ATK debuff simultaneously — the stages add together (e.g., +2 ATK and -1 ATK = net +1 ATK stage)
 
 ### **Buff/Debuff Types**
 
@@ -165,8 +227,6 @@ Inspired by Dragon Quest's tactics system. The player assigns a general behavior
 ## **Open Questions**
 
 * Exact damage formula constants and scaling curves — requires playtesting
-* Whether critical hits exist and what triggers them
-* Whether evasion is a flat miss chance or calculated against accuracy
 * Detailed auto-combat AI decision trees per tactic
 * Whether bosses have multiple phases or unique mechanics beyond stat inflation
-* Accuracy formula — is there a hit chance, or do all attacks land unless evaded?
+* Specific crit-related trait effects and balancing

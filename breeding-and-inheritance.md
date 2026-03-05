@@ -40,11 +40,14 @@ Wild-caught creatures receive a random trait when they first hit their level cap
 
 Offspring star is calculated as: **(Parent A star \+ Parent B star) / 2, rounded down.**
 
+**Breed-ready bonus:** If both parents are breed-ready (have hit their level cap during a run) and are the **same star rating**, the offspring receives **+1 star** on top of the formula result. This is the primary incentive to equalize parents before breeding.
+
 Examples:
 
-* Star 2 \+ Star 2 \= Star 2 offspring  
-* Star 3 \+ Star 1 \= Star 2 offspring  
-* Star 4 \+ Star 3 \= Star 3 offspring
+* Star 2 \+ Star 2 (both breed-ready) \= Star 3 offspring (formula gives 2, +1 bonus)
+* Star 3 \+ Star 1 \= Star 2 offspring (no bonus — different stars)
+* Star 4 \+ Star 3 \= Star 3 offspring (no bonus — different stars)
+* Star 1 \+ Star 1 (both breed-ready) \= Star 2 offspring (formula gives 1, +1 bonus)
 
 ### **Parent Retirement**
 
