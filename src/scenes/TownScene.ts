@@ -18,7 +18,7 @@ export class TownScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Resources
-    this.add.text(20, 70, `Resources: ${gameState.townResources}  |  Stones: ${gameState.breedingStones}`, {
+    this.add.text(20, 70, `Essence: ${gameState.essence}`, {
       fontSize: '14px', color: '#aaaaaa', fontFamily: 'monospace',
     });
 
@@ -34,12 +34,11 @@ export class TownScene extends Phaser.Scene {
       const y = 135 + Math.floor(i / 6) * 75;
 
       this.add.rectangle(x + 20, y + 15, 40, 40, template.spriteColor);
-      const lonColor = creature.longevity <= 1 ? '#ff4444' : creature.longevity <= 3 ? '#ffaa44' : '#44ff44';
       this.add.text(x + 50, y, `${template.name}`, {
         fontSize: '12px', color: '#ffffff', fontFamily: 'monospace',
       });
-      this.add.text(x + 50, y + 16, `★${creature.starRating} L:${creature.longevity}`, {
-        fontSize: '11px', color: lonColor, fontFamily: 'monospace',
+      this.add.text(x + 50, y + 16, `★${creature.starRating} Lv ${creature.permanentLevel}`, {
+        fontSize: '11px', color: '#ffffff', fontFamily: 'monospace',
       });
       if (creature.isBreedReady) {
         this.add.text(x + 50, y + 30, 'BREED READY', {
@@ -64,14 +63,6 @@ export class TownScene extends Phaser.Scene {
       localStorage.removeItem('hollow_kin_save');
       this.scene.start('BootScene');
     });
-
-    // Warning for low longevity creatures
-    const urgent = activeCreatures.filter(c => c.longevity <= 1);
-    if (urgent.length > 0) {
-      this.add.text(cx, 560, `⚠ ${urgent.length} creature(s) need breeding soon!`, {
-        fontSize: '14px', color: '#ff6644', fontFamily: 'monospace',
-      }).setOrigin(0.5);
-    }
   }
 
   private createButton(x: number, y: number, text: string, color: string, callback: () => void): void {

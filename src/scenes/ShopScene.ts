@@ -15,7 +15,7 @@ export class ShopScene extends Phaser.Scene {
       fontSize: '28px', color: '#88ccff', fontFamily: 'monospace',
     }).setOrigin(0.5);
 
-    this.add.text(cx, 80, `Plasm: ${run.plasm}`, {
+    this.add.text(cx, 80, `Obols: ${run.obols}`, {
       fontSize: '16px', color: '#aaaaaa', fontFamily: 'monospace',
     }).setOrigin(0.5);
 
@@ -27,14 +27,14 @@ export class ShopScene extends Phaser.Scene {
 
     items.forEach((item, i) => {
       const y = 180 + i * 80;
-      const canAfford = run.plasm >= item.cost;
+      const canAfford = run.obols >= item.cost;
       const bg = this.add.rectangle(cx, y, 300, 55, canAfford ? 0x224466 : 0x222222, 0.9)
         .setStrokeStyle(2, canAfford ? 0x4488aa : 0x444444);
 
       if (canAfford) {
         bg.setInteractive({ useHandCursor: true });
         bg.on('pointerdown', () => {
-          run.plasm -= item.cost;
+          run.obols -= item.cost;
           item.action();
           this.scene.restart(data);
         });
@@ -45,7 +45,7 @@ export class ShopScene extends Phaser.Scene {
       this.add.text(cx, y - 8, item.name, {
         fontSize: '14px', color: canAfford ? '#ffffff' : '#666666', fontFamily: 'monospace',
       }).setOrigin(0.5);
-      this.add.text(cx, y + 12, `Cost: ${item.cost} Plasm`, {
+      this.add.text(cx, y + 12, `Cost: ${item.cost} Obols`, {
         fontSize: '12px', color: canAfford ? '#88ccff' : '#444444', fontFamily: 'monospace',
       }).setOrigin(0.5);
     });

@@ -19,7 +19,7 @@ export class RunScene extends Phaser.Scene {
         currentEncounterIndex: -1,
         encounters: zone1,
         choices: [],
-        plasm: 0,
+        obols: 0,
         capturedCreatures: [],
         partyHp: {},
         partyMp: {},
@@ -49,7 +49,7 @@ export class RunScene extends Phaser.Scene {
       fontSize: '20px', color: '#e0d0a0', fontFamily: 'monospace',
     }).setOrigin(0.5);
 
-    this.add.text(cx, 45, `Plasm: ${run.plasm}`, {
+    this.add.text(cx, 45, `Obols: ${run.obols}`, {
       fontSize: '14px', color: '#88ccff', fontFamily: 'monospace',
     }).setOrigin(0.5);
 
@@ -144,7 +144,7 @@ export class RunScene extends Phaser.Scene {
         break;
       case 'event':
         // Simple event: random bonus
-        run.plasm += 15;
+        run.obols += 15;
         run.xpEarned += 10;
         for (const c of gameState.runParty) {
           if (!run.partyKO[c.instanceId]) {
@@ -173,14 +173,14 @@ export class RunScene extends Phaser.Scene {
     const run = gameState.currentRun!;
     this.add.text(cx, cy - 20, [
       `Zones Cleared: ${run.currentZone}`,
-      `Plasm Earned: ${run.plasm}`,
+      `Obols Earned: ${run.obols}`,
       `Creatures Captured: ${run.capturedCreatures.length}`,
     ].join('\n'), {
       fontSize: '14px', color: '#aaaaaa', fontFamily: 'monospace', align: 'center',
     }).setOrigin(0.5);
 
     this.createButton(cx, cy + 80, 'RETURN TO TOWN', '#4488aa', () => {
-      gameState.endRun(success);
+      gameState.endRun(success, run.obols);
       gameState.saveToLocalStorage();
       this.scene.start('TownScene');
     });
