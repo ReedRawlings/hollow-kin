@@ -114,14 +114,15 @@ export enum BattlePhase {
 
 export interface Encounter {
   type: EncounterType;
-  enemies?: string[];     // creature template IDs for combat encounters
-  enemyLevels?: number;   // level for enemies in this encounter
-  zone: number;
-  index: number;
+  enemies?: string[];      // creature template IDs for combat encounters
+  enemyLevels?: number;    // level for enemies in this encounter
+  floor: number;           // absolute tower floor (1..TOWER_FLOORS)
+  index: number;           // position within the current run's encounter list
+  bossTier?: 'mini' | 'major'; // set on boss encounters
 }
 
 export interface RunState {
-  currentZone: number;
+  startFloor: number;         // floor this run began on (1 unless a depth-jump was bought)
   currentEncounterIndex: number;
   encounters: Encounter[];
   choices: Encounter[];       // current pick-next choices
@@ -165,6 +166,19 @@ export const MIN_HIT_CHANCE = 0.30;
 // --- Essence / Obol economy (placeholders for playtest tuning) ---
 export const OBOL_REWARDS = { normal: 5, mini: 25, major: 75 } as const;
 export const OBOL_TO_ESSENCE_RATE = 0.5;
+
+// --- Tower structure ---
+export const TOWER_FLOORS = 30;
+
+/** A floor is a boss floor iff it is a multiple of 5. */
+export function isBossFloor(floor: number): boolean {
+  return floor % 5 === 0;
+}
+
+/** Boss tier for a boss floor: multiples of 10 are major, other multiples of 5 are mini. */
+export function bossTierForFloor(floor: number): 'mini' | 'major' {
+  return floor % 10 === 0 ? 'major' : 'mini';
+}
 export const WIPE_OBOL_PENALTY = 0.5; // fraction of leftover Obols lost on a full wipe
 export const LEVEL_COST_BASE = 10;
 export const LEVEL_COST_EXPONENT = 1.5;
