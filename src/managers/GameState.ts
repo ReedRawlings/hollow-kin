@@ -1,6 +1,6 @@
 import {
   CreatureInstance, RunState, BaseStats,
-  STAR_LEVEL_CAPS, generateId, isBossFloor,
+  STAR_LEVEL_CAPS, generateId, isBossFloor, TOWER_FLOORS,
 } from '../types';
 import { getTemplate } from '../data/creatures';
 import { convertObolsToEssence, essenceCostForLevel } from '../systems/Economy';
@@ -97,7 +97,7 @@ class GameStateManager {
   /** Floors a run may start on: floor 1, plus the floor after each cleared 5-floor break. */
   unlockedStartFloors(): number[] {
     const floors = [1];
-    for (let f = 5; f <= this.deepestBreakCleared; f += 5) floors.push(f + 1);
+    for (let f = 5; f <= this.deepestBreakCleared && f + 1 <= TOWER_FLOORS; f += 5) floors.push(f + 1);
     return floors;
   }
 

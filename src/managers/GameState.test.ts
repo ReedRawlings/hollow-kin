@@ -156,6 +156,11 @@ describe('deepest-break tracking', () => {
     expect(gameState.unlockedStartFloors()).toEqual([1, 6, 11]);
   });
 
+  it('caps unlockedStartFloors at the tower top when the tower is fully cleared', () => {
+    gameState.deepestBreakCleared = 30;
+    expect(gameState.unlockedStartFloors()).toEqual([1, 6, 11, 16, 21, 26]);
+  });
+
   it('persists deepestBreakCleared across save/load', () => {
     gameState.recordBreakCleared(15);
     gameState.saveToLocalStorage();

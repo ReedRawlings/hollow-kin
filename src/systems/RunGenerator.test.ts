@@ -116,4 +116,30 @@ describe('generatePickNextChoices', () => {
     const d = generateDescent();
     expect(generatePickNextChoices(d, d.length - 1)).toEqual([]);
   });
+
+  it('walks a full descent end-to-end, forcing every boss and terminating on floor 30', () => {
+    const d = generateDescent();
+    let idx = -1;
+    const forcedBossFloors: number[] = [];
+    let lastFloor = -1;
+    let terminatedOnEmpty = false;
+
+    for (let i = 0; i < 100; i++) {
+      const choices = generatePickNextChoices(d, idx);
+      if (choices.length === 0) {
+        terminatedOnEmpty = true;
+        break;
+      }
+      if (choices.length === 1 && choices[0].type === 'boss') {
+        forcedBossFloors.push(choices[0].floor);
+      }
+      const pick = choices.reduce((a, b) => (a.index < b.index ? a : b));
+      idx = pick.index;
+      lastFloor = d[idx].floor;
+    }
+
+    expect(terminatedOnEmpty).toBe(true);
+    expect(forcedBossFloors).toEqual([5, 10, 15, 20, 25, 30]);
+    expect(lastFloor).toBe(30);
+  });
 });
