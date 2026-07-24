@@ -1,3 +1,16 @@
+import { beforeAll } from 'vitest';
+beforeAll(() => {
+  if (typeof (globalThis as any).localStorage === 'undefined') {
+    const store: Record<string, string> = {};
+    (globalThis as any).localStorage = {
+      getItem: (k: string) => (k in store ? store[k] : null),
+      setItem: (k: string, v: string) => { store[k] = String(v); },
+      removeItem: (k: string) => { delete store[k]; },
+      clear: () => { for (const k of Object.keys(store)) delete store[k]; },
+    };
+  }
+});
+
 import { describe, it, expect, beforeEach } from 'vitest';
 import { gameState } from './GameState';
 
@@ -71,5 +84,42 @@ describe('spendEssenceOnLevel', () => {
     gameState.essence = 100000;
     const ok = gameState.spendEssenceOnLevel(c);
     expect(ok).toBe(false);
+  });
+});
+
+describe('save/load migration', () => {
+  it('round-trips the new save shape', () => {
+    gameState.essence = 42;
+    gameState.hasCompletedFirstRun = true;
+    gameState.saveToLocalStorage();
+    gameState.essence = 0;
+    gameState.hasCompletedFirstRun = false;
+    expect(gameState.loadFromLocalStorage()).toBe(true);
+    expect(gameState.essence).toBe(42);
+    expect(gameState.hasCompletedFirstRun).toBe(true);
+  });
+
+  it('migrates an old save (townResources->essence, backfills fields, drops longevity)', () => {
+    const oldSave = {
+      creatureBox: [{
+        instanceId: 'old1', speciesId: 'ironjaw', nickname: null, starRating: 0,
+        currentLevel: 1, levelCap: 5, longevity: 2,
+        abilities: ['tackle', null, null, null],
+        traitSlots: [{ traitId: null, traitLevel: 0, unlocked: false }],
+        lineage: { parentA: null, parentB: null },
+        currentStats: { hp: 30, mp: 5, str: 10, def: 8, wis: 5, spd: 7, int: 4 },
+        resistances: [], weaknesses: [], isRetired: false, isBreedReady: false, xp: 0,
+      }],
+      townResources: 90,
+      breedingStones: 3,
+      hasCompletedFirstRun: true,
+    };
+    localStorage.setItem('hollow_kin_save', JSON.stringify(oldSave));
+    expect(gameState.loadFromLocalStorage()).toBe(true);
+    expect(gameState.essence).toBe(90);            // townResources -> essence
+    const c = gameState.creatureBox[0];
+    expect(c.permanentLevel).toBe(1);              // backfilled
+    expect(c.essenceInvested).toBe(0);             // backfilled
+    expect('longevity' in c).toBe(false);          // dropped
   });
 });

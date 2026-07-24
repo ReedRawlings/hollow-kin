@@ -145,9 +145,9 @@ class GameStateManager {
 
   saveToLocalStorage(): void {
     const data = {
+      version: 2,
       creatureBox: this.creatureBox,
-      townResources: this.townResources,
-      breedingStones: this.breedingStones,
+      essence: this.essence,
       hasCompletedFirstRun: this.hasCompletedFirstRun,
     };
     localStorage.setItem('hollow_kin_save', JSON.stringify(data));
@@ -158,10 +158,17 @@ class GameStateManager {
     if (!raw) return false;
     try {
       const data = JSON.parse(raw);
-      this.creatureBox = data.creatureBox;
-      this.townResources = data.townResources;
-      this.breedingStones = data.breedingStones;
-      this.hasCompletedFirstRun = data.hasCompletedFirstRun;
+      // Essence: new field, else migrate old townResources, else 0
+      this.essence = data.essence ?? data.townResources ?? 0;
+      this.hasCompletedFirstRun = data.hasCompletedFirstRun ?? false;
+      this.creatureBox = (data.creatureBox ?? []).map((c: any) => {
+        const { longevity, ...rest } = c; // drop longevity if present
+        return {
+          ...rest,
+          permanentLevel: c.permanentLevel ?? 1,
+          essenceInvested: c.essenceInvested ?? 0,
+        } as CreatureInstance;
+      });
       return true;
     } catch {
       return false;
