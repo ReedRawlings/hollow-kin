@@ -60,7 +60,7 @@ export class BreedingScene extends Phaser.Scene {
       this.add.text(x - 45, y - 18, `${template.name} ★${creature.starRating}`, {
         fontSize: '12px', color: '#ffffff', fontFamily: 'monospace',
       });
-      this.add.text(x - 45, y, `${template.archetype} | L:${creature.longevity}`, {
+      this.add.text(x - 45, y, `${template.archetype} | Lv ${creature.permanentLevel}`, {
         fontSize: '10px', color: '#aaaaaa', fontFamily: 'monospace',
       });
       if (creature.isBreedReady) {
@@ -212,7 +212,7 @@ export class BreedingScene extends Phaser.Scene {
       fontSize: '20px', color: '#ffffff', fontFamily: 'monospace',
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy + 80, `Level Cap: ${offspring.levelCap} | Longevity: ${offspring.longevity}`, {
+    this.add.text(cx, cy + 80, `Level Cap: ${offspring.levelCap}`, {
       fontSize: '14px', color: '#aaaaaa', fontFamily: 'monospace',
     }).setOrigin(0.5);
 

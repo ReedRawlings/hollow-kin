@@ -25,7 +25,7 @@ export class PartySelectScene extends Phaser.Scene {
       fontSize: '14px', color: '#888888', fontFamily: 'monospace',
     }).setOrigin(0.5);
 
-    const available = gameState.creatureBox.filter(c => !c.isRetired && c.longevity > 0);
+    const available = gameState.creatureBox.filter(c => !c.isRetired);
 
     available.forEach((creature, i) => {
       const template = getTemplate(creature.speciesId);
@@ -53,8 +53,8 @@ export class PartySelectScene extends Phaser.Scene {
       this.add.text(x - 45, y + 42, `INT:${creature.currentStats.int} SPD:${creature.currentStats.spd} WIS:${creature.currentStats.wis}`, {
         fontSize: '10px', color: '#888888', fontFamily: 'monospace',
       });
-      this.add.text(x - 45, y + 58, `Longevity: ${creature.longevity}`, {
-        fontSize: '10px', color: creature.longevity <= 1 ? '#ff4444' : '#44ff44', fontFamily: 'monospace',
+      this.add.text(x - 45, y + 58, `Lv ${creature.permanentLevel}`, {
+        fontSize: '10px', color: '#44ff44', fontFamily: 'monospace',
       });
 
       bg.on('pointerdown', () => this.toggleSelect(creature.instanceId, bg));

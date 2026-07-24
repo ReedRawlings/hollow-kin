@@ -4,13 +4,14 @@ import { getTemplate } from '../data/creatures';
 import { getAbility } from '../data/abilities';
 import {
   CombatCreature, BattlePhase, Encounter, CreatureInstance,
-  generateId, STAR_LEVEL_CAPS, STAR_LONGEVITY,
+  generateId, STAR_LEVEL_CAPS,
 } from '../types';
 import {
   calculateTurnOrder, calculateDamage, applyDamage, applyHeal,
   applyAbilityEffects, tickStatusEffects, isSkipTurn, getEnemyAction,
   createCombatCreature,
 } from '../systems/CombatEngine';
+import { obolsForEncounter } from '../systems/Economy';
 
 export class CombatScene extends Phaser.Scene {
   private playerParty: CombatCreature[] = [];
@@ -70,7 +71,8 @@ export class CombatScene extends Phaser.Scene {
         starRating: 0,
         currentLevel: enemyLevel,
         levelCap: STAR_LEVEL_CAPS[0],
-        longevity: 0,
+        permanentLevel: 1,
+        essenceInvested: 0,
         abilities: [...template.defaultAbilities, null, null].slice(0, 4),
         traitSlots: [],
         lineage: { parentA: null, parentB: null },
@@ -332,10 +334,10 @@ export class CombatScene extends Phaser.Scene {
     const run = gameState.currentRun!;
 
     if (victory) {
-      // Award XP and plasm
+      // Award XP and obols
       const xpPerCreature = 8 + (this.encounter.type === 'boss' ? 20 : 5) * this.encounter.zone;
-      const plasmGain = 10 + (this.encounter.type === 'boss' ? 25 : 8) * this.encounter.zone;
-      run.plasm += plasmGain;
+      const obolGain = obolsForEncounter(this.encounter.type === 'boss' ? 'boss' : 'normal');
+      run.obols += obolGain;
 
       let levelUpMsg = '';
       for (const pc of this.playerParty) {
@@ -354,7 +356,7 @@ export class CombatScene extends Phaser.Scene {
         fontSize: '24px', color: '#ffdd88', fontFamily: 'monospace',
       }).setOrigin(0.5);
 
-      let rewards = `+${plasmGain} Plasm  |  +${xpPerCreature} XP each`;
+      let rewards = `+${obolGain} Obols  |  +${xpPerCreature} XP each`;
       if (levelUpMsg) rewards += '\n' + levelUpMsg;
 
       this.add.text(cx, 475, rewards, {
@@ -379,7 +381,7 @@ export class CombatScene extends Phaser.Scene {
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
       returnBtn.on('pointerdown', () => {
-        gameState.endRun(false);
+        gameState.endRun(false, run.obols);
         gameState.saveToLocalStorage();
         this.scene.start('TownScene');
       });
@@ -400,16 +402,14 @@ export class CombatScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const alive = this.playerParty.filter(c => !c.isKnockedOut);
-    const resourceGain = 5 + this.encounter.zone * 3;
 
     const choices = [
       { label: 'Restore HP', desc: 'Heal party for 10% HP', color: 0x44aa44 },
       { label: 'Restore MP', desc: 'Restore party 20% MP', color: 0x4466cc },
-      { label: 'Resources', desc: `+${resourceGain} Town Resources`, color: 0xcc8844 },
     ];
 
     choices.forEach((choice, i) => {
-      const bx = cx - 200 + i * 200;
+      const bx = cx - 100 + i * 200;
       const by = 560;
       const bg = this.add.rectangle(bx, by, 170, 60, choice.color, 0.9)
         .setStrokeStyle(2, 0xffffff).setInteractive({ useHandCursor: true });
@@ -433,16 +433,13 @@ export class CombatScene extends Phaser.Scene {
             pc.currentHp = Math.min(pc.maxHp, pc.currentHp + heal);
             run.partyHp[pc.instance.instanceId] = pc.currentHp;
           }
-        } else if (i === 1) {
+        } else {
           // Restore 20% MP to alive party members
           for (const pc of alive) {
             const restore = Math.floor(pc.maxMp * 0.20);
             pc.currentMp = Math.min(pc.maxMp, pc.currentMp + restore);
             run.partyMp[pc.instance.instanceId] = pc.currentMp;
           }
-        } else {
-          // Town resources
-          gameState.townResources += resourceGain;
         }
         gameState.saveToLocalStorage();
         this.scene.start('RunScene', { continueRun: true });

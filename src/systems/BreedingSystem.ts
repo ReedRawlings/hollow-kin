@@ -1,4 +1,4 @@
-import { CreatureInstance, STAR_LEVEL_CAPS, STAR_LONGEVITY, generateId, BaseStats } from '../types';
+import { CreatureInstance, STAR_LEVEL_CAPS, generateId, BaseStats } from '../types';
 import { getTemplate } from '../data/creatures';
 
 export function calculateOffspringStar(parentA: CreatureInstance, parentB: CreatureInstance): number {
@@ -36,7 +36,6 @@ export function breed(
   const template = getTemplate(offspringSpeciesId);
   const starRating = calculateOffspringStar(parentA, parentB);
   const levelCap = STAR_LEVEL_CAPS[starRating] ?? 5;
-  const longevity = STAR_LONGEVITY[starRating] ?? 2;
   const baseStats = calculateOffspringStats(parentA, parentB, offspringSpeciesId);
 
   // Fill abilities: chosen ones first, then defaults
@@ -54,7 +53,8 @@ export function breed(
     starRating,
     currentLevel: 1,
     levelCap,
-    longevity,
+    permanentLevel: 1,
+    essenceInvested: 0,
     abilities: abilities.slice(0, 4),
     traitSlots: [
       { traitId: null, traitLevel: 0, unlocked: starRating >= 2 },

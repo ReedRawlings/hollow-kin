@@ -67,9 +67,10 @@ export interface CreatureInstance {
   speciesId: string;
   nickname: string | null;
   starRating: number;
-  currentLevel: number;
+  currentLevel: number;   // level during the current run (temporary); starts at permanentLevel
   levelCap: number;
-  longevity: number;
+  permanentLevel: number; // permanent essence-bought floor; run starts here, not at 1
+  essenceInvested: number;// total essence permanently spent on this creature
   abilities: (string | null)[];
   traitSlots: TraitSlot[];
   lineage: { parentA: string | null; parentB: string | null };
@@ -124,7 +125,7 @@ export interface RunState {
   currentEncounterIndex: number;
   encounters: Encounter[];
   choices: Encounter[];       // current pick-next choices
-  plasm: number;
+  obols: number;
   capturedCreatures: CreatureInstance[];
   partyHp: Record<string, number>;
   partyMp: Record<string, number>;
@@ -135,11 +136,6 @@ export interface RunState {
 export const STAR_LEVEL_CAPS: Record<number, number> = {
   0: 5, 1: 10, 2: 20, 3: 30, 4: 40, 5: 50,
   6: 60, 7: 70, 8: 80, 9: 90, 10: 95, 11: 97, 12: 99,
-};
-
-export const STAR_LONGEVITY: Record<number, number> = {
-  0: 2, 1: 4, 2: 6, 3: 8, 4: 10, 5: 12,
-  6: 14, 7: 16, 8: 18, 9: 20, 10: 22, 11: 24, 12: 26,
 };
 
 export const BUFF_MULTIPLIERS: Record<number, number> = {
@@ -165,6 +161,13 @@ export const CRIT_MULTIPLIER = 1.5;
 export const BASE_CRIT_RATE = 0.05;
 export const HIGH_CRIT_RATE = 0.15;
 export const MIN_HIT_CHANCE = 0.30;
+
+// --- Essence / Obol economy (placeholders for playtest tuning) ---
+export const OBOL_REWARDS = { normal: 5, boss: 75 } as const;
+export const OBOL_TO_ESSENCE_RATE = 0.5;
+export const WIPE_OBOL_PENALTY = 0.5; // fraction of leftover Obols lost on a full wipe
+export const LEVEL_COST_BASE = 10;
+export const LEVEL_COST_EXPONENT = 1.5;
 
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
