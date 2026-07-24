@@ -335,9 +335,16 @@ export class CombatScene extends Phaser.Scene {
 
     if (victory) {
       // Award XP and obols
-      const xpPerCreature = 8 + (this.encounter.type === 'boss' ? 20 : 5) * this.encounter.zone;
-      const obolGain = obolsForEncounter(this.encounter.type === 'boss' ? 'boss' : 'normal');
+      const xpPerCreature = 8 + (this.encounter.type === 'boss' ? 20 : 5) * this.encounter.floor;
+      const obolKind = this.encounter.type === 'boss'
+        ? (this.encounter.bossTier ?? 'mini')
+        : 'normal';
+      const obolGain = obolsForEncounter(obolKind);
       run.obols += obolGain;
+
+      if (this.encounter.type === 'boss') {
+        gameState.recordBreakCleared(this.encounter.floor);
+      }
 
       let levelUpMsg = '';
       for (const pc of this.playerParty) {
