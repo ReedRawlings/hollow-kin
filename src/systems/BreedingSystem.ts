@@ -1,5 +1,6 @@
-import { CreatureInstance, STAR_LEVEL_CAPS, generateId, BaseStats } from '../types';
+import { CreatureInstance, STAR_LEVEL_CAPS, generateId, BaseStats, BREED_CARRYOVER_FRACTION } from '../types';
 import { getTemplate } from '../data/creatures';
+import { levelFromEssence } from './Economy';
 
 export function calculateOffspringStar(parentA: CreatureInstance, parentB: CreatureInstance): number {
   const avgStar = Math.floor((parentA.starRating + parentB.starRating) / 2);
@@ -27,6 +28,17 @@ export function calculateOffspringStats(
   return result;
 }
 
+/** Jump-start the offspring inherits: half the parents' average invested essence, spent up the cost curve. */
+export function carryoverForParents(
+  parentA: CreatureInstance,
+  parentB: CreatureInstance,
+  levelCap: number,
+): { level: number; invested: number } {
+  const avgInvested = (parentA.essenceInvested + parentB.essenceInvested) / 2;
+  const pool = Math.floor(avgInvested * BREED_CARRYOVER_FRACTION);
+  return levelFromEssence(pool, levelCap);
+}
+
 export function breed(
   parentA: CreatureInstance,
   parentB: CreatureInstance,
@@ -36,6 +48,7 @@ export function breed(
   const template = getTemplate(offspringSpeciesId);
   const starRating = calculateOffspringStar(parentA, parentB);
   const levelCap = STAR_LEVEL_CAPS[starRating] ?? 5;
+  const carry = carryoverForParents(parentA, parentB, levelCap);
   const baseStats = calculateOffspringStats(parentA, parentB, offspringSpeciesId);
 
   // Fill abilities: chosen ones first, then defaults
@@ -51,10 +64,10 @@ export function breed(
     speciesId: offspringSpeciesId,
     nickname: null,
     starRating,
-    currentLevel: 1,
+    currentLevel: carry.level,
     levelCap,
-    permanentLevel: 1,
-    essenceInvested: 0,
+    permanentLevel: carry.level,
+    essenceInvested: carry.invested,
     abilities: abilities.slice(0, 4),
     traitSlots: [
       { traitId: null, traitLevel: 0, unlocked: starRating >= 2 },
@@ -63,6 +76,8 @@ export function breed(
       { traitId: null, traitLevel: 0, unlocked: starRating >= 5 },
     ],
     lineage: { parentA: parentA.instanceId, parentB: parentB.instanceId },
+    // currentStats are level-1-scale here and are non-authoritative until GameState.startRun
+    // recomputes them for the offspring's permanentLevel.
     currentStats: baseStats,
     resistances: [...template.resistances],
     weaknesses: [...template.weaknesses],

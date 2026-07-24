@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
-import { breed, calculateOffspringStar, calculateOffspringStats } from '../systems/BreedingSystem';
-import { CreatureInstance } from '../types';
+import { breed, calculateOffspringStar, calculateOffspringStats, carryoverForParents } from '../systems/BreedingSystem';
+import { CreatureInstance, STAR_LEVEL_CAPS } from '../types';
 
 export class BreedingScene extends Phaser.Scene {
   private parentA: CreatureInstance | null = null;
@@ -171,6 +171,12 @@ export class BreedingScene extends Phaser.Scene {
     this.add.text(x, y + 120, '⚠ Both parents will be retired', {
       fontSize: '10px', color: '#ff6644', fontFamily: 'monospace',
     }).setOrigin(0.5);
+
+    const levelCap = STAR_LEVEL_CAPS[star] ?? 5;
+    const carry = carryoverForParents(this.parentA, this.parentB, levelCap);
+    this.add.text(x, y + 140, `Starts at Lv ${carry.level} (carried from parents)`, {
+      fontSize: '10px', color: '#88ccaa', fontFamily: 'monospace',
+    }).setOrigin(0.5);
   }
 
   private performBreed(): void {
@@ -216,7 +222,11 @@ export class BreedingScene extends Phaser.Scene {
       fontSize: '14px', color: '#aaaaaa', fontFamily: 'monospace',
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy + 110, `Abilities: ${chosenAbilities.join(', ')}`, {
+    this.add.text(cx, cy + 100, `Starts at Lv ${offspring.permanentLevel} (carried from parents)`, {
+      fontSize: '12px', color: '#88ccaa', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    this.add.text(cx, cy + 120, `Abilities: ${chosenAbilities.join(', ')}`, {
       fontSize: '11px', color: '#888888', fontFamily: 'monospace',
     }).setOrigin(0.5);
 

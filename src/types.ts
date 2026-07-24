@@ -182,6 +182,7 @@ export function bossTierForFloor(floor: number): 'mini' | 'major' {
 export const WIPE_OBOL_PENALTY = 0.5; // fraction of leftover Obols lost on a full wipe
 export const LEVEL_COST_BASE = 10;
 export const LEVEL_COST_EXPONENT = 1.5;
+export const BREED_CARRYOVER_FRACTION = 0.5; // fraction of parents' avg invested essence that carries to offspring
 
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);

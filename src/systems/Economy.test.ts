@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { obolsForEncounter, convertObolsToEssence, essenceCostForLevel, depthJumpCost } from './Economy';
+import { obolsForEncounter, convertObolsToEssence, essenceCostForLevel, depthJumpCost, levelFromEssence } from './Economy';
 
 describe('obolsForEncounter', () => {
   it('gives the normal-combat weight', () => {
@@ -57,5 +57,27 @@ describe('depthJumpCost', () => {
     expect(depthJumpCost(6)).toBe(75);   // (6-1)*15
     expect(depthJumpCost(11)).toBe(150); // (11-1)*15
     expect(depthJumpCost(26)).toBe(375); // (26-1)*15
+  });
+});
+
+describe('levelFromEssence', () => {
+  it('stays at level 1 with no essence', () => {
+    expect(levelFromEssence(0, 50)).toEqual({ level: 1, invested: 0 });
+  });
+  it('buys exactly one level at the level-1 cost (10)', () => {
+    // cost(1)=10 -> reaches level 2, invested 10
+    expect(levelFromEssence(10, 50)).toEqual({ level: 2, invested: 10 });
+  });
+  it('does not overspend on a partial level', () => {
+    // 19 essence: buys L1->2 (10), can't afford L2->3 (28). level 2, invested 10.
+    expect(levelFromEssence(19, 50)).toEqual({ level: 2, invested: 10 });
+  });
+  it('buys multiple levels and reports cumulative invested', () => {
+    // cost(1)=10, cost(2)=28 -> 38 reaches level 3, invested 38
+    expect(levelFromEssence(38, 50)).toEqual({ level: 3, invested: 38 });
+  });
+  it('never exceeds the level cap (invested is only what was spent to reach the cap)', () => {
+    // cap 3: cost(1)=10, cost(2)=28 -> invested 38 reaches level 3, stops even with essence to spare
+    expect(levelFromEssence(100000, 3)).toEqual({ level: 3, invested: 38 });
   });
 });

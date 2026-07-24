@@ -30,3 +30,20 @@ export function essenceCostForLevel(level: number): number {
 export function depthJumpCost(startFloor: number): number {
   return Math.max(0, (startFloor - 1) * 15);
 }
+
+/**
+ * Spend an essence pool buying permanent levels up the cost curve from level 1.
+ * Returns the level reached and the essence actually consumed (leftover is dropped).
+ * Preserves the Leveler invariant: `invested` == cumulative cost of `level`.
+ */
+export function levelFromEssence(essence: number, levelCap: number): { level: number; invested: number } {
+  let level = 1;
+  let invested = 0;
+  while (level < levelCap) {
+    const cost = essenceCostForLevel(level);
+    if (invested + cost > essence) break;
+    invested += cost;
+    level++;
+  }
+  return { level, invested };
+}
