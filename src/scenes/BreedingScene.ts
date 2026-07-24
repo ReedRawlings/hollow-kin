@@ -216,6 +216,10 @@ export class BreedingScene extends Phaser.Scene {
       fontSize: '14px', color: '#aaaaaa', fontFamily: 'monospace',
     }).setOrigin(0.5);
 
+    this.add.text(cx, cy + 100, `Starts at Lv ${offspring.permanentLevel} (carried from parents)`, {
+      fontSize: '12px', color: '#88ccaa', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
     this.add.text(cx, cy + 110, `Abilities: ${chosenAbilities.join(', ')}`, {
       fontSize: '11px', color: '#888888', fontFamily: 'monospace',
     }).setOrigin(0.5);
