@@ -166,6 +166,13 @@ export const BASE_CRIT_RATE = 0.05;
 export const HIGH_CRIT_RATE = 0.15;
 export const MIN_HIT_CHANCE = 0.30;
 
+// --- Essence / Obol economy (placeholders for playtest tuning) ---
+export const OBOL_REWARDS = { normal: 5, boss: 75 } as const;
+export const OBOL_TO_ESSENCE_RATE = 0.5;
+export const WIPE_OBOL_PENALTY = 0.5; // fraction of leftover Obols lost on a full wipe
+export const LEVEL_COST_BASE = 10;
+export const LEVEL_COST_EXPONENT = 1.5;
+
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
 }
