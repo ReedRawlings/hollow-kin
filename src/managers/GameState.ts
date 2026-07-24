@@ -1,21 +1,20 @@
 import {
   CreatureInstance, RunState, BaseStats,
-  STAR_LEVEL_CAPS, STAR_LONGEVITY, generateId,
+  STAR_LEVEL_CAPS, generateId,
 } from '../types';
 import { getTemplate } from '../data/creatures';
+import { convertObolsToEssence, essenceCostForLevel } from '../systems/Economy';
 
 class GameStateManager {
   creatureBox: CreatureInstance[] = [];
   runParty: CreatureInstance[] = [];
-  townResources = 0;
-  breedingStones = 0;
+  essence = 0;
   currentRun: RunState | null = null;
   hasCompletedFirstRun = false;
 
   createCreatureInstance(speciesId: string, starRating = 0): CreatureInstance {
     const template = getTemplate(speciesId);
     const levelCap = STAR_LEVEL_CAPS[starRating] ?? 5;
-    const longevity = STAR_LONGEVITY[starRating] ?? 2;
     return {
       instanceId: generateId(),
       speciesId,
@@ -23,7 +22,8 @@ class GameStateManager {
       starRating,
       currentLevel: 1,
       levelCap,
-      longevity,
+      permanentLevel: 1,
+      essenceInvested: 0,
       abilities: [...template.defaultAbilities, null, null].slice(0, 4),
       traitSlots: [
         { traitId: null, traitLevel: 0, unlocked: false },
@@ -74,6 +74,19 @@ class GameStateManager {
     return false;
   }
 
+  /** Spend Essence to raise a creature's permanent level floor by one. Returns false if unaffordable or capped. */
+  spendEssenceOnLevel(instance: CreatureInstance): boolean {
+    if (instance.permanentLevel >= instance.levelCap) return false;
+    const cost = essenceCostForLevel(instance.permanentLevel);
+    if (this.essence < cost) return false;
+    this.essence -= cost;
+    instance.essenceInvested += cost;
+    instance.permanentLevel++;
+    instance.currentLevel = instance.permanentLevel;
+    instance.currentStats = this.calculateStatsForLevel(instance);
+    return true;
+  }
+
   addToBox(instance: CreatureInstance): void {
     this.creatureBox.push(instance);
   }
@@ -95,36 +108,27 @@ class GameStateManager {
   }
 
   startRun(): void {
-    // Tick longevity for all party members
     for (const c of this.runParty) {
-      c.longevity = Math.max(0, c.longevity - 1);
-      // Reset level for the run
-      c.currentLevel = 1;
+      // Start each run at the permanent essence-bought floor, not level 1
+      c.currentLevel = c.permanentLevel;
       c.xp = 0;
       c.isBreedReady = false;
       c.currentStats = this.calculateStatsForLevel(c);
     }
   }
 
-  endRun(success: boolean): void {
-    if (success) {
-      this.townResources += 30;
-      this.breedingStones += 1;
-    } else {
-      this.townResources += 10;
-    }
-    // Reset creatures back to level 1 for box storage
+  endRun(success: boolean, leftoverObols: number): void {
+    // Convert leftover (unspent) Obols to permanent Essence. A wipe (!success) loses half first.
+    this.essence += convertObolsToEssence(leftoverObols, { isWipe: !success });
+    // Reset in-run temporary level back down to the permanent floor for box storage
     for (const c of this.runParty) {
-      c.currentLevel = 1;
+      c.currentLevel = c.permanentLevel;
       c.xp = 0;
       c.currentStats = this.calculateStatsForLevel(c);
     }
-    // Add captured creatures to box
     if (this.currentRun) {
       for (const captured of this.currentRun.capturedCreatures) {
-        if (success) {
-          this.addToBox(captured);
-        }
+        if (success) this.addToBox(captured);
       }
     }
     this.currentRun = null;
@@ -135,8 +139,7 @@ class GameStateManager {
     for (const id of starterIds) {
       this.addToBox(this.createCreatureInstance(id, 0));
     }
-    this.townResources = 0;
-    this.breedingStones = 0;
+    this.essence = 0;
     this.hasCompletedFirstRun = false;
   }
 
