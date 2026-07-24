@@ -34,7 +34,7 @@ Obols can be spent **right now** to survive the descent (heals, revives, capture
 
 * **Obols never persist.** They are a run-local resource. What you don't spend converts to Essence on exit; what you do spend is simply gone.
 * **Essence is permanent and non-refundable.** Once spent on a pet (a permanent level, trait, or bound mark), it is locked to that pet — it cannot be reclaimed for a future pet.
-* A **full wipe currently forfeits leftover Obols** — they don't convert if the run ends in a wipe rather than a chosen exit. This is a push-your-luck lever and is *not final*; it may soften to partial conversion in playtest.
+* A **full wipe loses 50% of leftover Obols** — only half converts to Essence if the run ends in a wipe rather than a chosen exit (a deliberate exit or win converts 100%). The 50% figure is a placeholder push-your-luck lever, tunable in playtest.
 
 > **Resolved:** the earlier single-shared-pool model (one essence pool spent both in-run and permanently) was rejected as too punishing. The two-tier Obols→Essence model with leftover-only conversion replaces it.
 
@@ -56,7 +56,7 @@ The rate is boosted by three stacking levers:
 
 * **Traits** — e.g. an **"Essence Distiller"** trait raises the ratio for the pet carrying it (placeholder: +0.1 per level).
 * **Quartermaster upgrades** — a permanent essence spend in town that raises the global conversion rate (see Town — Essence Sinks). This is the natural long-term investment sink for the leftover economy.
-* **Depth** — reaching deeper floors improves the rate (placeholder: +0.05 per 5-floor break cleared), rewarding pushes and pairing naturally with the risk that a deep wipe forfeits everything.
+* **Depth** — reaching deeper floors improves the rate (placeholder: +0.05 per 5-floor break cleared), rewarding pushes and pairing naturally with the risk that a deep wipe halves that run's leftover Obols.
 
 Because conversion is **leftover-only**, the rate never rewards spending — only what you carry out is multiplied. A high conversion rate makes hoarding more attractive, which sharpens the spend-vs-bank decision rather than removing it.
 
@@ -187,7 +187,7 @@ The Quartermaster inherits the Leathersmith's old job — backpack/inventory cap
 * The player's inventory (backpack) has limited slots, upgraded via the **Quartermaster** with essence
 * The backpack holds items to use on the descent; more capacity means more flexibility per run
 * Banked Essence carried back to town is never at risk — it is committed only when spent
-* This creates meaningful risk/reward decisions on the descent: spend Obols on survival to push deeper for more Obols, or hoard them and convert on exit — remembering a full wipe currently forfeits leftover Obols entirely
+* This creates meaningful risk/reward decisions on the descent: spend Obols on survival to push deeper for more Obols, or hoard them and convert on exit — remembering a full wipe loses half your leftover Obols
 
 ---
 
@@ -203,7 +203,7 @@ Key variables that can be tuned during playtesting:
 * **Level cap per star** — controls how high essence can raise a pet before breeding is needed (until/unless stars are removed)
 * **Backpack capacity curve** — controls descent-item flexibility
 * **Revival HP percentage** — controls encounter-to-encounter attrition
-* **Wipe forfeiture** — whether a full wipe forfeits leftover Obols entirely (current) or converts a partial amount; the main push-your-luck dial
+* **Wipe penalty** — the % of leftover Obols lost on a wipe (placeholder 50%); the main push-your-luck dial
 
 ---
 
@@ -211,7 +211,7 @@ Key variables that can be tuned during playtesting:
 
 * Exact Obol earn weights, the base conversion rate, and how the three interact with the level cost curve to hit the 2–3-levels-per-strong-run target
 * How much traits / Quartermaster upgrades / depth should each boost the conversion rate
-* Whether a full wipe should keep forfeiting leftover Obols, or convert some partial amount
+* Whether the wipe penalty should stay at 50%, or be higher/lower
 * Whether in-run temporary leveling (Model A) survives, or we fall back to permanent-only levels (Model B)
 * Whether stars survive as the level cap (Model A) or get removed so essence owns the cap directly (Model C)
 * How much invested essence/levels carry over to offspring on breeding

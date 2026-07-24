@@ -22,6 +22,7 @@
 **Essence — permanent currency:**
 - On leaving the tower (win or lose-with-exit), **leftover Obols convert to Essence** at a conversion rate.
 - **Leftover-only conversion:** Obols spent in-run are gone; only what you *didn't* spend converts. So the run tension is "spend this Obol now to survive, or keep it to convert into permanent power."
+- **Wipe penalty:** a deliberate exit or a win converts 100% of leftover Obols; a **full wipe loses 50%** (only half converts). Placeholder 50%, tunable.
 - The **conversion rate is a progression lever** — improved by traits (e.g. an "Essence Distiller" trait), town upgrades, and/or descending deeper. Base rate is a placeholder for playtest tuning.
 - Essence is **permanent and non-refundable**, locked to the pet it's spent on. Spent on: permanent levels, trait unlocks, permanent marks, depth-jumps, backpack capacity.
 

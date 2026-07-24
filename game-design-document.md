@@ -341,7 +341,7 @@ Eight archetypes define a creature's general identity, combat role, and default 
 
 \* Anything in inventory not in a safe slot is lost: captured creatures, consumables, and items
 
-\* **Obols on a wipe (design lever — leaning "lost"):** the current design is that a full wipe forfeits leftover Obols (they do not convert), making "push deeper vs. bank now" a real push-your-luck gamble. Alternatives to test: convert at a reduced rate on a wipe, or convert normally. Winning or exiting deliberately always banks Obols into Essence. (Essence already spent is always safe.)
+\* **Obols on a wipe:** a full wipe loses **50%** of leftover Obols — the other 50% still converts to Essence. Winning or exiting deliberately converts **100%**. This keeps "push deeper vs. bank now" a real push-your-luck gamble without wiping out an entire run's gains. (Essence already spent is always safe.)
 
 ---
 
