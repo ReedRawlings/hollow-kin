@@ -88,7 +88,7 @@ src/
 ### What's NOT Built Yet
 
 - **Essence progression pivot (2026-07-23, design-approved, code not started)** — permanent essence-driven levels, depth-jumps, single 30-floor descent, town essence hub, removal of plasm/longevity/breeding-stones. The docs describe the new design; the code below still runs the old level-1-reset model.
-- Capture system (now essence-based creature capture during runs)
+- Capture system (now Obols-based creature capture during runs)
 - Traits system (passive combat effects from TraitLibrary)
 - Marks system (run-earned bonuses with thresholds)
 - Run relics (temporary power-ups)
@@ -104,7 +104,7 @@ src/
 
 > **⚠️ 2026-07-23 Essence Pivot:** progression is now permanent and essence-driven. The design docs reflect this; the *code* still implements the old level-1-reset model. See `docs/superpowers/specs/2026-07-23-essence-progression-pivot-design.md` for the full pivot before implementing. Design rules below are the NEW target design.
 
-- **One currency only — Essence.** No parallel currencies. Essence is earned from every fight, spent on levels/traits/marks/depth-jumps/backpack AND in-run survival (heals/revives/capture). Plasm is removed.
+- **Two-tier currency: Obols → Essence.** Obols are the in-run token earned from fights, spent during the descent on heals/revives/capture/shops. On leaving the tower, **leftover Obols convert to Essence** (leftover-only; conversion rate boostable by traits/upgrades/depth). Essence is the permanent currency, spent on levels/traits/marks/depth-jumps/backpack. Essence is the only permanent store of value; Obols never persist. Plasm is removed. A full wipe currently forfeits leftover Obols (push-your-luck lever, not final).
 - Creatures keep a **permanent essence-driven level floor** between runs. Temporary in-run levels vanish at run end (Model A). Do NOT hard-code a level-1 reset.
 - **No archetype-level type chart.** Resistances/weaknesses are per-creature.
 - Stars are the **level ceiling** for now (essence fills toward it); breeding still raises stars. Do NOT hard-couple to stars — removing them entirely (essence owns the cap) is the favored future direction.

@@ -122,6 +122,12 @@ Increases damage against certain archetypes or decreases the damage they deal
 * Increase damage to Archetype (one trait per archetype)  
 * Reduce damage received vs Archetype (one trait per archetype)
 
+### **Economy Traits**
+
+Affect the run's currency rather than combat directly. Scale with trait level.
+
+* Essence Distiller (boosts the Obols→Essence conversion rate on tower exit, so more of each run's leftover Obols becomes permanent Essence)
+
 ---
 
 ## **Trait Inheritance at Breeding**

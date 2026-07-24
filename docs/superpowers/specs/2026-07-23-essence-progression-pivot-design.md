@@ -8,21 +8,28 @@
 
 ## Guiding Principle
 
-**One currency only.** Essence is the single permanent spend for everything in the game. There are no parallel "almost-currencies." Plasm and Breeding Stones are removed; essence absorbs their roles.
+**One permanent currency — Essence.** Essence is the single *permanent* store of value and the only thing spent on permanent progression. There are no competing permanent currencies. **Obols** is a run-scoped token (in-run fuel, like ammo) that converts to Essence on exit — it is not a competing store of value. Plasm and Breeding Stones are removed.
 
 ---
 
-## 1. Essence — the new spine
+## 1. Two-tier currency: Obols (in-run) → Essence (permanent)
 
-- Harvested from **every fight**. Total earned per run scales with the **number of battles completed**, weighted: `normal < mini-boss < major boss`.
-- **Permanent and non-refundable.** Once spent on a pet, essence is locked to that pet — no reclaiming it for future pets.
-- Essence is spent on: permanent levels, trait unlocks, permanent marks, depth-jumps, backpack capacity, and **in-run survival** (heals, revives, capture).
+**Obols — in-run currency:**
+- Earned from **every fight**; total per run scales with the **number of battles completed**, weighted `normal < mini-boss < major boss`.
+- Spent *during the run* on survival: heals, revives, capture, shop items.
+- Do **not** persist as Obols — they are a run-local resource.
 
-### Same wallet, two demands (the run's new heartbeat)
+**Essence — permanent currency:**
+- On leaving the tower (win or lose-with-exit), **leftover Obols convert to Essence** at a conversion rate.
+- **Leftover-only conversion:** Obols spent in-run are gone; only what you *didn't* spend converts. So the run tension is "spend this Obol now to survive, or keep it to convert into permanent power."
+- The **conversion rate is a progression lever** — improved by traits (e.g. an "Essence Distiller" trait), town upgrades, and/or descending deeper. Base rate is a placeholder for playtest tuning.
+- Essence is **permanent and non-refundable**, locked to the pet it's spent on. Spent on: permanent levels, trait unlocks, permanent marks, depth-jumps, backpack capacity.
 
-Essence earned in a run can be spent *right now* to survive the descent (heals, revives, capture) **or** banked and carried back to town for *permanent* upgrades. One pool, real tradeoff — every heal is a level you didn't buy. This spend-now-vs-bank decision is the core run tension that replaces the old plasm economy.
+### The run's heartbeat
 
-> **Open for review:** design assumes a *single* essence pool shared between in-run and permanent spends. If separate in-run vs. permanent pools are wanted instead, flag before implementation.
+Every Obol is a fork: **survive now, or bank for permanent power.** Spending keeps you alive deeper (deeper = more Obols, better conversion); hoarding converts to more Essence but risks a wipe that ends the run early. This spend-vs-bank decision replaces the old plasm economy and is gentler and more legible than spending permanent currency directly — you're weighing a run-local token, not your savings.
+
+> **Resolved (was open):** two-tier Obols→Essence with leftover-only conversion, confirmed 2026-07-23. (The earlier single-shared-pool option was rejected as too punishing.)
 
 ---
 
@@ -101,13 +108,13 @@ The Enhancer and Leathersmith are **removed.** Town becomes a hub of "folks" who
 | **Quartermaster** | Increase backpack capacity (hold items to use on the descent) | Yes |
 | **Breeder** | Breed a pair (retire parents, carry-over to offspring) | Yes |
 
-The Quartermaster preserves the Leathersmith's old job (inventory/backpack capacity for descent items) as an essence vendor.
+The Quartermaster preserves the Leathersmith's old job (inventory/backpack capacity for descent items) as an essence vendor, and is the natural home for **Obols→Essence conversion-rate upgrades** (a permanent essence spend that raises how much of each run's leftover Obols you keep).
 
 ---
 
 ## Removed / Cut
 
-- **Plasm** — collapsed into essence.
+- **Plasm** — replaced by the Obols → Essence two-tier model (Obols is the in-run spend, Essence the permanent store).
 - **Breeding Stones** — cut for now (`breeding-stones.md` retired). They were Enhancer consumables; the Enhancer no longer exists.
 - **Longevity** — removed.
 - **Zone walls** (3 zones) — replaced by one continuous descent.
@@ -138,4 +145,5 @@ The Quartermaster preserves the Leathersmith's old job (inventory/backpack capac
 - Depth-jump prices per 5-floor break.
 - Whether Model A (temporary in-run leveling) survives or we fall back to Model B.
 - Whether stars survive (Model A) or get removed (Model C).
-- Single vs. split essence pool for in-run vs. permanent spends.
+- Obols→Essence base conversion rate, and how much traits/upgrades/depth boost it.
+- Obols earn weights (normal / mini-boss / major-boss).

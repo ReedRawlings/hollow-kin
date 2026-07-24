@@ -17,7 +17,7 @@ The tower is the procedurally generated environment where all runs take place. P
 * Each floor is a single encounter — combat, shop, rest point, or random event.
 * **Boss cadence:** a **mini-boss every 5 floors** and a **major boss every 10 floors** punctuate the descent (see Boss Design).
 * Of the non-boss floors, roughly a third to a half are combat — the rest are shops, rest points, and random events.
-* Failed runs end earlier. Progression is permanent essence earned per fight, so even a short run banks something.
+* Failed runs end earlier. Every fight drops **Obols** (the in-run currency); leftover Obols convert to permanent **Essence** on exit, so even a short run banks something — provided you didn't spend it all surviving.
 
 ---
 
@@ -56,7 +56,8 @@ Each encounter on the run map is one of the following:
 * MP Recovery
 * HP Recovery
 * Revives
-* Essence spent here on survival (heals, revives, capture) is essence not banked for permanent upgrades — the run's core spend-now-vs-bank tension.
+* Shops are paid for in **Obols**, the in-run currency earned from every fight.
+* Obols spent here on survival (heals, revives, capture, items) are Obols that won't convert to Essence on exit — the run's core spend-now-vs-keep tension: spend now to survive deeper, or keep Obols to convert into permanent Essence when you leave.
 
 ### **Rest Points**
 

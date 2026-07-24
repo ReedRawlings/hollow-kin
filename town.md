@@ -8,7 +8,7 @@
 
 ## **Overview**
 
-The town is the player's home base between runs. It exists outside the tower and is unaffected by run resets. Town is a hub of "folks" who turn **essence** — the single permanent currency, harvested from every fight — into permanent upgrades and access. The town does not directly inflate combat power on its own; the creatures (and the essence invested in them) are always the primary source of power.
+The town is the player's home base between runs. It exists outside the tower and is unaffected by run resets. Town is a hub of "folks" who turn **essence** — the single permanent currency, obtained by converting each run's leftover Obols on tower exit — into permanent upgrades and access. The town does not directly inflate combat power on its own; the creatures (and the essence invested in them) are always the primary source of power.
 
 ---
 
@@ -23,7 +23,7 @@ Essence is earned in the tower and spent here. Every spend except the Creature B
 | **Trait-keeper** | Unlock trait slots / levels | Yes |
 | **Mark-binder** | Make an earned mark permanent | Yes |
 | **Gatekeeper** | Unlock depth-jumps | Yes |
-| **Quartermaster** | Increase backpack capacity (hold items to use on the descent) | Yes |
+| **Quartermaster** | Increase backpack capacity + buy Obols→Essence conversion-rate upgrades | Yes |
 | **Breeder** | Breed a pair (retire parents, carry essence over to offspring) | Yes |
 
 ### **Creature Box**
@@ -62,11 +62,12 @@ Unlocks depth-jumps with essence.
 
 ### **Quartermaster**
 
-Increases backpack capacity with essence. Preserves the old Leathersmith's job.
+Increases backpack capacity with essence, and is the home for permanent **Obols→Essence conversion-rate upgrades**. Preserves the old Leathersmith's job.
 
 * Increases the number of item slots available to carry into a descent (items used during the run)
 * More slots means more consumables and capture opportunities per run
 * Higher tiers can offer guaranteed slots for items that are not lost on run death
+* Sells permanent upgrades to the **Obols→Essence conversion rate** — each tier raises how much of a run's leftover (unspent) Obols converts to Essence on tower exit. This stacks with conversion bonuses from traits (e.g. Essence Distiller) and depth.
 
 ### **Breeder**
 
@@ -77,13 +78,14 @@ Breeds a pair of creatures with essence.
 
 ---
 
-## **Resource — Essence**
+## **Resource — Obols and Essence (two-tier)**
 
-Essence is the single permanent currency and the only resource spent in town.
+Two currencies feed the loop. **All town vendor spends are in Essence (permanent).** **In-run shops and survival spends (heals, revives, capture) use Obols** — a run-scoped currency that never persists.
 
-* Harvested from every fight; total per run scales with the number of battles completed, weighted `normal < mini-boss < major boss`
-* One shared wallet is spent *either* on in-run survival (heals, revives, capture) *or* banked and carried back to town for the permanent upgrades above — a real spend-now-vs-bank tradeoff
-* Permanent and non-refundable once committed to a pet
+* **Obols (in-run):** earned from every fight; total per run scales with the number of battles completed, weighted `normal < mini-boss < major boss`. Spent during the descent on survival and in-run shops. Do not persist as Obols.
+* **Essence (permanent):** on leaving the tower, leftover (unspent) Obols convert to Essence at a conversion rate (boostable by traits, Quartermaster upgrades, and depth). Essence is the only currency spent in town, on the permanent upgrades above.
+* The tension is **spend-now-vs-bank**: every Obol spent to survive deeper is an Obol that won't convert to permanent Essence at exit.
+* Essence is permanent and non-refundable once committed to a pet.
 
 ---
 

@@ -12,9 +12,9 @@ Hollow Kin is a browser-based creature collector roguelite. Players descend a pr
 
 ## **Core Philosophy**
 
-* **One currency only — Essence.** Essence is the single permanent spend for everything in the game. There are no parallel "almost-currencies."
+* **One permanent currency — Essence.** Essence is the single permanent store of value and the only thing spent on permanent progression. **Obols** are a run-scoped token (in-run fuel) earned from fights and spent during the descent; leftover Obols convert to Essence when you leave the tower. No competing permanent currencies.
 * Creatures **keep a permanent essence-driven level floor** between runs — progress persists rather than resetting. Any temporary levels gained within a run vanish at run end; the essence-bought floor remains.
-* Essence is harvested from every fight and spent on permanent levels, trait unlocks, permanent marks, depth-jumps, backpack capacity, and in-run survival (heals, revives, capture).
+* Essence (permanent) is spent on levels, trait unlocks, permanent marks, depth-jumps, and backpack capacity. Obols (in-run) are spent on heals, revives, capture, and shop items.
 * Persistent progress lives in **essence investment and the breeding genealogy** — bloodlines, stars (for now), and permanent marks
 * No archetype-level rock-paper-scissors matchups to avoid run-ruining matchup problems  
 * Individual creature resistances and weaknesses provide tactical depth without hard counters  
@@ -22,17 +22,26 @@ Hollow Kin is a browser-based creature collector roguelite. Players descend a pr
 
 ---
 
-## **Essence — The Progression Spine**
+## **Currency — Obols (in-run) → Essence (permanent)**
 
-Essence is the single permanent currency and the engine of all progression.
+Two tiers, one flow. **Obols** fuel the descent; **Essence** is the permanent store of value they convert into.
+
+### **Obols — In-Run Currency**
 
 * **Earned** from every fight; total per run scales with the **number of battles completed**, weighted `normal < mini-boss < major boss`
-* **Permanent and non-refundable** — once spent on a creature, essence is locked to that creature (no reclaiming it for future creatures)
-* **Spent on:** permanent levels, trait unlocks, permanent marks, depth-jumps, backpack capacity, and in-run survival (heals, revives, capture)
+* **Spent during the run** on survival: heals, revives, capture, shop items
+* Run-scoped — they do not persist as Obols
 
-### **Same Wallet, Two Demands**
+### **Essence — Permanent Currency**
 
-Essence earned in a run can be spent *right now* to survive the descent, **or** banked and carried back to town for *permanent* upgrades. One shared pool, one real tradeoff — every heal is a level you didn't buy. This spend-now-vs-bank decision is the heartbeat of a run (it replaces the old Plasm economy).
+* On leaving the tower, **leftover Obols convert to Essence** at a conversion rate
+* **Leftover-only conversion** — Obols you spent in-run are gone; only what you didn't spend converts. So the tension is: *spend this Obol now to survive, or keep it to convert into permanent power*
+* The **conversion rate is a progression lever** — raised by traits (e.g. an "Essence Distiller" trait), Quartermaster upgrades, and/or descending deeper
+* **Permanent and non-refundable** — once spent on a creature, essence is locked to it. Spent on permanent levels, trait unlocks, permanent marks, depth-jumps, backpack capacity
+
+### **The Run's Heartbeat**
+
+Every Obol is a fork: **survive now, or bank for permanent power.** Spending keeps you alive deeper (deeper = more Obols, better conversion); hoarding banks more Essence but risks a wipe that ends the run early. Gentler and more legible than spending permanent currency directly — you're weighing a run-local token, not your savings. (Replaces the old Plasm economy.)
 
 ### **Levels From Essence**
 
@@ -53,11 +62,11 @@ Essence earned in a run can be spent *right now* to survive the descent, **or** 
 
 ### **Player Goals Each Run**
 
-* Harvest **Essence** from every fight — the more battles completed, the more essence (weighted toward mini/major bosses)  
-* Decide whether to spend essence *now* on in-run survival (heals, revives, capture) or **bank it** for permanent upgrades in town  
+* Harvest **Obols** from every fight — the more battles completed, the more Obols (weighted toward mini/major bosses)  
+* Decide whether to spend Obols *now* on survival (heals, revives, capture) or **hoard them** so more convert to Essence on exit  
 * Earn **Marks** for creatures through specific accomplishments (spend essence later to make them permanent)  
-* Push deeper to unlock **depth-jumps** and to earn essence faster  
-* Capture new creatures using essence
+* Push deeper to unlock **depth-jumps**, earn more Obols, and improve conversion  
+* Capture new creatures by spending Obols
 
 ### **Auto-Combat**
 
@@ -315,9 +324,9 @@ Eight archetypes define a creature's general identity, combat role, and default 
 
 ## **Capture System**
 
-* \* Players capture creatures during runs by spending **Essence** as the capture resource  
-* \* Capture is an in-run essence spend — it competes with banking essence for permanent upgrades (spend-now-vs-bank)  
-* \* Capture probability is based on two factors: essence spent on the attempt and the target creature's current HP — more essence and lower HP means a higher capture chance  
+* \* Players capture creatures during runs by spending **Obols** as the capture resource  
+* \* Capture is an in-run Obol spend — it competes with hoarding Obols for conversion to permanent Essence (spend-vs-bank)  
+* \* Capture probability is based on two factors: Obols spent on the attempt and the target creature's current HP — more Obols and lower HP means a higher capture chance  
 * \* Captured creatures are held in the item inventory during the run, forcing resource constraints  
 * \* Captured creatures can substitute into the active battle party mid-run — when subbed in, the replaced creature moves to inventory and becomes subject to inventory loss on death  
 * \* The three active battle creatures are always protected from loss  
@@ -330,9 +339,9 @@ Eight archetypes define a creature's general identity, combat role, and default 
 
 \* The player returns to town — active battle creatures are always safe and return to the Creature Box
 
-\* Anything in inventory not in a safe slot is lost: captured creatures, consumables, and unbanked resources
+\* Anything in inventory not in a safe slot is lost: captured creatures, consumables, and items
 
-\* Essence already spent on permanent upgrades is safe; essence carried but not yet banked follows the inventory-loss rules — a reason to convert it before risking the deeper floors
+\* **Obols on a wipe (design lever — leaning "lost"):** the current design is that a full wipe forfeits leftover Obols (they do not convert), making "push deeper vs. bank now" a real push-your-luck gamble. Alternatives to test: convert at a reduced rate on a wipe, or convert normally. Winning or exiting deliberately always banks Obols into Essence. (Essence already spent is always safe.)
 
 ---
 

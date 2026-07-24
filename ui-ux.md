@@ -28,7 +28,7 @@ The home screen between runs. Shows:
 * The essence-hub vendors — Creature Box, Leveler, Trait-keeper, Mark-binder, Gatekeeper, Quartermaster, Breeder
 * A "Start Run" button (with depth-jump options for cleared 5-floor breaks)
 * Access to the Creature Box for party management and breeding
-* Current **Essence** balance (the single currency)
+* Current **Essence** balance (the permanent currency — spent here in town). Obols are not shown in town; they are a run-scoped currency that only exists during a descent.
 
 ### **Creature Box / Party Management**
 
@@ -70,6 +70,7 @@ Header, Marks, Essence should be visible on initial scan. Selecting into a creat
 * Shows the current encounter and the next 2–3 options (if using Pick-Next structure)
 * Each option shows encounter type icon (combat, shop, rest, event)
 * Current party status bar at the top: creature portraits with HP/MP bars
+* **Obols** balance shown in the run HUD — the in-run currency, spent during the descent on heals, revives, capture, and shops
 * Inventory access for consumables and captured creatures
 
 ### **Combat Screen**
@@ -85,9 +86,17 @@ Header, Marks, Essence should be visible on initial scan. Selecting into a creat
 
 ### **Post-Encounter Screen**
 
-* Rewards summary: Essence earned, items found, resources gathered
+* Rewards summary: **Obols earned** (the in-run currency), items found, resources gathered
 * XP gained and level-up notifications
 * "Continue" to the next encounter selection
+
+### **Run Results / Exit Screen**
+
+Shown when the player leaves the tower (win or lose-with-exit). This is where the two-tier currency resolves:
+
+* **Leftover (unspent) Obols → Essence conversion**, shown explicitly: leftover Obols count, the conversion rate applied (including any bonuses from traits, Quartermaster upgrades, or depth), and the resulting Essence gained
+* New permanent Essence balance after the conversion
+* Only unspent Obols convert — anything spent on heals, revives, capture, or shops during the run is already gone, reinforcing the spend-now-vs-bank tension
 
 ### **Bestiary**
 
@@ -117,7 +126,8 @@ See the onboarding doc for more information
 | Traits | Hexagonal badge | Varies by trait category |
 | Marks | Shield or crest shape | Silver / archetype color |
 | Abilities | Circular icon with type color | Matches damage type |
-| Essence | Glowing orb or spark | Amber / teal |
+| Obols (in-run) | Coin / token | Bronze / copper |
+| Essence (permanent) | Glowing orb or spark | Amber / teal |
 | Breed-ready | Glowing heart or link icon | Pink / magenta |
 | Relics | Crystalline shard | Purple |
 | Stones | Rough gem shape | Blue |
