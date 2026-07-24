@@ -22,6 +22,12 @@ export class TownScene extends Phaser.Scene {
       fontSize: '14px', color: '#aaaaaa', fontFamily: 'monospace',
     });
 
+    if (gameState.selectedStartFloor > 1) {
+      this.add.text(20, 88, `Next descent starts at floor ${gameState.selectedStartFloor}`, {
+        fontSize: '12px', color: '#88aacc', fontFamily: 'monospace',
+      });
+    }
+
     // Creature Box display
     this.add.text(20, 100, `Creature Box (${gameState.creatureBox.filter(c => !c.isRetired).length})`, {
       fontSize: '16px', color: '#88aacc', fontFamily: 'monospace',
@@ -47,18 +53,25 @@ export class TownScene extends Phaser.Scene {
       }
     });
 
-    // Buttons
-    const btnY = 480;
+    // Vendors (row 1)
+    const vendorY = 430;
+    this.createButton(cx - 100, vendorY, 'LEVELER', '#4488aa', () => {
+      this.scene.start('LevelerScene');
+    });
+    this.createButton(cx + 100, vendorY, 'GATEKEEPER', '#aa8844', () => {
+      this.scene.start('GatekeeperScene');
+    });
+
+    // Run / breed / new game (row 2)
+    const btnY = 500;
     this.createButton(cx - 200, btnY, 'ENTER TOWER', '#44aa44', () => {
       this.scene.start('PartySelectScene');
     });
-
     this.createButton(cx, btnY, 'BREED', '#aa44aa', () => {
       if (activeCreatures.length >= 2) {
         this.scene.start('BreedingScene');
       }
     });
-
     this.createButton(cx + 200, btnY, 'NEW GAME', '#aa4444', () => {
       localStorage.removeItem('hollow_kin_save');
       this.scene.start('BootScene');
