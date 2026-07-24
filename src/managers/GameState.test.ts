@@ -133,3 +133,42 @@ describe('save/load migration', () => {
     expect('longevity' in c).toBe(false);          // dropped
   });
 });
+
+describe('deepest-break tracking', () => {
+  it('starts at 0 and only records boss floors, keeping the max', () => {
+    expect(gameState.deepestBreakCleared).toBe(0);
+    gameState.recordBreakCleared(5);
+    expect(gameState.deepestBreakCleared).toBe(5);
+    gameState.recordBreakCleared(10);
+    expect(gameState.deepestBreakCleared).toBe(10);
+    gameState.recordBreakCleared(5); // lower — ignored
+    expect(gameState.deepestBreakCleared).toBe(10);
+  });
+
+  it('ignores non-boss floors', () => {
+    gameState.recordBreakCleared(7);
+    expect(gameState.deepestBreakCleared).toBe(0);
+  });
+
+  it('unlockedStartFloors returns floor 1 plus the floor after each cleared break', () => {
+    expect(gameState.unlockedStartFloors()).toEqual([1]);
+    gameState.recordBreakCleared(10);
+    expect(gameState.unlockedStartFloors()).toEqual([1, 6, 11]);
+  });
+
+  it('persists deepestBreakCleared across save/load', () => {
+    gameState.recordBreakCleared(15);
+    gameState.saveToLocalStorage();
+    gameState.deepestBreakCleared = 0;
+    gameState.loadFromLocalStorage();
+    expect(gameState.deepestBreakCleared).toBe(15);
+  });
+
+  it('defaults deepestBreakCleared to 0 when loading an older save', () => {
+    localStorage.setItem('hollow_kin_save', JSON.stringify({
+      version: 2, creatureBox: [], essence: 5, hasCompletedFirstRun: true,
+    }));
+    gameState.loadFromLocalStorage();
+    expect(gameState.deepestBreakCleared).toBe(0);
+  });
+});
