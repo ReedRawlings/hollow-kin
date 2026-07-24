@@ -30,6 +30,10 @@ describe('convertObolsToEssence', () => {
     // 100 * 0.7 = 70
     expect(convertObolsToEssence(100, { rate: 0.7 })).toBe(70);
   });
+  it('floors odd leftover after wipe penalty before rate conversion', () => {
+    // 15 * 0.5 wipe-keep = 7.5, * 0.5 rate = 3.75, floored to 3
+    expect(convertObolsToEssence(15, { isWipe: true })).toBe(3);
+  });
 });
 
 describe('essenceCostForLevel', () => {

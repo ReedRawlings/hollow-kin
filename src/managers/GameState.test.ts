@@ -85,6 +85,16 @@ describe('spendEssenceOnLevel', () => {
     const ok = gameState.spendEssenceOnLevel(c);
     expect(ok).toBe(false);
   });
+  it('succeeds at exact-cost boundary, spending to zero', () => {
+    const c = gameState.creatureBox[0];
+    c.permanentLevel = 1;
+    c.essenceInvested = 0;
+    gameState.essence = 10; // exactly the cost for level 1->2
+    const ok = gameState.spendEssenceOnLevel(c);
+    expect(ok).toBe(true);
+    expect(c.permanentLevel).toBe(2);
+    expect(gameState.essence).toBe(0);
+  });
 });
 
 describe('save/load migration', () => {
