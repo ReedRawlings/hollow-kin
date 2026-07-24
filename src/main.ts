@@ -8,6 +8,7 @@ import { ShopScene } from './scenes/ShopScene';
 import { RestScene } from './scenes/RestScene';
 import { BreedingScene } from './scenes/BreedingScene';
 import { LevelerScene } from './scenes/LevelerScene';
+import { GatekeeperScene } from './scenes/GatekeeperScene';
 
 // Fix blurry text on HiDPI displays.
 // Phaser Text renders to an internal canvas. We inject `resolution: dpr` into the
@@ -31,7 +32,7 @@ const config: Phaser.Types.Core.GameConfig = {
   height: 640,
   backgroundColor: '#1a1a2e',
   parent: document.body,
-  scene: [BootScene, TownScene, PartySelectScene, RunScene, CombatScene, ShopScene, RestScene, BreedingScene, LevelerScene],
+  scene: [BootScene, TownScene, PartySelectScene, RunScene, CombatScene, ShopScene, RestScene, BreedingScene, LevelerScene, GatekeeperScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
