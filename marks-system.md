@@ -8,13 +8,19 @@ Marks are run-earned bonuses that occupy a single slot on each creature. They ar
 
 A creature can earn multiple marks over its lifetime across different runs. Only one mark is active at a time. The player chooses which mark is slotted and can swap freely between earned marks at any time outside of a run. Equipping a new mark replaces the active one but does not delete the previous mark — the full collection of earned marks is always available to choose from.
 
+Marks follow an **earn-then-lock** model. Earning a mark is still done through in-run accomplishments, but by default an earned mark is **temporary** — it fades once the run ends. Spending **essence** at the **Mark-binder** in town is the optional step that makes an earned mark **permanent** on that creature. Essence buys permanence, not the mark itself: you still have to do the deed in a run to earn it.
+
 ---
 
 ## **Earning Marks**
 
 Marks are earned by hitting specific thresholds during a single run. Thresholds reset at the start of each run — they must be achieved within one run to count. A creature that partially meets a threshold carries nothing forward to the next run.
 
-Each mark is earned once. There are no upgraded versions or levels. Once a creature has earned a mark it is permanently added to its collection regardless of how many runs it goes on afterward.
+Each mark is earned once per run. There are no upgraded versions or levels. When a creature hits a threshold it earns that mark for the current run, but the mark is **temporary** by default and fades when the run ends unless the player pays to keep it.
+
+### **Making a Mark Permanent**
+
+To keep an earned mark on a creature beyond the run in which it was earned, the player spends **essence** at the **Mark-binder** in town. Binding a mark locks it permanently onto that creature; it then joins the creature's permanent collection and can be slotted or swapped freely like any other permanent mark. Essence pays for *permanence only* — a mark still has to be earned through the in-run accomplishment first, and binding is never available for a mark the creature has not earned.
 
 ---
 
@@ -22,11 +28,11 @@ Each mark is earned once. There are no upgraded versions or levels. Once a creat
 
 ### **Floor Mark**
 
-Earned by completing a zone boss.
+Earned by defeating a boss in the tower's single continuous descent. Bosses appear on a fixed cadence: a **mini-boss every 5 floors** and a **major boss every 10 floors**.
 
-**Effect:** \+5% damage to all enemies in the next zone and beyond.
+**Effect:** \+5% damage to all enemies on floors deeper than the boss that granted it.
 
-The Floor Mark is the only mark with persistent cross-run progression implications. It scales naturally with how deep a creature is pushed and rewards players who clear bosses rather than farming early floors. A creature that has earned multiple Floor Marks — one per zone boss — stacks the bonus additively for deeper zones.
+The Floor Mark is the only mark with persistent cross-run progression implications. It scales naturally with how deep a creature is pushed and rewards players who clear bosses rather than farming early floors. A creature that has earned multiple Floor Marks — one per boss cleared — stacks the bonus additively the deeper it goes.
 
 *Note: Whether multiple Floor Marks stack or whether a creature can only hold one is to be confirmed during balancing.*
 
@@ -46,19 +52,17 @@ Additional combat marks should be designed to cover the major damage types, heal
 
 ---
 
-## **Marks and Retirement**
+## **Marks and Permanence**
 
-When a creature retires it leaves behind a **Breeding Relic** based on either its active trait or its active mark — the player chooses which. The relic captures a watered-down version of the chosen effect at approximately 50% of its current value.
+A mark only outlives the run it was earned in if the player pays to bind it. Permanence comes from spending **essence** at the **Mark-binder**, not from retirement or relics. Once bound, a mark stays on the creature for the rest of its life.
 
-**Example:** A creature with the ghost damage mark (+10% ghost damage) retires and leaves a relic. The relic is worth roughly +5% ghost damage when used at the Enhancer in a future breeding.
-
-This gives marks genuine retirement value independent of a creature's trait quality. A creature with a weak or undesirable trait but a strong earned mark is still worth retiring intentionally for its relic rather than simply letting it expire.
+This gives marks genuine, durable value: a creature with a weak or undesirable trait but a strong earned mark is still worth investing essence into, since binding that mark preserves an effect it earned through play.
 
 ---
 
 ## **Marks and Breeding**
 
-Marks are not inherited through breeding. They are personal to the creature that earned them and do not pass to offspring. The only way marks influence breeding is through the retirement relic system — a player who wants a mark's effect in a new bloodline must retire the mark holder and use its relic at the Enhancer.
+Marks are not inherited through breeding. They are personal to the creature that earned them and do not pass to offspring, even when bound permanently with essence. A player who wants a mark's effect on a new creature must earn (and, to keep it, bind) that mark on the new creature directly.
 
 This keeps marks as a layer of individual creature identity rather than a genealogy mechanic, and preserves the distinction between what a creature is born with (traits) and what it earns through play (marks).
 

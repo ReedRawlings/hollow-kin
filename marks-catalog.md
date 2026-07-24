@@ -14,18 +14,24 @@ This document catalogs all marks in the game with their earn thresholds and effe
 
 * Earned by hitting a threshold within a single run
 * One mark active at a time per creature — player swaps freely outside of runs
-* Earned marks are permanent — the full collection is always available
-* Marks are not inherited through breeding — they transfer only via the retirement relic system
+* Earned marks are **temporary** by default — they fade at run end unless made permanent by spending essence at the **Mark-binder** in town
+* Essence buys permanence, not the mark itself — the threshold must still be hit in a run to earn it
+* Marks are not inherited through breeding — they must be earned (and bound) on each creature directly
 
 ---
 
 ## **Floor Marks**
 
+Floor Marks are earned on the tower's single continuous 30-floor descent, one per boss cleared. Bosses appear on a fixed cadence: a **mini-boss every 5 floors** (floors 5, 15, 25) and a **major boss every 10 floors** (floors 10, 20, 30).
+
 | ID | Name | Earn Condition | Effect | Stacking Notes |
 | --- | --- | --- | --- | --- |
-| mark_floor_z1 | Floor Mark — Zone 1 | Defeat the Zone 1 boss | +5% damage to all enemies in Zone 2 and beyond | Stacks additively with other Floor Marks |
-| mark_floor_z2 | Floor Mark — Zone 2 | Defeat the Zone 2 boss | +5% damage to all enemies in Zone 3 and beyond | Stacks additively |
-| mark_floor_z3 | Floor Mark — Zone 3 | Defeat the Zone 3 boss | +5% damage to all enemies (applies everywhere) | Stacks additively |
+| mark_floor_5 | Floor Mark — Depth 5 | Defeat the first mini-boss (floor 5) | +5% damage to all enemies on floors deeper than 5 | Stacks additively with other Floor Marks |
+| mark_floor_10 | Floor Mark — Depth 10 | Defeat the first major boss (floor 10) | +5% damage to all enemies on floors deeper than 10 | Stacks additively |
+| mark_floor_15 | Floor Mark — Depth 15 | Defeat the mini-boss on floor 15 | +5% damage to all enemies on floors deeper than 15 | Stacks additively |
+| mark_floor_20 | Floor Mark — Depth 20 | Defeat the major boss on floor 20 | +5% damage to all enemies on floors deeper than 20 | Stacks additively |
+| mark_floor_25 | Floor Mark — Depth 25 | Defeat the mini-boss on floor 25 | +5% damage to all enemies on floors deeper than 25 | Stacks additively |
+| mark_floor_30 | Floor Mark — Depth 30 | Defeat the major boss on floor 30 | +5% damage to all enemies (deepest floor cleared) | Stacks additively |
 
 *Note: Whether multiple Floor Marks stack or a creature can only hold one is TBD during balancing.*
 
@@ -60,9 +66,9 @@ This document catalogs all marks in the game with their earn thresholds and effe
 
 ## **Thresholds Balancing Notes**
 
-* Damage thresholds (1000/1500) are calibrated against a mid-game run where a focused creature deals roughly 100–150 damage per combat encounter across 5–7 combats per zone
+* Damage thresholds (1000/1500) are calibrated against a mid-game run where a focused creature deals roughly 100–150 damage per combat encounter across a multi-floor stretch of the descent
 * Healing threshold (500) assumes a dedicated healer uses 2–3 heals per combat
-* Debuff/buff thresholds (10) assume 1–2 applications per combat across a zone
+* Debuff/buff thresholds (10) assume 1–2 applications per combat across a stretch of floors
 * All thresholds are subject to playtesting — they should feel achievable in a good run but not automatic
 
 ---

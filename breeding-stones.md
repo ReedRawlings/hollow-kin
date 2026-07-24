@@ -4,6 +4,14 @@
 
 ---
 
+> ## ⚠️ RETIRED / CUT — Not Part of Current Design
+>
+> **As of the 2026-07-23 Essence Progression Pivot, Breeding Stones are cut.** They were consumables for the **Enhancer**, which no longer exists — the town is now an essence hub with a single permanent currency (essence). There is no station that consumes stones, and stones are not dropped or used anywhere in the current design.
+>
+> The full reference below is **preserved for future reference only** in case a crafting/consumable layer is revisited. Nothing in the shipping design should depend on it.
+
+---
+
 ## **Overview**
 
 Breeding Stones are single-use consumables applied at the Enhancer during a breeding event. Each stone influences one aspect of the breeding outcome. Only one stone (or one Breeding Relic) can be used per breeding event — they do not stack with each other.

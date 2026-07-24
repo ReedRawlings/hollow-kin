@@ -4,7 +4,11 @@
 
 ## **Stars and Level Caps**
 
-Each star rating represents a creature's genealogy depth and determines its maximum level during a run. Level caps follow a sigmoid curve — rising slowly, accelerating through the middle stars, then flattening again at the high end.
+Each star rating represents a creature's genealogy depth and determines its maximum level — the **level ceiling**. Level caps follow a sigmoid curve — rising slowly, accelerating through the middle stars, then flattening again at the high end.
+
+**Stars set the ceiling; essence fills toward it.** Invested essence raises a creature's permanent level *toward* this cap but can never exceed it. Breeding is still what raises stars, and thus what unlocks a higher potential ceiling.
+
+> **Future direction (strongly favored):** the likely long-term move is to remove stars entirely and let essence own the level cap directly (slow essence gain takes over the role stars played). Because of this, **nothing should hard-couple to stars** — treat the star/cap relationship as a swappable layer.
 
 | Star | Level Cap |
 | ----- | ----- |
@@ -53,6 +57,10 @@ Examples:
 
 Both parent creatures are retired upon breeding and can no longer go on runs. Their base forms can be summoned at any time but will not retain accumulated progress.
 
+### **Essence Carry-Over (Jump-Start)**
+
+Although both parents are retired, the essence and permanent levels invested in them **partially carry over to the offspring** as a jump-start. Players do **not** restart a bloodline from zero — a portion of a parent's accumulated essence/levels seeds the newborn, so breeding is a real trade rather than a reset. This keeps breeding meaningful (you still lose the parents) while removing the "back to square one" penalty that would otherwise discourage it.
+
 ### **Stat Inheritance**
 
 Offspring base stats are calculated as: (**(Parent A stat \+ Parent B stat) / 6), but never lower than the base stats for the creature type.** 
@@ -93,6 +101,8 @@ Cross-star breeding is a valid strategy when a high-star parent carries a desira
 
 ---
 
-## **Breeding Relics**
+## **Breeding Relics** *(cut for now)*
 
-When a creature exhausts its longevity counter without a breeding partner, it retires solo and leaves behind a Breeding Relic. The relic is a distillation of the creature's current traits. It can be used at the Enhancer to inject one trait into a future breeding event. Only one relic per breeding. The relic substitutes for a parent contribution in trait resolution — a slot with a relic and one parent trait lets the player choose between them at run time rather than rolling against the random pool.
+> **Status: cut.** Breeding Relics depended on two systems that no longer exist — the **longevity counter** (removed) and the **Enhancer** (removed; town is now an essence hub, with the **Breeder** handling breeding). Longevity no longer forces a creature to breed or retire, so there is no solo-retirement event to leave a relic behind. The concept is shelved and may return in a reworked, essence-based form later.
+>
+> *Original mechanic, retained for reference:* a creature that retired solo left behind a Breeding Relic — a distillation of its current traits that could inject one trait into a future breeding event, substituting for a parent contribution in trait resolution.

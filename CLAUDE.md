@@ -87,7 +87,8 @@ src/
 
 ### What's NOT Built Yet
 
-- Capture system (plasm-based creature capture during runs)
+- **Essence progression pivot (2026-07-23, design-approved, code not started)** — permanent essence-driven levels, depth-jumps, single 30-floor descent, town essence hub, removal of plasm/longevity/breeding-stones. The docs describe the new design; the code below still runs the old level-1-reset model.
+- Capture system (now essence-based creature capture during runs)
 - Traits system (passive combat effects from TraitLibrary)
 - Marks system (run-earned bonuses with thresholds)
 - Run relics (temporary power-ups)
@@ -101,12 +102,16 @@ src/
 
 ## Key Design Rules (Don't Violate These)
 
-- Creatures **reset to level 1** every run. Persistent progress is breeding genealogy only.
+> **⚠️ 2026-07-23 Essence Pivot:** progression is now permanent and essence-driven. The design docs reflect this; the *code* still implements the old level-1-reset model. See `docs/superpowers/specs/2026-07-23-essence-progression-pivot-design.md` for the full pivot before implementing. Design rules below are the NEW target design.
+
+- **One currency only — Essence.** No parallel currencies. Essence is earned from every fight, spent on levels/traits/marks/depth-jumps/backpack AND in-run survival (heals/revives/capture). Plasm is removed.
+- Creatures keep a **permanent essence-driven level floor** between runs. Temporary in-run levels vanish at run end (Model A). Do NOT hard-code a level-1 reset.
 - **No archetype-level type chart.** Resistances/weaknesses are per-creature.
-- Stars only increase through **breeding**, never during a run.
-- Both parents are **retired** when breeding.
-- Longevity ticks down at **run start**, regardless of outcome.
-- First encounter per zone is always **combat**. Last before boss is always **rest**.
+- Stars are the **level ceiling** for now (essence fills toward it); breeding still raises stars. Do NOT hard-couple to stars — removing them entirely (essence owns the cap) is the favored future direction.
+- Both parents are **retired** when breeding, but invested essence **carries over** to the offspring as a jump-start.
+- **Longevity is removed.** No run counter, no forced retirement.
+- Tower is **one continuous 30-floor descent** — no zones. Mini-boss every 5 floors, major every 10. Depth-jumps buyable at cleared 5-floor breaks (buy 5 → start 6).
+- First floor (and any post-jump floor) is **combat**; last floor before a boss is **rest**.
 - Player crits only — enemies cannot crit.
 - Buff/debuff stages cap at **±3**.
 

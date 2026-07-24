@@ -6,39 +6,37 @@
 
 ## **Overview**
 
-The tower is the procedurally generated environment where all runs take place. Players descend the tower with a party of three creatures, progressing through encounters until they reach the boss or are wiped out. The tower's structure determines pacing, difficulty curves, and the cadence of meaningful decisions within a run.
+The tower is the procedurally generated environment where all runs take place. Players descend the tower with a party of three creatures, progressing through encounters until they reach a boss or are wiped out. The tower's structure determines pacing, difficulty curves, and the cadence of meaningful decisions within a run.
 
 ---
 
 ## **Run Length**
 
-* A full run consists of **3 zones**
-* Each zone has **14 encounters** with a **zone boss as the 15th encounter**
-* Of the 14 encounters per zone, roughly 5–7 are combat — the rest are shops, rest points, and random events
-* A complete winning run is 45 encounters (42 standard + 3 zone bosses)
-* Failed runs end earlier but still consume longevity
+* A run is **one continuous descent** — there are no discrete zones or zone walls.
+* The vertical slice is **30 floors** deep. This is **bounded now, endless later**: the 30-floor tower is designed so an endless mode can bolt on afterward without restructuring the descent.
+* Each floor is a single encounter — combat, shop, rest point, or random event.
+* **Boss cadence:** a **mini-boss every 5 floors** and a **major boss every 10 floors** punctuate the descent (see Boss Design).
+* Of the non-boss floors, roughly a third to a half are combat — the rest are shops, rest points, and random events.
+* Failed runs end earlier. Progression is permanent essence earned per fight, so even a short run banks something.
 
 ---
 
-## **Zones**
+## **Depth Bands & Descent Identity**
 
-The tower is divided into zones. Each zone has its own enemy pool, visual identity, and boss.
+There are no hard zone walls. Instead, the enemy pool and visual identity **shift gradually by depth band** as the player descends.
 
-### **Zone Structure**
+* Enemy composition draws from **2–3 archetypes at a time**, and the mix rotates as the player goes deeper, adding variability to each run.
+* Deeper floors present stronger enemies with more complex ability sets, representing higher stats and tiers.
+* Early floors ease the player in: the first few combat floors of a run present just 1–3 enemy creatures, giving time to build up momentum before full-scale fights.
 
-* **3 zones per run** — each zone has 14 encounters + 1 zone boss
-* Of the 14 encounters, roughly 5–7 are combat and the remainder are shops, rest points, and random events
-* Zone bosses are mandatory — clearing a zone boss unlocks the next zone
-* Consist of 2-3 archetypes of creatures. Adding variability to each run. 
-* In the first zone of every run players will encounter 1-3 creatures per combat for the first 3 combat events giving them some time to build up experience before going into a full scale fight
+### **Depth-Jumps (Purchasable Start Points)**
 
-### **Zone Progression Across Runs**
+Rather than starting a later run in a pre-cleared zone, players buy a deeper **start point** with **essence**.
 
-* Players who defeat a zone boss with their starting generation can begin future runs in that zone
-* Starting in a later zone skips easier content but still costs full longevity
-* Later zone starts offer higher-quality rewards (more Plasm, better stones, rarer creature encounters)
-* This gives veteran players a reason to push forward rather than farming early zones repeatedly
-* To enter a higher zone players must immediately face a random prior zone boss. They earn rewards from that boss for their run. This makes sure they're ready to face the higher zone. 
+* At each **5-floor break** (floor 5, 10, 15, 20, 25) the player can purchase a depth-jump from the Gatekeeper in town.
+* **Buying a break starts you at the floor *after* it:** buy floor 5 → start at floor 6; buy floor 10 → start at floor 11.
+* Depth-jumps are **gated by having cleared that break's boss** — you can only buy jumps to breaks you have already reached and beaten.
+* This replaces the old "start in a later zone by beating the previous zone boss" rule. There is no forced re-fight of a prior boss on entry; the gate is the essence purchase plus prior clear.
 
 ---
 
@@ -49,8 +47,8 @@ Each encounter on the run map is one of the following:
 ### **Combat**
 
 * The majority of encounters — fight a group of 1-5 enemy creatures
-* Enemy composition is drawn from the current zone's creature pool
-* Higher floors within a zone have stronger enemies and more complex ability sets. Stronger enemies will be present at higher tiers representing higher stats.
+* Enemy composition is drawn from the current depth band's creature pool
+* Deeper floors have stronger enemies and more complex ability sets. Stronger enemies will be present at higher tiers representing higher stats.
 
 ### **Shops**
 
@@ -58,7 +56,7 @@ Each encounter on the run map is one of the following:
 * MP Recovery
 * HP Recovery
 * Revives
-* Plasm
+* Essence spent here on survival (heals, revives, capture) is essence not banked for permanent upgrades — the run's core spend-now-vs-bank tension.
 
 ### **Rest Points**
 
@@ -107,40 +105,49 @@ Within a single floor/encounter, the structure is minimal:
 
 ## **Boss Design**
 
-## **Mini Boss**
+Bosses punctuate the single descent on a fixed cadence: a **mini-boss every 5 floors** (floors 5, 15, 25) and a **major boss every 10 floors** (floors 10, 20, 30).
 
-* 1-2 per zone
+## **Mini-Bosses**
+
+* Appear every 5 floors (on the 5-floor breaks that are not major-boss floors)
 * Stronger than standard enemies, specific creatures in variant colors
-* Can be captured during runs, reverts to base stats when captured bu unlocks the variant color option
+* Can be captured during runs; reverts to base stats when captured but unlocks the variant color option
+* A source of Floor Marks (see below)
 
+### **Major Bosses**
 
-### **Zone Bosses**
+* Appear every 10 floors — unique creatures not found in the wild
+* Higher stat pools and unique abilities
+* Defeating a major boss unlocks that boss creature for breeding (it cannot be captured during the fight)
+* The primary source of Floor Marks
 
-* One per zone — a unique creature not found in the wild
-* Zone bosses have higher stat pools and unique abilities
-* Defeating a zone boss unlocks that boss creature for breeding (it cannot be captured during the fight)
-* Zone bosses are the primary source of Floor Marks
+### **Floor Marks**
+
+* Floor Marks are **re-homed onto the mini and major bosses** — they were previously tied to zone bosses, which no longer exist.
+* Clearing a mini-boss or major boss is the accomplishment that grants Floor Mark progress. (Making an earned mark permanent is a separate essence spend, handled in town.)
 
 ### **Final Boss**
 
-* Appears as encounter 15 after all zones are cleared
-* Significantly harder than zone bosses
+* The floor-30 major boss caps the bounded vertical slice
+* Significantly harder than the earlier major bosses
 * Final boss design and mechanics are TBD — whether it has phases, unique mechanics, or is simply a stat-check is an open question
+* In endless mode, floor 30 becomes just another major boss and the descent continues
 
 ---
 
 ## **Procedural Generation Rules**
 
-* Encounter order is randomized within constraints: at least one shop and two rest point per zone
-* The last event before the boss is always a rest point
+* Boss floors are fixed by the cadence (mini-boss every 5 floors, major boss every 10); the floors between are generated procedurally.
+* Encounter order is randomized within constraints: at least one shop and two rest points in each 5-floor stretch
+* The last floor before any boss (mini or major) is always a rest point
 * Combat encounters never appear more than three times consecutively
 * Rest and shop encounters should never appear more than twice consecutively
-* The first encounter of each zone is always combat (to set the tone and difficulty)
-* Random events have a lower spawn rate than combat or shops — roughly 1–2 per zone
+* The first floor of a run (or the first floor after a depth-jump start) is always combat (to set the tone and difficulty)
+* Random events have a lower spawn rate than combat or shops — roughly 1–2 per 5-floor stretch
 * Seeds can be used to reproduce a specific run layout for sharing or challenge purposes
 
 ---
 
 ## **Open Questions**
 
-* Visual and thematic identity for each zone
+* Visual and thematic identity for each depth band, and where the bands transition along the 30-floor descent

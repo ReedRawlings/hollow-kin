@@ -27,9 +27,11 @@ Hollow Kin launches with approximately 96 creatures across 8 archetypes — 12 p
 
 ### **Availability**
 
-* **Wild-catchable:** The majority of creatures, available in specific zones  
-* **Boss-exclusive:** Unique creatures, uncapturable during runs, but breedable after defeat. One per zone plus a final boss  
+* **Wild-catchable:** The majority of creatures, available within specific depth bands of the tower  
+* **Boss-exclusive:** Unique creatures, uncapturable during runs, but breedable after defeat. Homed on the mini-bosses (every 5 floors) and major bosses (every 10 floors) of the single 30-floor descent  
 * **Breed-only:** Creatures that can only be obtained by breeding specific combinations — not found in the wild
+
+The tower is one continuous 30-floor descent — there are no discrete zones. Enemy pools and visual identity shift by **depth band** as the player goes deeper, but there are no hard zone walls.
 
 ---
 
@@ -56,7 +58,7 @@ Every creature is defined by a row in the master data spreadsheet and represente
   resistances: \["fire"\],  
   weaknesses: \["ice"\],  
   availability: "wild",       // wild | boss | breed\_only  
-  zone: 1,                    // primary zone where this creature appears  
+  depthBand: \[1, 10\],         // floor range where this creature appears in the descent  
   spriteId: "emberwhelp"  
 }
 
@@ -73,8 +75,9 @@ What the player owns is an instance derived from the species template. It holds 
   speciesId: "creature\_001",  
   nickname: null,  
   starRating: 0,  
+  permanentLevel: 1,          // essence-driven starting-level floor; run leveling stacks on top temporarily  
   currentLevel: 1,  
-  longevity: 2,              // Star 0 (wild) = 2 runs  
+  essenceInvested: 0,         // total essence permanently spent on this pet  
   earnedMarks: \[\],            // all marks this creature has ever earned  
   activeMarkId: null,         // the currently equipped mark  
   traitSlots: \[  
@@ -157,7 +160,7 @@ Bred creatures do not draw from the pool for inherited slots — those are resol
 
 ### **Step 1 — Master Spreadsheet**
 
-All species data is authored in a spreadsheet. Each row is one species. Columns cover every field in the creature data object: id, name, archetype, base stats, default abilities, trait pool IDs, resistances, weaknesses, availability, zone.
+All species data is authored in a spreadsheet. Each row is one species. Columns cover every field in the creature data object: id, name, archetype, base stats, default abilities, trait pool IDs, resistances, weaknesses, availability, depth band.
 
 Stat formulas in the spreadsheet apply archetype multipliers automatically. The spreadsheet is the single source of truth for all numeric balance.
 
@@ -186,8 +189,9 @@ function createInstance(speciesId, options \= {}) {
     instanceId: generateUUID(),  
     speciesId: template.id,  
     starRating: options.starRating ?? 0,  
-    currentLevel: 1,  
-    longevity: options.longevity ?? template.naturalLongevity,  
+    permanentLevel: options.permanentLevel ?? 1,  
+    currentLevel: options.permanentLevel ?? 1,  
+    essenceInvested: options.essenceInvested ?? 0,  
     stats: { ...template.baseStats },  
     abilities: \[...template.defaultAbilities, null, null\],  
     traitSlots: buildTraitSlots(options.inheritedTraits ?? \[\]),  
@@ -245,4 +249,4 @@ Breed-only creatures cannot be found in the wild or captured during runs. They a
 
 ## **Open Questions**
 
-* How many creatures per zone for enemy encounters 
+* How many creatures per depth band for enemy encounters 

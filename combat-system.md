@@ -218,7 +218,7 @@ Inspired by Dragon Quest's tactics system. The player assigns a general behavior
 * Enemies use the same creature stat system as player creatures — same base stats, abilities, resistances.
 * Enemies have variable ATK and Health stats of their standard version. Usually nerfing ATK and increasing health slightly so each battle is not life or death
 * Enemy creatures do not have traits or marks — those are player-only progression systems
-* Enemy difficulty scales by zone through higher tier unlocks and composite levels
+* Enemy difficulty scales by **depth** through higher tier unlocks and composite levels, ramping across the single 30-floor descent (mini-boss every 5 floors, major every 10)
 * Boss creatures have unique abilities not available to player creatures and higher stat pools
 * Enemy AI follows simple priority rules: target lowest HP, use strongest available ability, apply status effects when available
 

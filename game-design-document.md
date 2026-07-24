@@ -6,17 +6,39 @@
 
 ## **Overview**
 
-Hollow Kin is a browser-based creature collector roguelite. Players descend a procedurally generated tower with a party of bred creatures, gathering resources, capturing new creatures, and earning genealogy progress that persists across runs. The core loop is built around a breeding system inspired by Dragon Quest Monsters, tower progression inspired by Azure Dreams, and roguelite run structure with a hard reset on both player and creature levels each run.
+Hollow Kin is a browser-based creature collector roguelite. Players descend a procedurally generated tower with a party of bred creatures, harvesting **Essence** from every fight and spending it to permanently strengthen their creatures, capturing new creatures, and earning genealogy progress that persists across runs. The core loop is built around a breeding system inspired by Dragon Quest Monsters, tower progression inspired by Azure Dreams, and roguelite run structure — but progression is permanent and essence-driven rather than reset each run.
 
 ---
 
 ## **Core Philosophy**
 
-* Creatures reset to level 1 at the start of every run  
-* Persistent progress lives entirely in the breeding genealogy system — bloodlines, stars, and marks  
+* **One currency only — Essence.** Essence is the single permanent spend for everything in the game. There are no parallel "almost-currencies."
+* Creatures **keep a permanent essence-driven level floor** between runs — progress persists rather than resetting. Any temporary levels gained within a run vanish at run end; the essence-bought floor remains.
+* Essence is harvested from every fight and spent on permanent levels, trait unlocks, permanent marks, depth-jumps, backpack capacity, and in-run survival (heals, revives, capture).
+* Persistent progress lives in **essence investment and the breeding genealogy** — bloodlines, stars (for now), and permanent marks
 * No archetype-level rock-paper-scissors matchups to avoid run-ruining matchup problems  
 * Individual creature resistances and weaknesses provide tactical depth without hard counters  
-* Breeding is a natural rhythm, not a wall the player hits
+* Breeding is a natural rhythm, not a wall the player hits — retiring parents carries essence forward to the offspring as a jump-start
+
+---
+
+## **Essence — The Progression Spine**
+
+Essence is the single permanent currency and the engine of all progression.
+
+* **Earned** from every fight; total per run scales with the **number of battles completed**, weighted `normal < mini-boss < major boss`
+* **Permanent and non-refundable** — once spent on a creature, essence is locked to that creature (no reclaiming it for future creatures)
+* **Spent on:** permanent levels, trait unlocks, permanent marks, depth-jumps, backpack capacity, and in-run survival (heals, revives, capture)
+
+### **Same Wallet, Two Demands**
+
+Essence earned in a run can be spent *right now* to survive the descent, **or** banked and carried back to town for *permanent* upgrades. One shared pool, one real tradeoff — every heal is a level you didn't buy. This spend-now-vs-bank decision is the heartbeat of a run (it replaces the old Plasm economy).
+
+### **Levels From Essence**
+
+* Essence raises a creature's **permanent starting-level floor**
+* The essence **cost per level rises classically** — each level costs more than the last, so leveling decelerates naturally
+* Target pace: a strong run (~floor 10) nets roughly **2–3 permanent levels** early on — enough to feel rewarding and to let enemies scale, without trivializing progression
 
 ---
 
@@ -25,16 +47,17 @@ Hollow Kin is a browser-based creature collector roguelite. Players descend a pr
 ### **Party Composition**
 
 * Player brings **3 creatures** into the tower each run  
-* Creatures start at level 1 and level up during the run  
-* Levels do not persist after the run ends
+* Creatures start each run at their **permanent essence-driven level floor** and can gain temporary levels during the run  
+* Temporary in-run levels do not persist; the permanent essence floor does (Model A)  
+* *Playtest fallback (Model B, not built): if temporary in-run leveling feels bad, remove it entirely and let essence be the only level source*
 
 ### **Player Goals Each Run**
 
-* Earn **Marks** for creatures through specific accomplishments  
-* Push for **Star Rating** increases that raise a creature's level cap through breeding  
-* Collect loot and resources to improve the town  
-* Capture new creatures using inventory items  
-* Farm **Breeding Stones** to enhance breeding outcomes
+* Harvest **Essence** from every fight — the more battles completed, the more essence (weighted toward mini/major bosses)  
+* Decide whether to spend essence *now* on in-run survival (heals, revives, capture) or **bank it** for permanent upgrades in town  
+* Earn **Marks** for creatures through specific accomplishments (spend essence later to make them permanent)  
+* Push deeper to unlock **depth-jumps** and to earn essence faster  
+* Capture new creatures using essence
 
 ### **Auto-Combat**
 
@@ -49,11 +72,18 @@ Hollow Kin is a browser-based creature collector roguelite. Players descend a pr
 
 ### **Run Length**
 
-* A full run consists of **3 zones**
-* Each zone has **14 encounters** with a **zone boss as the 15th encounter**
-* Of the 14 encounters per zone, roughly 5–7 are combat — the rest are shops, rest points, and random events
-* A complete winning run is 45 encounters (42 standard + 3 zone bosses)
-* Failed runs end earlier but still consume longevity
+* The tower is **one continuous descent** — no discrete zones. **30 floors** for the current slice (bounded now, endless later)
+* **Mini-boss every 5 floors; major boss every 10 floors**
+* Roughly half of floors are combat — the rest are shops, rest points, and random events
+* Enemy pools and visual identity can still shift by **depth band**, but there are no hard zone walls
+* Failed runs end earlier; there is no longevity cost (longevity is removed)
+
+### **Depth-Jumps**
+
+* Clearing a 5-floor break's boss unlocks a **purchasable start point** at that break, bought with essence
+* Buying a break starts you at the floor *after* it: buy floor 5 → start at floor 6; buy floor 10 → start at floor 11
+* Lets veteran bloodlines skip proven-easy content and push their frontier while earning faster (deeper floors = more essence)
+* See `tower-structure.md` for full rules
 
 ### **Run Shape**
 
@@ -121,8 +151,9 @@ Instead of freely choosing any three creatures, players are given a **budget** t
 | `spd` | Turn order and evasion modifier |
 | `int` | Magic attack power |
 | `star_rating` | Genealogy depth indicator, increases under breeding conditions |
-| `level_cap` | Maximum level this creature can reach, derived from star rating |
-| `longevity` | Number of runs remaining before the creature must be bred or retired |
+| `level_cap` | Maximum level this creature can reach — the ceiling essence fills toward (currently derived from star rating) |
+| `permanent_level` | Permanent essence-driven level floor the creature starts each run at |
+| `essence_invested` | Total essence permanently spent on this creature |
 | `marks` | Array — max one mark slot per creature |
 | `traits` | Array of trait IDs — passive and triggered effects |
 | `abilities` | Array of up to four ability IDs |
@@ -133,38 +164,15 @@ Instead of freely choosing any three creatures, players are given a **budget** t
 ### **Star Rating**
 
 * Represents genealogy depth and breeding quality  
-* Higher star rating increases the creature's level cap  
+* Higher star rating **raises the level ceiling** — the cap that essence-bought levels fill toward but cannot exceed (Model A)
 * Stars are a breeding output — a creature's star rating only increases through breeding, never during a run
-* When a creature hits its level cap during a run, it unlocks a permanent trait and becomes **breed-ready**
-* Two breed-ready creatures of the same star produce an offspring one star higher (e.g., two breed-ready Star 1s produce a Star 2)
-* A visible indicator on the creature signals breed-readiness to the player
+* Two same-star parents produce an offspring one star higher (e.g., two Star 1s produce a Star 2)
+* A visible indicator signals breed-readiness to the player
+* **Future direction (backup C, strongly favored):** remove stars entirely and let essence own the level cap directly. Nothing should be built that hard-couples to stars.
 
-### **Longevity**
+### **Longevity — Removed**
 
-* Every creature has a run counter that ticks down the moment a run starts, regardless of outcome
-* When it reaches zero the creature must be bred or retired
-* This ensures players engage with the breeding system regularly rather than farming indefinitely with the same roster
-* Longevity scales with star rating:
-
-| Star Rating | Longevity (Runs) |
-| ----- | ----- |
-| 0 (Wild) | 2 |
-| Star 1 | 4 |
-| Star 2 | 6 |
-| Star 3 | 8 |
-| Star 4 | 10 |
-| Star 5 | 12 |
-| +1 star | +2 runs |
-
-* A creature going from 1 to 0 longevity at the start of a run completes that run but is forced into the creature box afterward — it must be bred or retired before the next run
-
-### **What Happens When a Creature Retires Without Breeding**
-
-* The creature leaves behind a **Breeding Relic** based on its current traits and level  
-* The relic can be used at the Enhancer to influence future breeding  
-* Breeding Relics can offer traits or flat stats  
-* Only one relic can be used per breeding event  
-* This removes anxiety from the longevity limit and creates a strategic option: intentionally retiring a creature solo to preserve a specific trait for a different bloodline later
+Longevity has been **removed** from the design. Permanent essence progression is the pressure that keeps players engaged; a death clock on top is unnecessary and fights the "invest in your bloodline" theme. Creatures live until the player chooses to breed (retire) them.
 
 ---
 
@@ -174,7 +182,7 @@ Instead of freely choosing any three creatures, players are given a **budget** t
 
 * Two creatures are combined to produce one offspring  
 * Both parent creatures are **retired** upon breeding  
-  * These creatures do not offer Relics  
+* **Essence carry-over (jump-start):** the parents' invested essence/levels partially carry to the offspring, so a new bloodline doesn't start from zero. Breeding is still a real trade — you give up two developed creatures — but no longer a hard reset of progress.
 * Players may **summon the base form** of any retired creature at any time — you get the shell but not the accumulated progress  
 * Offspring inherit abilities from parents — players choose at creation time whether to add inherited abilities  
 * Parent abilities can override the offspring's default ability set  
@@ -208,11 +216,11 @@ Instead of freely choosing any three creatures, players are given a **budget** t
 
 ### **What Marks Are**
 
-* Earned during runs through specific accomplishments  
+* **Earned** during runs through specific accomplishments — temporary by default  
 * Each creature has **one mark slot**  
-* A mark is a small relic-like reward tied to how it was earned  
-* Creatures leave their mark behind when retired which can then be added to other creatures in their mark slot  
-* If two creatures are bred, both containing marks, the subsequent creature can take over one mark. The other is lost.
+* **Made permanent by spending essence** at the Mark-binder — essence buys permanence, not the mark itself (you still have to earn it)  
+* Mark accomplishment thresholds are pegged to the single 30-floor descent (e.g., mini-boss at floor 5)  
+* See `marks-system.md` and `marks-catalog.md` for the full rules and re-pegged thresholds
 
 ### **Mark Types (Examples)**
 
@@ -222,7 +230,7 @@ Instead of freely choosing any three creatures, players are given a **budget** t
 ### **Marks and Breeding**
 
 * Marks are **not inherited** through breeding — they are personal to the creature that earned them
-* The only way marks influence breeding is through the retirement relic system — retire a creature with a valuable mark and use its relic at the Enhancer
+* A mark's effect can only be brought to a new creature by earning it directly on that creature and binding it with essence
 * See the Marks System doc for full rules
 
 ---
@@ -244,15 +252,12 @@ Instead of freely choosing any three creatures, players are given a **budget** t
 * Evasion increases  
 * Other conditional effects
 
-### **Traits and Stars**
+### **Traits and Essence**
 
 * Creatures can hold **up to four traits**, one per slot
-* Star 1: No traits
-* Star 2: Slot 1 unlocked at Trait Level 1
-* Star 3: Slot 2 unlocked at Trait Level 2
-* Star 4: Slot 3 unlocked at Trait Level 3
-* Star 5: Slot 4 unlocked at Trait Level 4 (max)
-* Stars 6–12 upgrade earlier slots to higher trait levels — see the Traits System doc for the full progression table
+* Trait slots and trait levels now unlock at **essence thresholds** (spent at the Trait-keeper), not star thresholds
+* The old star-based trait table is retired — see the Traits System doc for the essence-threshold progression table
+* This is intentionally forward-compatible with removing stars entirely (see Star Rating, backup C)
 
 ---
 
@@ -310,9 +315,9 @@ Eight archetypes define a creature's general identity, combat role, and default 
 
 ## **Capture System**
 
-* \* Players capture creatures during runs using \*\*Plasm\*\* as the capture resource  
-* \* Plasm accumulates from winning battles — the more Plasm held, the higher the base capture chance  
-* \* Capture probability is based on two factors: total Plasm held and the target creature's current HP — more Plasm and lower HP means a higher capture chance  
+* \* Players capture creatures during runs by spending **Essence** as the capture resource  
+* \* Capture is an in-run essence spend — it competes with banking essence for permanent upgrades (spend-now-vs-bank)  
+* \* Capture probability is based on two factors: essence spent on the attempt and the target creature's current HP — more essence and lower HP means a higher capture chance  
 * \* Captured creatures are held in the item inventory during the run, forcing resource constraints  
 * \* Captured creatures can substitute into the active battle party mid-run — when subbed in, the replaced creature moves to inventory and becomes subject to inventory loss on death  
 * \* The three active battle creatures are always protected from loss  
@@ -325,33 +330,25 @@ Eight archetypes define a creature's general identity, combat role, and default 
 
 \* The player returns to town — active battle creatures are always safe and return to the Creature Box
 
-\* Anything in inventory not in a safe slot is lost: captured creatures, consumables, and resources
+\* Anything in inventory not in a safe slot is lost: captured creatures, consumables, and unbanked resources
 
-\* Longevity ticks down at the start of every run regardless of outcome — failed runs still cost longevity
+\* Essence already spent on permanent upgrades is safe; essence carried but not yet banked follows the inventory-loss rules — a reason to convert it before risking the deeper floors
 
 ---
 
-## **The Town**
+## **The Town — Essence Hub**
 
-### **Breeding Box**
+Town is a hub of "folks" who turn essence into permanent upgrades. The Enhancer and Leathersmith are removed. See `town.md` for the full detail.
 
-* Where creatures are stored when not on a run  
-* Starts with limited slots, expands over time through upgrades  
-* Creatures in the box do not earn marks or levels passively by default  
-* Once the breeding box is upgraded enough creatures will earn small passive levels. These reset if brought on a run, but otherwise act as a way for creatures to earn their traits when not on runs
-
-### **Leathersmith**
-
-* Upgrades backpack capacity  
-* More inventory space means more plasm, more stones, more capture options per run
-
-### **Enhancer**
-
-* Uses Breeding Stones and Breeding Relics to improve breeding outcomes  
-* Single-use stones, not global buffs — every use is a deliberate choice  
-* As the Enhancer levels up, new abilities and stone types become available  
-* One relic or stone per breeding event maximum to prevent stacking exploits  
-* Acts as an active crafting station — players choose specific traits to push into a breed, not a passive upgrade
+| Station | Function | Essence? |
+| ----- | ----- | ----- |
+| **Creature Box** | View available creatures, manage party | No — management only |
+| **Leveler** | Buy permanent levels | Yes |
+| **Trait-keeper** | Unlock trait slots / levels | Yes |
+| **Mark-binder** | Make an earned mark permanent | Yes |
+| **Gatekeeper** | Unlock depth-jumps | Yes |
+| **Quartermaster** | Increase backpack capacity (hold items for the descent — inherits the old Leathersmith role) | Yes |
+| **Breeder** | Breed a pair (retire parents, carry essence to offspring) | Yes |
 
 ---
 
@@ -398,8 +395,9 @@ Eight archetypes define a creature's general identity, combat role, and default 
 
 ## **Resolved Design Decisions**
 
-* Floor scaling for veteran bloodlines — scaling does not occur. Players can start in later zones by defeating the boss of the previous zone with their starting generation and earn boss-level rewards (run-based relics and plasm)
-* Marks/Relics/Stones — consolidated into separate reference docs (marks-catalog.md, relics.md, breeding-stones.md)
+* Progression is **permanent and essence-driven** (2026-07-23 pivot) — creatures no longer reset to level 1; they keep an essence-bought level floor. Plasm, Breeding Stones, and Longevity are removed. See `docs/superpowers/specs/2026-07-23-essence-progression-pivot-design.md`.
+* Tower is **one continuous 30-floor descent** (no zones). Depth-jumps let veterans buy a start point at any cleared 5-floor break.
+* Marks — consolidated into separate reference docs (marks-catalog.md); breeding-stones.md is retired/cut
 * Save architecture — Supabase (see Technical Architecture)
 * Ability archetype distribution — DQM-style wide overlap with basic abilities available across all archetypes
 * Tension / Psyche Up — cut. Existing buff abilities (Bold, Overdrive, Focus) already cover the "spend a turn to hit harder" dynamic without adding a separate system
@@ -416,9 +414,11 @@ Eight archetypes define a creature's general identity, combat role, and default 
 
 ### **Economy & Progression**
 
-* Full Enhancer upgrade tree — costs, unlock progression, and what's available at each tier
+* Essence tuning — earn weights (normal/mini/major), level cost-curve steepness, depth-jump prices (all placeholders pending playtest)
+* Whether Model A (temporary in-run leveling) survives or we fall back to Model B (essence-only levels)
+* Whether stars survive (Model A) or are removed entirely (Model C, favored)
+* Single vs. split essence pool for in-run vs. permanent spends
 * Catch-up / pity mechanics for players who consistently fail runs
-* Whether town building upgrades have prerequisite chains or are freely purchasable
 
 ### **Content**
 

@@ -6,13 +6,13 @@
 
 ## **Overview**
 
-Hollow Kin has a lot of overlapping systems — traits, marks, abilities, stars, longevity, breeding, capture, relics, and town upgrades. The player needs clear, consistent ways to parse all of it without being overwhelmed. This document covers the information architecture, key screen flows, and design philosophy for how the game communicates its systems to the player.
+Hollow Kin has a lot of overlapping systems — traits, marks, abilities, stars, essence progression, breeding, capture, relics, and town vendors. The player needs clear, consistent ways to parse all of it without being overwhelmed. This document covers the information architecture, key screen flows, and design philosophy for how the game communicates its systems to the player.
 
 ---
 
 ## **Design Philosophy**
 
-* **Show, don't dump.** Introduce systems one at a time. The first couple of runs should feel simple — combat, capture, return to town. Breeding, traits, marks, and the Enhancer reveal themselves as the player naturally encounters them.
+* **Show, don't dump.** Introduce systems one at a time. The first couple of runs should feel simple — combat, capture, return to town. Breeding, traits, marks, and essence spending reveal themselves as the player naturally encounters them.
 * **Information on demand.** The default view should be clean. Details are available on tap/hover/click but never forced on the player.
 * **Consistent visual language.** Stars, marks, traits, and abilities each have a distinct icon style so the player can parse at a glance which system they're looking at.
 * **No hidden math.** If a stat or multiplier affects gameplay, the player should be able to see it. Damage formulas can be abstracted but the inputs (ATK vs DEF, resistance, weakness) should be visible.
@@ -25,32 +25,32 @@ Hollow Kin has a lot of overlapping systems — traits, marks, abilities, stars,
 
 The home screen between runs. Shows:
 
-* The three town buildings (Creature Box, Leathersmith, Enhancer) with upgrade status
-* A "Start Run" button
+* The essence-hub vendors — Creature Box, Leveler, Trait-keeper, Mark-binder, Gatekeeper, Quartermaster, Breeder
+* A "Start Run" button (with depth-jump options for cleared 5-floor breaks)
 * Access to the Creature Box for party management and breeding
-* Current resource counts (Town Resources, Breeding Stones, Breeding Relics)
+* Current **Essence** balance (the single currency)
 
 ### **Creature Box / Party Management**
 
 * Grid or list view of all owned creatures
-* Each creature card shows: name, archetype icon, star rating, longevity remaining, breed-ready indicator
+* Each creature card shows: name, archetype icon, star rating, permanent level (essence invested), breed-ready indicator
 * Tapping a creature opens its detail view
 * Drag or select to assign creatures to the run party (3 slots)
-* Filter and sort options: by archetype, by star, by longevity, by breed-ready status
+* Filter and sort options: by archetype, by star, by permanent level, by breed-ready status
 
 ### **Creature Detail View**
 
 The most information-dense screen. Must be scannable.
 
-* **Header:** Name, archetype, star rating (visual stars), level / level cap
+* **Header:** Name, archetype, star rating (visual stars), permanent level / level cap
 * **Stats block:** HP, MP, STR, DEF, WIS, SPD, INT — with base and current values
-* **Traits:** Up to four slots. Filled slots show trait name, level, and icon. Unfilled slots show the star required to unlock.
+* **Traits:** Up to four slots. Filled slots show trait name, level, and icon. Unfilled slots show the essence threshold required to unlock.
 * **Mark:** Active mark name and effect. Tap to see all earned marks and swap.
 * **Abilities:** Up to four slots with ability names and types.
-* **Longevity:** Runs remaining, with a visual indicator (green → yellow → red)
+* **Essence:** Permanent level and essence invested in this pet, with the cost to buy the next level.
 * **Lineage:** Parent names (tappable to view parent details if not retired). Depth indicator showing how many generations deep this creature is.
 
-Header, Marks, Longevity should be visible on initial scan. Selecting into a creature should show its Stats Block, Traits, Marks, Abilities. Lineage is another subscreen to this as most players will not care to see it.
+Header, Marks, Essence should be visible on initial scan. Selecting into a creature should show its Stats Block, Traits, Marks, Abilities. Lineage is another subscreen to this as most players will not care to see it.
 
 ### **Breeding Screen**
 
@@ -85,7 +85,7 @@ Header, Marks, Longevity should be visible on initial scan. Selecting into a cre
 
 ### **Post-Encounter Screen**
 
-* Rewards summary: Plasm earned, items found, resources gathered
+* Rewards summary: Essence earned, items found, resources gathered
 * XP gained and level-up notifications
 * "Continue" to the next encounter selection
 
@@ -103,7 +103,7 @@ Header, Marks, Longevity should be visible on initial scan. Selecting into a cre
 
 The game walks players through the game in two phases.
 Phase 1: Selecting Creatures for a run, Combat, Capture, Rest, Leveling
-Phase 2: Traits, Longevity, Breeding
+Phase 2: Traits, Essence progression, Breeding
 
 See the onboarding doc for more information
 
@@ -117,7 +117,7 @@ See the onboarding doc for more information
 | Traits | Hexagonal badge | Varies by trait category |
 | Marks | Shield or crest shape | Silver / archetype color |
 | Abilities | Circular icon with type color | Matches damage type |
-| Longevity | Hourglass or countdown | Green → Yellow → Red |
+| Essence | Glowing orb or spark | Amber / teal |
 | Breed-ready | Glowing heart or link icon | Pink / magenta |
 | Relics | Crystalline shard | Purple |
 | Stones | Rough gem shape | Blue |
