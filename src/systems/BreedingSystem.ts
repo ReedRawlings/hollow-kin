@@ -76,6 +76,8 @@ export function breed(
       { traitId: null, traitLevel: 0, unlocked: starRating >= 5 },
     ],
     lineage: { parentA: parentA.instanceId, parentB: parentB.instanceId },
+    // currentStats are level-1-scale here and are non-authoritative until GameState.startRun
+    // recomputes them for the offspring's permanentLevel.
     currentStats: baseStats,
     resistances: [...template.resistances],
     weaknesses: [...template.weaknesses],
