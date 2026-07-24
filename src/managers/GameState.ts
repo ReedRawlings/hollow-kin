@@ -1,6 +1,6 @@
 import {
   CreatureInstance, RunState, BaseStats,
-  STAR_LEVEL_CAPS, generateId,
+  STAR_LEVEL_CAPS, generateId, isBossFloor, TOWER_FLOORS,
 } from '../types';
 import { getTemplate } from '../data/creatures';
 import { convertObolsToEssence, essenceCostForLevel } from '../systems/Economy';
@@ -9,6 +9,7 @@ class GameStateManager {
   creatureBox: CreatureInstance[] = [];
   runParty: CreatureInstance[] = [];
   essence = 0;
+  deepestBreakCleared = 0;
   currentRun: RunState | null = null;
   hasCompletedFirstRun = false;
 
@@ -87,6 +88,19 @@ class GameStateManager {
     return true;
   }
 
+  /** Record clearing a boss on `floor`. Only boss floors count; keeps the running max. */
+  recordBreakCleared(floor: number): void {
+    if (!isBossFloor(floor)) return;
+    if (floor > this.deepestBreakCleared) this.deepestBreakCleared = floor;
+  }
+
+  /** Floors a run may start on: floor 1, plus the floor after each cleared 5-floor break. */
+  unlockedStartFloors(): number[] {
+    const floors = [1];
+    for (let f = 5; f <= this.deepestBreakCleared && f + 1 <= TOWER_FLOORS; f += 5) floors.push(f + 1);
+    return floors;
+  }
+
   addToBox(instance: CreatureInstance): void {
     this.creatureBox.push(instance);
   }
@@ -140,6 +154,7 @@ class GameStateManager {
       this.addToBox(this.createCreatureInstance(id, 0));
     }
     this.essence = 0;
+    this.deepestBreakCleared = 0;
     this.hasCompletedFirstRun = false;
   }
 
@@ -148,6 +163,7 @@ class GameStateManager {
       version: 2,
       creatureBox: this.creatureBox,
       essence: this.essence,
+      deepestBreakCleared: this.deepestBreakCleared,
       hasCompletedFirstRun: this.hasCompletedFirstRun,
     };
     localStorage.setItem('hollow_kin_save', JSON.stringify(data));
@@ -160,6 +176,7 @@ class GameStateManager {
       const data = JSON.parse(raw);
       // Essence: new field, else migrate old townResources, else 0
       this.essence = data.essence ?? data.townResources ?? 0;
+      this.deepestBreakCleared = data.deepestBreakCleared ?? 0;
       this.hasCompletedFirstRun = data.hasCompletedFirstRun ?? false;
       this.creatureBox = (data.creatureBox ?? []).map((c: any) => {
         const { longevity, ...rest } = c; // drop longevity if present

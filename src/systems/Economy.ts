@@ -4,7 +4,7 @@ import {
 } from '../types';
 
 /** Obols awarded for clearing one combat encounter. */
-export function obolsForEncounter(kind: 'normal' | 'boss'): number {
+export function obolsForEncounter(kind: 'normal' | 'mini' | 'major'): number {
   return OBOL_REWARDS[kind];
 }
 
