@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
-import { generateZoneEncounters, generatePickNextChoices } from '../systems/RunGenerator';
-import { Encounter, RunState } from '../types';
+import { generateDescent, generatePickNextChoices } from '../systems/RunGenerator';
+import { Encounter, RunState, TOWER_FLOORS } from '../types';
 
 export class RunScene extends Phaser.Scene {
   constructor() {
@@ -13,11 +13,12 @@ export class RunScene extends Phaser.Scene {
     if (!data?.continueRun || !gameState.currentRun) {
       // Start a new run
       gameState.startRun();
-      const zone1 = generateZoneEncounters(1);
+      const startFloor = 1; // depth-jump selection is Phase 3
+      const encounters = generateDescent(startFloor);
       gameState.currentRun = {
-        currentZone: 1,
+        startFloor,
         currentEncounterIndex: -1,
-        encounters: zone1,
+        encounters,
         choices: [],
         obols: 0,
         capturedCreatures: [],
@@ -45,7 +46,10 @@ export class RunScene extends Phaser.Scene {
     const run = gameState.currentRun!;
 
     // Header
-    this.add.text(cx, 20, `ZONE ${run.currentZone} — Encounter ${run.currentEncounterIndex + 2}/15`, {
+    const currentFloor = run.currentEncounterIndex >= 0
+      ? run.encounters[run.currentEncounterIndex].floor
+      : run.startFloor;
+    this.add.text(cx, 20, `TOWER — Floor ${currentFloor} / ${TOWER_FLOORS}`, {
       fontSize: '20px', color: '#e0d0a0', fontFamily: 'monospace',
     }).setOrigin(0.5);
 
@@ -88,20 +92,7 @@ export class RunScene extends Phaser.Scene {
     const choices = generatePickNextChoices(run.encounters, run.currentEncounterIndex);
 
     if (choices.length === 0) {
-      // Zone complete — check if more zones
-      if (run.currentZone < 3) {
-        this.add.text(cx, 300, `Zone ${run.currentZone} Complete!`, {
-          fontSize: '24px', color: '#ffdd88', fontFamily: 'monospace',
-        }).setOrigin(0.5);
-        this.createButton(cx, 380, 'NEXT ZONE', '#4488aa', () => {
-          run.currentZone++;
-          run.encounters = generateZoneEncounters(run.currentZone);
-          run.currentEncounterIndex = -1;
-          this.drawUI();
-        });
-      } else {
-        this.showRunEnd(true);
-      }
+      this.showRunEnd(true); // reached the bottom (floor-30 boss cleared)
       return;
     }
 
@@ -171,8 +162,11 @@ export class RunScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const run = gameState.currentRun!;
+    const deepestFloor = run.currentEncounterIndex >= 0
+      ? run.encounters[run.currentEncounterIndex].floor
+      : run.startFloor;
     this.add.text(cx, cy - 20, [
-      `Zones Cleared: ${run.currentZone}`,
+      `Floor Reached: ${deepestFloor} / ${TOWER_FLOORS}`,
       `Obols Earned: ${run.obols}`,
       `Creatures Captured: ${run.capturedCreatures.length}`,
     ].join('\n'), {
@@ -189,7 +183,7 @@ export class RunScene extends Phaser.Scene {
   private getEncounterLabel(e: Encounter): string {
     switch (e.type) {
       case 'combat': return `COMBAT (${e.enemies?.length ?? '?'})`;
-      case 'boss': return 'ZONE BOSS';
+      case 'boss': return e.bossTier === 'major' ? 'MAJOR BOSS' : 'MINI BOSS';
       case 'shop': return 'SHOP';
       case 'rest': return 'REST';
       case 'event': return 'EVENT';
