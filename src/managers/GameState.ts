@@ -3,13 +3,14 @@ import {
   STAR_LEVEL_CAPS, generateId, isBossFloor, TOWER_FLOORS,
 } from '../types';
 import { getTemplate } from '../data/creatures';
-import { convertObolsToEssence, essenceCostForLevel } from '../systems/Economy';
+import { convertObolsToEssence, essenceCostForLevel, depthJumpCost } from '../systems/Economy';
 
 class GameStateManager {
   creatureBox: CreatureInstance[] = [];
   runParty: CreatureInstance[] = [];
   essence = 0;
   deepestBreakCleared = 0;
+  selectedStartFloor = 1;
   currentRun: RunState | null = null;
   hasCompletedFirstRun = false;
 
@@ -101,6 +102,29 @@ class GameStateManager {
     return floors;
   }
 
+  /** Choose a start floor for the next run. Only floors unlocked by cleared breaks are accepted. */
+  setSelectedStartFloor(floor: number): boolean {
+    if (!this.unlockedStartFloors().includes(floor)) return false;
+    this.selectedStartFloor = floor;
+    return true;
+  }
+
+  /**
+   * Resolve the floor a starting run begins on. If a deep start is selected, still unlocked,
+   * and affordable, deducts its Essence cost and returns it; otherwise returns 1 (free).
+   */
+  resolveRunStartFloor(): number {
+    const chosen = this.selectedStartFloor;
+    if (chosen > 1 && this.unlockedStartFloors().includes(chosen)) {
+      const cost = depthJumpCost(chosen);
+      if (this.essence >= cost) {
+        this.essence -= cost;
+        return chosen;
+      }
+    }
+    return 1;
+  }
+
   addToBox(instance: CreatureInstance): void {
     this.creatureBox.push(instance);
   }
@@ -155,6 +179,7 @@ class GameStateManager {
     }
     this.essence = 0;
     this.deepestBreakCleared = 0;
+    this.selectedStartFloor = 1;
     this.hasCompletedFirstRun = false;
   }
 
@@ -164,6 +189,7 @@ class GameStateManager {
       creatureBox: this.creatureBox,
       essence: this.essence,
       deepestBreakCleared: this.deepestBreakCleared,
+      selectedStartFloor: this.selectedStartFloor,
       hasCompletedFirstRun: this.hasCompletedFirstRun,
     };
     localStorage.setItem('hollow_kin_save', JSON.stringify(data));
@@ -177,6 +203,7 @@ class GameStateManager {
       // Essence: new field, else migrate old townResources, else 0
       this.essence = data.essence ?? data.townResources ?? 0;
       this.deepestBreakCleared = data.deepestBreakCleared ?? 0;
+      this.selectedStartFloor = data.selectedStartFloor ?? 1;
       this.hasCompletedFirstRun = data.hasCompletedFirstRun ?? false;
       this.creatureBox = (data.creatureBox ?? []).map((c: any) => {
         const { longevity, ...rest } = c; // drop longevity if present

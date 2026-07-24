@@ -177,3 +177,50 @@ describe('deepest-break tracking', () => {
     expect(gameState.deepestBreakCleared).toBe(0);
   });
 });
+
+describe('depth-jump start floor', () => {
+  it('defaults to floor 1', () => {
+    expect(gameState.selectedStartFloor).toBe(1);
+  });
+
+  it('setSelectedStartFloor only accepts unlocked floors', () => {
+    gameState.recordBreakCleared(10); // unlocks [1,6,11]
+    expect(gameState.setSelectedStartFloor(11)).toBe(true);
+    expect(gameState.selectedStartFloor).toBe(11);
+    expect(gameState.setSelectedStartFloor(16)).toBe(false); // not unlocked
+    expect(gameState.selectedStartFloor).toBe(11);           // unchanged
+  });
+
+  it('resolveRunStartFloor deducts essence and returns the chosen floor when affordable', () => {
+    gameState.recordBreakCleared(10);
+    gameState.setSelectedStartFloor(11);
+    gameState.essence = 200;
+    const floor = gameState.resolveRunStartFloor(); // cost (11-1)*15 = 150
+    expect(floor).toBe(11);
+    expect(gameState.essence).toBe(50);
+  });
+
+  it('resolveRunStartFloor falls back to floor 1 when unaffordable (no deduction)', () => {
+    gameState.recordBreakCleared(10);
+    gameState.setSelectedStartFloor(11);
+    gameState.essence = 100; // < 150
+    const floor = gameState.resolveRunStartFloor();
+    expect(floor).toBe(1);
+    expect(gameState.essence).toBe(100);
+  });
+
+  it('resolveRunStartFloor returns 1 (free) when selection is floor 1', () => {
+    gameState.essence = 100;
+    expect(gameState.resolveRunStartFloor()).toBe(1);
+    expect(gameState.essence).toBe(100);
+  });
+
+  it('persists selectedStartFloor across save/load', () => {
+    gameState.recordBreakCleared(10);
+    gameState.setSelectedStartFloor(6);
+    gameState.saveToLocalStorage();
+    gameState.selectedStartFloor = 1;
+    gameState.loadFromLocalStorage();
+    expect(gameState.selectedStartFloor).toBe(6);
+  });
+});
