@@ -402,16 +402,14 @@ export class CombatScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const alive = this.playerParty.filter(c => !c.isKnockedOut);
-    const bonusObols = 5 + this.encounter.zone * 3;
 
     const choices = [
       { label: 'Restore HP', desc: 'Heal party for 10% HP', color: 0x44aa44 },
       { label: 'Restore MP', desc: 'Restore party 20% MP', color: 0x4466cc },
-      { label: 'Bonus Obols', desc: `+${bonusObols} Obols`, color: 0xcc8844 },
     ];
 
     choices.forEach((choice, i) => {
-      const bx = cx - 200 + i * 200;
+      const bx = cx - 100 + i * 200;
       const by = 560;
       const bg = this.add.rectangle(bx, by, 170, 60, choice.color, 0.9)
         .setStrokeStyle(2, 0xffffff).setInteractive({ useHandCursor: true });
@@ -435,16 +433,13 @@ export class CombatScene extends Phaser.Scene {
             pc.currentHp = Math.min(pc.maxHp, pc.currentHp + heal);
             run.partyHp[pc.instance.instanceId] = pc.currentHp;
           }
-        } else if (i === 1) {
+        } else {
           // Restore 20% MP to alive party members
           for (const pc of alive) {
             const restore = Math.floor(pc.maxMp * 0.20);
             pc.currentMp = Math.min(pc.maxMp, pc.currentMp + restore);
             run.partyMp[pc.instance.instanceId] = pc.currentMp;
           }
-        } else {
-          // Bonus Obols
-          run.obols += bonusObols;
         }
         gameState.saveToLocalStorage();
         this.scene.start('RunScene', { continueRun: true });
