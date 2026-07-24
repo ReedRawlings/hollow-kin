@@ -46,6 +46,10 @@ export function generateDescent(startFloor = 1): Encounter[] {
   let index = 0;
   for (let floor = startFloor; floor <= TOWER_FLOORS; floor++) {
     let type: EncounterType;
+    // NOTE: startFloor is expected to be a non-boss, non-pre-boss floor — either 1 or a
+    // break+1 floor (6, 11, 16, 21, 26). isBossFloor is checked first for simplicity;
+    // this is safe only under that assumption (no depth-jump start floor is ever a
+    // boss or pre-boss floor).
     if (isBossFloor(floor)) {
       type = 'boss';
     } else if (floor === startFloor) {
@@ -82,10 +86,13 @@ export function generatePickNextChoices(encounters: Encounter[], currentIndex: n
   // Barrier: cannot choose anything at or beyond the next boss.
   const nextBossPos = remaining.findIndex(e => e.type === 'boss');
   const selectable = nextBossPos === -1 ? remaining : remaining.slice(0, nextBossPos);
-  const beforeForcedRest = selectable.filter(
-    (e, i) => !(e.type === 'rest' && selectable[i + 1]?.type === 'boss'),
-  );
-  const candidates = beforeForcedRest.length > 0 ? beforeForcedRest : selectable;
+
+  // The pre-boss rest floor (the last element of `selectable` when a boss lies ahead)
+  // is reachable only as the forced immediate-next rest handled above — it must never
+  // appear in the general candidate pool. Exclude it, falling back to the full
+  // `selectable` list if that exclusion would leave no candidates.
+  const excludePreBossRest = nextBossPos !== -1 ? selectable.slice(0, -1) : selectable;
+  const candidates = excludePreBossRest.length > 0 ? excludePreBossRest : selectable;
 
   if (candidates.length <= 1) return candidates;
 
