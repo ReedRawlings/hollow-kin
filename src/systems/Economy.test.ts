@@ -5,8 +5,11 @@ describe('obolsForEncounter', () => {
   it('gives the normal-combat weight', () => {
     expect(obolsForEncounter('normal')).toBe(5);
   });
-  it('gives the boss weight', () => {
-    expect(obolsForEncounter('boss')).toBe(75);
+  it('gives the mini-boss weight', () => {
+    expect(obolsForEncounter('mini')).toBe(25);
+  });
+  it('gives the major-boss weight', () => {
+    expect(obolsForEncounter('major')).toBe(75);
   });
 });
 
