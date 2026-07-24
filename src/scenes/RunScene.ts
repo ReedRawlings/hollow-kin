@@ -13,7 +13,7 @@ export class RunScene extends Phaser.Scene {
     if (!data?.continueRun || !gameState.currentRun) {
       // Start a new run
       gameState.startRun();
-      const startFloor = 1; // depth-jump selection is Phase 3
+      const startFloor = gameState.resolveRunStartFloor();
       const encounters = generateDescent(startFloor);
       gameState.currentRun = {
         startFloor,
