@@ -4,7 +4,7 @@
 
 ## **Overview**
 
-Hollow Kin launches with approximately 96 creatures across 8 archetypes — 12 per archetype. This is the starting target, not a ceiling. The roster can be expanded by adding rows to the master spreadsheet. These are not hand-authored individually — they are generated programmatically from a data-driven design system. This document covers how the roster is structured, how creatures are defined in data, and how the generation pipeline works.
+Hollow Kin targets approximately 96 creatures across 8 archetypes — 12 per archetype. This is the starting target, not a ceiling. Currently 36 creatures are implemented (Kami 5, Spirits 5, Food 5, Human 5, Mecha 4, Flora 4, Fauna 4, Rock 4), distributed across the 3 depth bands of the tower. The roster can be expanded by adding rows to the master spreadsheet. These are not hand-authored individually — they are generated programmatically from a data-driven design system. This document covers how the roster is structured, how creatures are defined in data, and how the generation pipeline works.
 
 ---
 
@@ -12,18 +12,18 @@ Hollow Kin launches with approximately 96 creatures across 8 archetypes — 12 p
 
 ### **Distribution by Archetype**
 
-12 creatures per archetype, evenly distributed. No archetype is inherently rarer than another — rarity exists at the individual creature level within each archetype.
+Target is 12 creatures per archetype, evenly distributed (96 total). No archetype is inherently rarer than another — rarity exists at the individual creature level within each archetype. Currently 36 creatures are implemented, unevenly distributed while the roster is built out:
 
-| Archetype | Count | Combat Identity |
+| Archetype | Count (Implemented / Target) | Combat Identity |
 | ----- | ----- | ----- |
-| Kami | 12 | Debuffs and ice |
-| Spirits | 12 | Ghost damage and debuffs |
-| Flora | 12 | Heals and buffs |
-| Fauna | 12 | Physical, high speed |
-| Rock | 12 | Defense, physical |
-| Mecha | 12 | Flame and electricity, fragile |
-| Food | 12 | Buffs and physical |
-| Human | 12 | Physical and ice |
+| Kami | 5 / 12 | Debuffs and ice |
+| Spirits | 5 / 12 | Ghost damage and debuffs |
+| Flora | 4 / 12 | Heals and buffs |
+| Fauna | 4 / 12 | Physical, high speed |
+| Rock | 4 / 12 | Defense, physical |
+| Mecha | 4 / 12 | Flame and electricity, fragile |
+| Food | 5 / 12 | Buffs and physical |
+| Human | 5 / 12 | Physical and ice |
 
 ### **Availability**
 
@@ -32,6 +32,8 @@ Hollow Kin launches with approximately 96 creatures across 8 archetypes — 12 p
 * **Breed-only:** Creatures that can only be obtained by breeding specific combinations — not found in the wild
 
 The tower is one continuous 30-floor descent — there are no discrete zones. Enemy pools and visual identity shift by **depth band** as the player goes deeper, but there are no hard zone walls.
+
+Implemented creatures are split across 3 depth bands (~12 creatures each): floors 1-10 (band 1), floors 11-20 (band 2), floors 21-30 (band 3). This is defined in `ZONE_CREATURE_POOLS` in `src/data/creatures.ts`. Combat encounters draw random enemies from the current floor's depth-band pool; enemies can currently repeat within a single fight (variety is expected to improve as the pools grow toward the full 96-creature roster — a future polish item is preventing in-fight repeats directly).
 
 ---
 

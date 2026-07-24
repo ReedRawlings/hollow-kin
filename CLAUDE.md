@@ -34,75 +34,70 @@ The project root contains the full game design documentation. **The GDD is the s
 | `ui-ux.md` | Screen designs, visual language, accessibility |
 | `Abilities.csv` | 72 abilities with stats, types, archetypes |
 
-## Current State — Working Vertical Slice
+## Current State — Essence Pivot Implemented (Phases 1–4a)
 
-A playable vertical slice exists with the full core loop: town → party select → tower run → combat → return to town → breed → repeat.
+The **essence-progression pivot is built and merged to `main`.** The full core loop runs on the new model: town (essence hub) → party select → 30-floor descent → combat → return → spend Essence / breed → repeat. Implementation history lives in `docs/superpowers/plans/` and `docs/superpowers/specs/2026-07-23-essence-progression-pivot-design.md`.
 
 ### What's Built
 
 **Source structure:**
 ```
 src/
-  main.ts                    — Phaser game config, entry point
-  types.ts                   — All interfaces, enums, constants
+  main.ts                    — Phaser game config, scene registry
+  types.ts                   — Interfaces, enums, economy/tower constants
   data/
-    abilities.ts             — 25 abilities (subset of 72 from CSV)
-    creatures.ts             — 12 creatures (1-2 per archetype)
+    abilities.ts             — 31 abilities (subset of 72; MP costs tuned)
+    creatures.ts             — 36 creatures across 8 archetypes + depth-band pools
   managers/
-    GameState.ts             — Singleton: creature box, party, runs, save/load
+    GameState.ts             — Singleton: box, party, essence, permanent levels,
+                               obol→essence conversion, depth-jump, save v2 + migration
   systems/
-    CombatEngine.ts          — Damage formula, turn order, buffs, status effects, enemy AI
-    BreedingSystem.ts        — Star calculation, stat inheritance, breed function
-    RunGenerator.ts          — Zone encounter generation, pick-next choices
+    CombatEngine.ts          — Damage formula, turn order, buffs, status, enemy AI (random target)
+    BreedingSystem.ts        — Star calc, stat inheritance, essence carry-over to offspring
+    RunGenerator.ts          — 30-floor descent generation + boss-aware pick-next
+    Economy.ts               — Obol→Essence conversion, level cost curve, depth-jump cost, carry-over
   scenes/
-    BootScene.ts             — Starter trio selection, save loading
-    TownScene.ts             — Town hub with creature box, resources, navigation
-    PartySelectScene.ts      — Pick 3 creatures for a run
-    RunScene.ts              — Pick-next encounter navigation, zone transitions
-    CombatScene.ts           — Full turn-based 3v3 combat with player input
-    ShopScene.ts             — Spend plasm on HP/MP heals, revives
-    RestScene.ts             — Choose between HP heal, MP restore, or balanced
-    BreedingScene.ts         — Select 2 parents, preview offspring, confirm breed
+    BootScene, TownScene (essence hub), PartySelectScene, RunScene ("TOWER — Floor N/30"),
+    CombatScene, ShopScene (Obols), RestScene, BreedingScene (shows carry-over),
+    LevelerScene (buy permanent levels + stat preview), GatekeeperScene (depth-jumps)
 ```
 
-**Working systems:**
-- Turn-based combat with abilities, MP, buffs/debuffs, status effects, crits (player-only), defend
-- Damage formula: `(ATK - DEF/2) × (Power/50) × TypeMultiplier`
-- Per-creature resistances/weaknesses (no archetype rock-paper-scissors)
-- Creature leveling during runs (XP from combat, level-scaled stats)
-- Breeding with star calculation, stat inheritance, parent retirement
-- Longevity system (ticks down each run)
-- Procedural zone generation with constraints (combat first, rest before boss, no 3+ combats in a row)
-- Pick-next encounter navigation (first encounter forced combat, pre-boss forced rest)
-- Shop/rest encounters for mid-run resource management
-- localStorage save/load
+**Working systems (all merged):**
+- **Two-tier currency:** Obols in-run (heals/revives/shops), convert to permanent **Essence** on exit (flee/win = 100%, wipe = 50%)
+- **Permanent essence levels:** creatures start each run at their essence-bought level floor (no level-1 reset); bought at the **Leveler** on a rising cost curve
+- **One continuous 30-floor descent:** mini-boss every 5 floors, major every 10; rests appear as occasional filler (not guaranteed); boss-aware pick-next never skips a boss
+- **Depth-jumps:** clear a break, buy a deeper start at the **Gatekeeper** (per-run Essence cost)
+- **Breeding:** star calc, stat inheritance, parent retirement, + **essence carry-over** jump-start to offspring
+- Turn-based combat (abilities, MP, buffs/debuffs, status, player-only crits, defend); **random enemy targeting**; single-enemy auto-target
+- Damage formula: `(ATK - DEF/2) × (Power/50) × TypeMultiplier`; per-creature resistances/weaknesses
+- localStorage **save v2** with migration from old (townResources→essence, drop longevity/plasm)
+- **31 abilities** (MP costs cut ~40% for a healthier MP economy), **36 creatures** distributed across 3 depth bands
+- vitest test suite (Economy, GameState, RunGenerator, BreedingSystem)
 
-**12 starter creatures across 8 archetypes:**
-- Trio A (Aggressive): Ironjaw (Fauna), Emberwhelp (Mecha), Bladeknight (Human)
-- Trio B (Resilient): Stoneguard (Rock), Thornvine (Flora), Duskgeist (Spirits)
-- Also: Voltarc (Mecha), Petalward (Flora), Swiftfang (Fauna), Bouldershell (Rock), Frostwisp (Kami), Riceball (Food)
-- Player selects one trio to start; gets only those 3
+**Removed in the pivot:** Plasm, Longevity, Breeding Stones, Enhancer, Leathersmith, the 3-zone structure.
 
 **Visuals:** Placeholder colored rectangles per archetype. No sprites yet.
 
 ### What's NOT Built Yet
 
-- **Essence progression pivot (2026-07-23, design-approved, code not started)** — permanent essence-driven levels, depth-jumps, single 30-floor descent, town essence hub, removal of plasm/longevity/breeding-stones. The docs describe the new design; the code below still runs the old level-1-reset model.
-- Capture system (now Obols-based creature capture during runs)
-- Traits system (passive combat effects from TraitLibrary)
-- Marks system (run-earned bonuses with thresholds)
+- **Capture system** — the "collect" pillar; Obols-based capture during combat is not implemented (only data hooks exist)
+- **Traits system** + Trait-keeper vendor (traits unlock at essence thresholds; enables the *Essence Distiller* conversion lever)
+- **Marks system** + Mark-binder vendor (earn-then-lock; Floor Marks on bosses)
+- **Inventory / Quartermaster** vendor (backpack capacity; pairs with capture) + Obols→Essence conversion-rate levers
 - Run relics (temporary power-ups)
 - Auto-combat / tactics system
-- Breeding stones & Enhancer upgrades
-- Leathersmith (inventory/backpack upgrades)
-- Onboarding tutorial (old man encounter from onboarding.md)
-- Remaining ~47 abilities from Abilities.csv
-- Remaining 84 creatures (target: 96 total, 12 per archetype)
+- Onboarding tutorial (old-man flow in `onboarding.md`)
+- Remaining ~41 abilities from `Abilities.csv` (31 of 72)
+- Remaining creatures (36 of target 96)
 - Any art/sprites
+
+**Open thread:** a combat "freeze after one action" was seen while hot-reloading mid-edit — likely an HMR artifact, unconfirmed on a fresh load. Verify before assuming it's a real turn-loop bug.
+
+**Placeholder numbers to tune (playtest):** Obol rewards 5/25/75, conversion rate 0.5, wipe penalty 50%, level cost `10·L^1.5`, depth-jump `(floor-1)×15`, breeding carry-over 50%, enemy/XP scaling by floor/depth band.
 
 ## Key Design Rules (Don't Violate These)
 
-> **⚠️ 2026-07-23 Essence Pivot:** progression is now permanent and essence-driven. The design docs reflect this; the *code* still implements the old level-1-reset model. See `docs/superpowers/specs/2026-07-23-essence-progression-pivot-design.md` for the full pivot before implementing. Design rules below are the NEW target design.
+> **Essence pivot is implemented (Phases 1–4a merged).** Progression is permanent and essence-driven in the code, not just the docs. Full design: `docs/superpowers/specs/2026-07-23-essence-progression-pivot-design.md`.
 
 - **Two-tier currency: Obols → Essence.** Obols are the in-run token earned from fights, spent during the descent on heals/revives/capture/shops. On leaving the tower, **leftover Obols convert to Essence** (leftover-only; conversion rate boostable by traits/upgrades/depth). Essence is the permanent currency, spent on levels/traits/marks/depth-jumps/backpack. Essence is the only permanent store of value; Obols never persist. Plasm is removed. **A full wipe loses 50% of leftover Obols; the other 50% still converts** (a deliberate exit/win converts 100%).
 - Creatures keep a **permanent essence-driven level floor** between runs. Temporary in-run levels vanish at run end (Model A). Do NOT hard-code a level-1 reset.
@@ -111,9 +106,23 @@ src/
 - Both parents are **retired** when breeding, but invested essence **carries over** to the offspring as a jump-start.
 - **Longevity is removed.** No run counter, no forced retirement.
 - Tower is **one continuous 30-floor descent** — no zones. Mini-boss every 5 floors, major every 10. Depth-jumps buyable at cleared 5-floor breaks (buy 5 → start 6).
-- First floor (and any post-jump floor) is **combat**; last floor before a boss is **rest**.
+- First floor (and any post-jump floor) is **combat**. Rests are **occasional random filler** — never guaranteed before a boss.
+- Enemies pick a **random** living target (spread damage); single-target attacks **auto-target** when one enemy remains.
 - Player crits only — enemies cannot crit.
 - Buff/debuff stages cap at **±3**.
+
+## Roadmap / Next Steps
+
+**Done:** essence pivot Phases 1–4a (currency, permanent levels, 30-floor descent, Leveler + Gatekeeper vendors, breeding carry-over) + playtest tuning.
+
+**Next, in rough priority:**
+1. **Capture system** — Obols-based capture in combat; completes the "collect" pillar (most important missing gameplay). Design first, then build.
+2. **Traits system** + Trait-keeper vendor + Essence Distiller conversion lever.
+3. **Marks system** + Mark-binder vendor + Floor Marks on bosses.
+4. **Inventory / Quartermaster** vendor (backpack) — pairs with capture.
+5. Content & polish: more creatures (36→96), more abilities (31→72), onboarding tutorial, auto-combat, sprites.
+
+Each new system (capture/traits/marks/inventory) warrants its own design pass before implementation. Ongoing: tune the placeholder numbers listed above via playtest.
 
 ## Running the Project
 

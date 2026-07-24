@@ -34,7 +34,7 @@ Obols can be spent **right now** to survive the descent (heals, revives, capture
 
 * **Obols never persist.** They are a run-local resource. What you don't spend converts to Essence on exit; what you do spend is simply gone.
 * **Essence is permanent and non-refundable.** Once spent on a pet (a permanent level, trait, or bound mark), it is locked to that pet — it cannot be reclaimed for a future pet.
-* A **full wipe loses 50% of leftover Obols** — only half converts to Essence if the run ends in a wipe rather than a chosen exit (a deliberate exit or win converts 100%). The 50% figure is a placeholder push-your-luck lever, tunable in playtest.
+* A **full wipe loses 50% of leftover Obols** — only half converts to Essence if the run ends in a wipe rather than a chosen exit (a deliberate exit — including fleeing the tower via the **FLEE TOWER** button — or a win converts 100%, and captured creatures are kept; only an all-party wipe loses 50% and forfeits inventory). The 50% figure is a placeholder push-your-luck lever, tunable in playtest.
 
 > **Resolved:** the earlier single-shared-pool model (one essence pool spent both in-run and permanently) was rejected as too punishing. The two-tier Obols→Essence model with leftover-only conversion replaces it.
 
@@ -95,17 +95,15 @@ The tower is one continuous 30-floor descent with a **mini-boss every 5 floors**
 * Buy floor 10 → start at floor 11
 * …and so on up the tower.
 
-Depth-jumps are a **permanent Essence spend** (bought with banked Essence in town, never with in-run Obols). They are **gated by having cleared that break's boss** — you can only buy a jump to a break you've already reached. Cost rises with depth (deeper starts skip more Obol-earning fights, so they must cost more Essence than those fights would have yielded):
+Depth-jumps are gated by having cleared that break's boss — you can only select a start floor for a break you've already reached — but the Essence cost is **not** a one-time permanent purchase. It's charged **per run**, deducted from banked Essence at the moment the run begins (never from in-run Obols). Choosing floor 1 is always free; choosing a deeper unlocked start floor costs:
 
-| Break cleared | Start floor unlocked | Cost (placeholder) |
-| ----- | ----- | ----- |
-| Floor 5 | 6 | 150 |
-| Floor 10 | 11 | 400 |
-| Floor 15 | 16 | 800 |
-| Floor 20 | 21 | 1400 |
-| Floor 25 | 26 | 2200 |
+```
+depthJumpCost(startFloor) = max(0, (startFloor - 1) * 15)
+```
 
-Prices are starting placeholders to be tuned so a jump is a real bank-vs-spend decision, not an obvious purchase.
+(placeholder). If the player can't afford the selected start floor's cost when the run begins, the run falls back to floor 1 (free) instead. Cost scales linearly with depth (deeper starts skip more Obol-earning fights, so they must cost more Essence than those fights would have yielded); e.g. floor 6 costs 75, floor 11 costs 150, floor 26 costs 375.
+
+The per-run charge is a starting placeholder to be tuned so a jump is a real bank-vs-spend decision every run, not a one-time obvious purchase.
 
 ---
 

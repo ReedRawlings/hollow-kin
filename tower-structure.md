@@ -139,8 +139,8 @@ Bosses punctuate the single descent on a fixed cadence: a **mini-boss every 5 fl
 ## **Procedural Generation Rules**
 
 * Boss floors are fixed by the cadence (mini-boss every 5 floors, major boss every 10); the floors between are generated procedurally.
-* Encounter order is randomized within constraints: at least one shop and two rest points in each 5-floor stretch
-* The last floor before any boss (mini or major) is always a rest point
+* Encounter order is randomized within constraints: at least one shop in each 5-floor stretch
+* Rest points are **not guaranteed** anywhere in the descent, including the floor before a boss — they appear occasionally as random filler, roughly **~15% of non-boss floors** (removed the guaranteed pre-boss rest after playtest showed it made bosses too predictable/safe)
 * Combat encounters never appear more than three times consecutively
 * Rest and shop encounters should never appear more than twice consecutively
 * The first floor of a run (or the first floor after a depth-jump start) is always combat (to set the tone and difficulty)

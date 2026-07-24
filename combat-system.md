@@ -173,6 +173,7 @@ A creature at +3 ATK deals 1.5x its base STR in damage. A creature at -3 DEF tak
   * Specific relics may grant per-battle MP recovery
 * Running out of MP limits the creature to Basic Attack and Defend. Basic attack is an auto attack function when all other abilities run out of MP
 * MP stays drained after each encounter. Players must manager their teams MP strategically
+* Ability MP costs were tuned down ~40% across the board (max cost is now 7, was 12) for a healthier MP economy — creatures were running dry too fast under the original cost curve
 
 ---
 
@@ -220,7 +221,8 @@ Inspired by Dragon Quest's tactics system. The player assigns a general behavior
 * Enemy creatures do not have traits or marks — those are player-only progression systems
 * Enemy difficulty scales by **depth** through higher tier unlocks and composite levels, ramping across the single 30-floor descent (mini-boss every 5 floors, major every 10)
 * Boss creatures have unique abilities not available to player creatures and higher stat pools
-* Enemy AI follows simple priority rules: target lowest HP, use strongest available ability, apply status effects when available
+* Enemy AI follows simple priority rules: target a random living party member (damage spreads across the party rather than always focusing the lowest-HP creature), use strongest usable non-Status ability, apply status effects when available
+* When only one enemy is alive, single-target attacks auto-target it — no redundant target-selection step. Target selection is only presented to the player when 2+ enemies are alive.
 
 ---
 
