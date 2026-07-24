@@ -335,7 +335,10 @@ export class CombatScene extends Phaser.Scene {
 
     if (victory) {
       // Award XP and obols
-      const xpPerCreature = 8 + (this.encounter.type === 'boss' ? 20 : 5) * this.encounter.floor;
+      // Depth band (1-3) is the zone-equivalent value, not the raw floor (1-30) —
+      // using raw floor here would inflate XP ~10x at deep floors.
+      const depthBand = Math.floor((this.encounter.floor - 1) / 10) + 1;
+      const xpPerCreature = 8 + (this.encounter.type === 'boss' ? 20 : 5) * depthBand;
       const obolKind = this.encounter.type === 'boss'
         ? (this.encounter.bossTier ?? 'mini')
         : 'normal';
