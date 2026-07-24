@@ -33,12 +33,9 @@ describe('generateDescent', () => {
     }
   });
 
-  it('makes the first floor combat and the pre-boss floor rest', () => {
+  it('makes the first floor combat', () => {
     const d = generateDescent();
     expect(d[0].type).toBe('combat');
-    for (const f of [4, 9, 14, 19, 24, 29]) {
-      expect(d.find(e => e.floor === f)!.type).toBe('rest');
-    }
   });
 
   it('supports a depth-jump start floor', () => {
@@ -81,28 +78,14 @@ describe('generatePickNextChoices', () => {
   it('never offers a choice at or past the next boss from a real mid-segment index', () => {
     const d = generateDescent();
     const firstBossIdx = d.findIndex(e => e.type === 'boss'); // floor 5, index 4
-    // Index 0 (floor 1, forced combat already consumed) -> currentIndex 0 means
-    // "we are standing on floor 1's encounter", so remaining = floors 2..30.
-    // Floors 2 and 3 are real filler candidates before the floor-4 pre-boss rest
-    // and floor-5 boss, giving a genuine multi-choice pool to exercise the barrier.
+    // From currentIndex 0 (standing on floor 1), remaining = floors 2..30. Floors 2-4
+    // are filler candidates before the floor-5 boss, exercising the barrier over many
+    // randomized selections.
     for (let i = 0; i < 200; i++) {
       const choices = generatePickNextChoices(d, 0);
       for (const c of choices) {
         expect(c.index).toBeLessThan(firstBossIdx);
       }
-    }
-  });
-
-  it('never offers the pre-boss rest floor as a general (non-forced) choice', () => {
-    const d = generateDescent();
-    const firstBossIdx = d.findIndex(e => e.type === 'boss'); // floor 5, index 4
-    const preBossRestIdx = firstBossIdx - 1; // floor 4, index 3
-    expect(d[preBossRestIdx].type).toBe('rest');
-    // Loop many iterations since candidate selection/shuffling involves randomness;
-    // if the pre-boss rest were ever eligible, it would show up across 200 tries.
-    for (let i = 0; i < 200; i++) {
-      const choices = generatePickNextChoices(d, 0);
-      expect(choices.some(c => c.index === preBossRestIdx)).toBe(false);
     }
   });
 

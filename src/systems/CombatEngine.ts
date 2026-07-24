@@ -190,8 +190,9 @@ export function getEnemyAction(
   playerParty: CombatCreature[],
 ): { abilityId: string; target: CombatCreature } {
   const aliveTargets = playerParty.filter(c => !c.isKnockedOut);
-  const target = aliveTargets.reduce((lowest, c) =>
-    c.currentHp < lowest.currentHp ? c : lowest, aliveTargets[0]);
+  // Pick a random living target so enemies spread damage across the party
+  // instead of always focusing the same creature.
+  const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
 
   // Pick strongest usable ability
   const usable = enemy.instance.abilities

@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
 import { essenceCostForLevel } from '../systems/Economy';
-import { CreatureInstance } from '../types';
+import { CreatureInstance, BaseStats } from '../types';
 
 export class LevelerScene extends Phaser.Scene {
   private selectedId: string | null = null;
@@ -64,7 +64,7 @@ export class LevelerScene extends Phaser.Scene {
   }
 
   private drawActionPanel(creature: CreatureInstance, cx: number): void {
-    const y = 470;
+    const y = 430;
     const atCap = creature.permanentLevel >= creature.levelCap;
     const cost = essenceCostForLevel(creature.permanentLevel);
     const canAfford = gameState.essence >= cost;
@@ -76,11 +76,24 @@ export class LevelerScene extends Phaser.Scene {
       fontSize: '14px', color: atCap ? '#888888' : (canAfford ? '#e0d0a0' : '#aa6666'), fontFamily: 'monospace',
     }).setOrigin(0.5);
 
+    // Current stats (at the permanent level), with a → preview of the post-level-up values.
+    const statNames: (keyof BaseStats)[] = ['hp', 'mp', 'str', 'def', 'wis', 'spd', 'int'];
+    const cur = gameState.calculateStatsForLevel({ ...creature, currentLevel: creature.permanentLevel });
+    const nxt = atCap ? null : gameState.calculateStatsForLevel({ ...creature, currentLevel: creature.permanentLevel + 1 });
+    const fmt = (s: keyof BaseStats): string =>
+      nxt && nxt[s] !== cur[s] ? `${s.toUpperCase()} ${cur[s]}→${nxt[s]}` : `${s.toUpperCase()} ${cur[s]}`;
+    this.add.text(cx, y + 26, statNames.slice(0, 4).map(fmt).join('   '), {
+      fontSize: '12px', color: '#cccccc', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+    this.add.text(cx, y + 44, statNames.slice(4).map(fmt).join('   '), {
+      fontSize: '12px', color: '#cccccc', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
     if (!atCap) {
       const enabled = canAfford;
-      const bg = this.add.rectangle(cx, y + 45, 200, 46, enabled ? 0x336633 : 0x333333, enabled ? 0.9 : 0.6)
+      const bg = this.add.rectangle(cx, y + 85, 200, 46, enabled ? 0x336633 : 0x333333, enabled ? 0.9 : 0.6)
         .setStrokeStyle(2, enabled ? 0x44aa44 : 0x555555);
-      this.add.text(cx, y + 45, 'BUY LEVEL', {
+      this.add.text(cx, y + 85, 'BUY LEVEL', {
         fontSize: '15px', color: enabled ? '#ffffff' : '#777777', fontFamily: 'monospace',
       }).setOrigin(0.5);
       if (enabled) {

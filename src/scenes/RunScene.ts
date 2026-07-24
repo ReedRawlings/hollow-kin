@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
 import { generateDescent, generatePickNextChoices } from '../systems/RunGenerator';
+import { convertObolsToEssence } from '../systems/Economy';
 import { Encounter, RunState, TOWER_FLOORS } from '../types';
 
 export class RunScene extends Phaser.Scene {
@@ -84,7 +85,7 @@ export class RunScene extends Phaser.Scene {
     // Check if all KO'd
     const allKO = gameState.runParty.every(c => run.partyKO[c.instanceId]);
     if (allKO) {
-      this.showRunEnd(false);
+      this.showRunEnd('wiped');
       return;
     }
 
@@ -92,7 +93,7 @@ export class RunScene extends Phaser.Scene {
     const choices = generatePickNextChoices(run.encounters, run.currentEncounterIndex);
 
     if (choices.length === 0) {
-      this.showRunEnd(true); // reached the bottom (floor-30 boss cleared)
+      this.showRunEnd('cleared'); // reached the bottom (floor-30 boss cleared)
       return;
     }
 
@@ -112,9 +113,9 @@ export class RunScene extends Phaser.Scene {
       });
     });
 
-    // Flee button
+    // Flee button — a deliberate exit (keeps captures, converts Obols at 100%)
     this.createButton(cx, 500, 'FLEE TOWER', '#aa4444', () => {
-      this.showRunEnd(false);
+      this.showRunEnd('fled');
     });
   }
 
@@ -152,29 +153,35 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
-  private showRunEnd(success: boolean): void {
+  private showRunEnd(outcome: 'cleared' | 'fled' | 'wiped'): void {
     this.children.removeAll();
     const cx = this.cameras.main.centerX;
     const cy = this.cameras.main.centerY;
 
-    this.add.text(cx, cy - 80, success ? 'TOWER CLEARED!' : 'RUN OVER', {
-      fontSize: '32px', color: success ? '#ffdd88' : '#ff6644', fontFamily: 'monospace',
+    const isWipe = outcome === 'wiped';
+    const title = outcome === 'cleared' ? 'TOWER CLEARED!'
+      : outcome === 'fled' ? 'LEFT THE TOWER' : 'RUN OVER';
+    this.add.text(cx, cy - 80, title, {
+      fontSize: '32px', color: isWipe ? '#ff6644' : '#ffdd88', fontFamily: 'monospace',
     }).setOrigin(0.5);
 
     const run = gameState.currentRun!;
     const deepestFloor = run.currentEncounterIndex >= 0
       ? run.encounters[run.currentEncounterIndex].floor
       : run.startFloor;
+    // Preview the Essence the leftover Obols will convert into (a wipe loses 50% first).
+    const essenceGain = convertObolsToEssence(run.obols, { isWipe });
     this.add.text(cx, cy - 20, [
       `Floor Reached: ${deepestFloor} / ${TOWER_FLOORS}`,
-      `Obols Earned: ${run.obols}`,
+      `Obols: ${run.obols}  →  Essence: ${essenceGain}${isWipe ? '  (wipe: −50%)' : ''}`,
       `Creatures Captured: ${run.capturedCreatures.length}`,
     ].join('\n'), {
       fontSize: '14px', color: '#aaaaaa', fontFamily: 'monospace', align: 'center',
     }).setOrigin(0.5);
 
     this.createButton(cx, cy + 80, 'RETURN TO TOWN', '#4488aa', () => {
-      gameState.endRun(success, run.obols);
+      // A deliberate exit (cleared or fled) converts 100%; only a wipe loses 50%.
+      gameState.endRun(!isWipe, run.obols);
       gameState.saveToLocalStorage();
       this.scene.start('TownScene');
     });

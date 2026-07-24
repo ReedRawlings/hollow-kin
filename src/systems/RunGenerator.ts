@@ -7,12 +7,13 @@ export function poolForFloor(floor: number): string[] {
   return ZONE_CREATURE_POOLS[band] ?? ZONE_CREATURE_POOLS[1];
 }
 
-/** Non-boss, non-forced filler encounter type. */
+/** Non-boss filler encounter type. Rests appear occasionally but are never guaranteed. */
 function fillerType(): EncounterType {
-  // Weighted mix: mostly combat, some shop/event. (Rests are only the forced pre-boss ones.)
+  // Weighted mix: mostly combat, some shop/rest/event.
   const r = Math.random();
-  if (r < 0.6) return 'combat';
-  if (r < 0.8) return 'shop';
+  if (r < 0.5) return 'combat';
+  if (r < 0.7) return 'shop';
+  if (r < 0.85) return 'rest';
   return 'event';
 }
 
@@ -46,18 +47,14 @@ export function generateDescent(startFloor = 1): Encounter[] {
   let index = 0;
   for (let floor = startFloor; floor <= TOWER_FLOORS; floor++) {
     let type: EncounterType;
-    // NOTE: startFloor is expected to be a non-boss, non-pre-boss floor — either 1 or a
-    // break+1 floor (6, 11, 16, 21, 26). isBossFloor is checked first for simplicity;
-    // this is safe only under that assumption (no depth-jump start floor is ever a
-    // boss or pre-boss floor).
+    // NOTE: startFloor is expected to be a non-boss floor — either 1 or a break+1 floor
+    // (6, 11, 16, 21, 26). isBossFloor is checked first for simplicity.
     if (isBossFloor(floor)) {
       type = 'boss';
     } else if (floor === startFloor) {
       type = 'combat';                 // first floor of the run is always combat
-    } else if (isBossFloor(floor + 1)) {
-      type = 'rest';                   // floor immediately before a boss is rest
     } else {
-      type = fillerType();
+      type = fillerType();             // combat/shop/rest/event — no guaranteed rest
     }
     encounters.push(makeEncounter(type, floor, index));
     index++;
@@ -66,9 +63,8 @@ export function generateDescent(startFloor = 1): Encounter[] {
 }
 
 /**
- * Pick-next choices on the linear descent. Bosses and pre-boss rests are forced
- * (returned alone). Otherwise offer 2-3 encounters strictly before the next boss —
- * so a choice can never skip past a boss floor.
+ * Pick-next choices on the linear descent. Bosses are forced (returned alone) and a
+ * choice can never skip past a boss floor. Otherwise offer 2-3 upcoming encounters.
  */
 export function generatePickNextChoices(encounters: Encounter[], currentIndex: number): Encounter[] {
   const remaining = encounters.filter((_, i) => i > currentIndex);
@@ -79,20 +75,12 @@ export function generatePickNextChoices(encounters: Encounter[], currentIndex: n
 
   const next = remaining[0];
 
-  // Forced: the immediate next encounter is a boss, or a rest sitting right before a boss.
+  // Forced: the immediate next encounter is a boss.
   if (next.type === 'boss') return [next];
-  if (next.type === 'rest' && remaining[1]?.type === 'boss') return [next];
 
   // Barrier: cannot choose anything at or beyond the next boss.
   const nextBossPos = remaining.findIndex(e => e.type === 'boss');
-  const selectable = nextBossPos === -1 ? remaining : remaining.slice(0, nextBossPos);
-
-  // The pre-boss rest floor (the last element of `selectable` when a boss lies ahead)
-  // is reachable only as the forced immediate-next rest handled above — it must never
-  // appear in the general candidate pool. Exclude it, falling back to the full
-  // `selectable` list if that exclusion would leave no candidates.
-  const excludePreBossRest = nextBossPos !== -1 ? selectable.slice(0, -1) : selectable;
-  const candidates = excludePreBossRest.length > 0 ? excludePreBossRest : selectable;
+  const candidates = nextBossPos === -1 ? remaining : remaining.slice(0, nextBossPos);
 
   if (candidates.length <= 1) return candidates;
 
