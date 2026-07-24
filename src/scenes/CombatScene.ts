@@ -197,8 +197,14 @@ export class CombatScene extends Phaser.Scene {
             // For now, self-heal
             this.executePlayerAction(creature, abilityId, creature);
           } else {
-            // Target selection — highlight enemies
-            this.showTargetSelection(creature, abilityId);
+            // Single-enemy targeting: auto-target when only one enemy is alive,
+            // otherwise let the player pick.
+            const livingEnemies = this.enemyParty.filter(e => !e.isKnockedOut);
+            if (livingEnemies.length === 1) {
+              this.executePlayerAction(creature, abilityId, livingEnemies[0]);
+            } else {
+              this.showTargetSelection(creature, abilityId);
+            }
           }
         });
       }
