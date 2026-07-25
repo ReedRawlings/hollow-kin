@@ -218,17 +218,22 @@ function fightWisely(
   // 4. Hit hardest within a self-imposed budget of half its CURRENT MP. This
   //    spends freely while MP is plentiful and tightens automatically as it
   //    drains. Basic attack, at 0 MP, is always inside the budget.
-  //    (Deliberately not "best damage per MP" — with real ability numbers a
-  //    baseline creature's free basic_attack scores 12/1=12 while thrash
-  //    scores 45/5=9, so a damage-per-MP rule makes the free action beat
-  //    nearly every paid ability and collapses this tactic into a
-  //    basic-attack bot.)
+  //    (Deliberately not "best damage per MP": that scheme needs a
+  //    divide-by-zero guard for 0-MP abilities — e.g. scoring basic_attack's
+  //    cost as 1, not its real 0 — and with real numbers that guard makes
+  //    basic_attack score 12/1=12 while thrash scores 45/5=9, beating nearly
+  //    every paid ability and collapsing this tactic into a basic-attack bot.)
   const budget = Math.floor(actor.currentMp / 2);
   const withinBudget = options.filter(o => o.mpCost <= budget);
   const strongest = bestBy(withinBudget, o => o.damage);
   if (strongest) return toAction(strongest)!;
 
-  // 5. Nothing affordable.
+  // Type-level exhaustiveness branch, not a fifth rule: `bestBy` returns
+  // `Option | null`, so TypeScript requires this null case to be handled.
+  // It cannot execute at runtime — basic_attack always costs 0 MP, which is
+  // always <= the rule-4 budget, so `withinBudget` (and thus `strongest`)
+  // always contains at least basic_attack once any foe is alive. Do not go
+  // looking for the conditions that would trigger this; there are none.
   return fallback(actor, foes, known);
 }
 
@@ -247,6 +252,10 @@ function allOut(
   const hardest = bestBy(options, o => o.damage);
   if (hardest) return toAction(hardest)!;
 
+  // Type-level exhaustiveness branch, not a third rule: same reasoning as
+  // fightWisely's final branch above — basic_attack is free, so `options`
+  // always has at least one entry once any foe is alive, and `hardest` is
+  // never null. Do not go looking for the conditions that would trigger this.
   return fallback(actor, foes, known);
 }
 

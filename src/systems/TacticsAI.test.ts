@@ -143,9 +143,30 @@ describe('chooseAction — fight_wisely', () => {
     expect(action).toMatchObject({ abilityId: 'jab', target: foe });
   });
 
-  it('rule 3: uses a spread ability when it out-totals the best single hit', () => {
+  it('end-to-end: spread ability wins when it out-totals the best single hit', () => {
+    // At 20 MP, rule 4's budget (10) also admits discharge (cost 7), and
+    // discharge's party-wide total (126) trounces any single-target damage
+    // value — so this board doesn't discriminate rule 3 from rule 4; it just
+    // pins that the overall tactic ends up picking discharge. See the
+    // dedicated "rule 3" test below for the board that actually isolates it.
     const hero = makeTestCreature({
       speciesId: 'hero', mp: 20, abilities: ['discharge', 'spark'], // spread 70 / single 40
+    });
+    const a = makeTestCreature({ speciesId: 'fa', isPlayer: false });
+    const b = makeTestCreature({ speciesId: 'fb', isPlayer: false });
+    const c = makeTestCreature({ speciesId: 'fc', isPlayer: false });
+    const action = chooseAction(hero, [hero], [a, b, c], 'fight_wisely', NO_KNOWLEDGE);
+    expect(action).toMatchObject({ abilityId: 'discharge' });
+  });
+
+  it('rule 3: uses a spread ability when the budget in rule 4 would exclude it', () => {
+    // At 10 MP, rule 4's budget is floor(10/2) = 5, which excludes discharge
+    // (cost 7) — so without rule 3, the AI would fall through to rule 4 and
+    // pick spark (cost 3) instead. Rule 3 doesn't consult the budget at all,
+    // so it selects discharge here specifically because it out-totals the
+    // best single hit, not because it happens to also win downstream.
+    const hero = makeTestCreature({
+      speciesId: 'hero', mp: 10, abilities: ['discharge', 'spark'], // spread 70 / single 40
     });
     const a = makeTestCreature({ speciesId: 'fa', isPlayer: false });
     const b = makeTestCreature({ speciesId: 'fb', isPlayer: false });
@@ -188,7 +209,7 @@ describe('chooseAction — fight_wisely', () => {
       .toMatchObject({ abilityId: 'basic_attack' });
   });
 
-  it('rule 5: basic attacks with no MP', () => {
+  it('rule 4: basic attack is always within budget, even at 0 MP', () => {
     const hero = makeTestCreature({ speciesId: 'hero', mp: 0, abilities: ['thrash'] });
     const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
     expect(chooseAction(hero, [hero], [foe], 'fight_wisely', NO_KNOWLEDGE))
