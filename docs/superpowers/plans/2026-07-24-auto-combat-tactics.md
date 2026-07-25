@@ -377,8 +377,17 @@ export function makeTestCreature(opts: TestCreatureOpts = {}): CombatCreature {
     xp: 0,
   };
   const c = createCombatCreature(instance, template, opts.isPlayer ?? true);
-  if (opts.hp !== undefined) c.currentHp = opts.hp;
-  if (opts.mp !== undefined) c.currentMp = opts.mp;
+  // `stats` sets the maxima; `hp`/`mp` set the current values. An override
+  // above the stat-derived max raises the max with it, so `{ hp: 500 }` builds
+  // a tanky creature at full health rather than the impossible 500/100.
+  if (opts.hp !== undefined) {
+    c.currentHp = opts.hp;
+    if (opts.hp > c.maxHp) c.maxHp = opts.hp;
+  }
+  if (opts.mp !== undefined) {
+    c.currentMp = opts.mp;
+    if (opts.mp > c.maxMp) c.maxMp = opts.mp;
+  }
   c.isKnockedOut = c.currentHp <= 0;
   return c;
 }
@@ -445,6 +454,28 @@ describe('getEnemyAction — characterization', () => {
     vi.restoreAllMocks();
     seedRandom([0.99]);
     expect(getEnemyAction(enemy, [a, b, c]).target.instance.speciesId).toBe('c');
+
+    // The two seeds above pin index scaling but CANNOT catch a dropped KO
+    // filter: unfiltered, floor(0*3)=0 -> a and floor(0.99*3)=2 -> c, the same
+    // answers. 0.4 is the seed that diverges — filtered floor(0.8)=0 -> a,
+    // unfiltered floor(1.2)=1 -> b, the dead one. Without this the whole
+    // characterization is decorative.
+    vi.restoreAllMocks();
+    seedRandom([0.4]);
+    expect(getEnemyAction(enemy, [a, b, c]).target.instance.speciesId).toBe('a');
+  });
+
+  it('never returns a knocked-out target across a spread of seeds', () => {
+    const a = makeTestCreature({ speciesId: 'a' });
+    const b = makeTestCreature({ speciesId: 'b', hp: 0 });
+    const c = makeTestCreature({ speciesId: 'c' });
+    const enemy = makeTestCreature({ speciesId: 'foe', isPlayer: false, mp: 0 });
+
+    for (const seed of [0, 0.1, 0.3, 0.4, 0.5, 0.7, 0.9, 0.99]) {
+      vi.restoreAllMocks();
+      seedRandom([seed]);
+      expect(getEnemyAction(enemy, [a, b, c]).target.instance.speciesId).not.toBe('b');
+    }
   });
 
   it('consumes exactly one Math.random call per decision', () => {
