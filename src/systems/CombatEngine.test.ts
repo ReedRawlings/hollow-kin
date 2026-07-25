@@ -168,3 +168,60 @@ describe('getEnemyAction — characterization', () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 });
+
+import { calculateDamage, baseDamage } from './CombatEngine';
+import { getAbility } from '../data/abilities';
+
+describe('baseDamage', () => {
+  it('is deterministic and consumes no RNG', () => {
+    const spy = vi.spyOn(Math, 'random');
+    const a = makeTestCreature({ speciesId: 'a', isPlayer: true });
+    const d = makeTestCreature({ speciesId: 'd', isPlayer: false });
+    const first = baseDamage(a, d, getAbility('smash'), true);
+    const second = baseDamage(a, d, getAbility('smash'), true);
+    expect(first).toBe(second);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('applies the weakness multiplier only when asked', () => {
+    const a = makeTestCreature({ speciesId: 'a' });
+    const weak = makeTestCreature({ speciesId: 'd', weaknesses: ['Fire'] });
+    const ember = getAbility('ember');
+    expect(baseDamage(a, weak, ember, true)).toBeCloseTo(baseDamage(a, weak, ember, false) * 1.5);
+  });
+
+  it('applies the resistance multiplier only when asked', () => {
+    const a = makeTestCreature({ speciesId: 'a' });
+    const tough = makeTestCreature({ speciesId: 'd', resistances: ['Fire'] });
+    const ember = getAbility('ember');
+    expect(baseDamage(a, tough, ember, true)).toBeCloseTo(baseDamage(a, tough, ember, false) * 0.5);
+  });
+
+  it('halves damage against a defending target', () => {
+    const a = makeTestCreature({ speciesId: 'a' });
+    const d = makeTestCreature({ speciesId: 'd' });
+    const open = baseDamage(a, d, getAbility('smash'), true);
+    d.isDefending = true;
+    expect(baseDamage(a, d, getAbility('smash'), true)).toBeCloseTo(open * 0.5);
+  });
+});
+
+describe('calculateDamage — RNG contract', () => {
+  it('rolls hit before crit, and misses without rolling crit', () => {
+    // First value > hitChance forces a miss; only one roll should be consumed.
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.99);
+    const a = makeTestCreature({ speciesId: 'a', isPlayer: true });
+    const d = makeTestCreature({ speciesId: 'd', isPlayer: false });
+    // seismic_slam has accuracy 90, so 0.99 > 0.90 misses.
+    const result = calculateDamage(a, d, getAbility('seismic_slam'));
+    expect(result.missed).toBe(true);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not crit for enemy attackers', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const enemy = makeTestCreature({ speciesId: 'foe', isPlayer: false });
+    const hero = makeTestCreature({ speciesId: 'hero', isPlayer: true });
+    expect(calculateDamage(enemy, hero, getAbility('smash')).isCrit).toBe(false);
+  });
+});
