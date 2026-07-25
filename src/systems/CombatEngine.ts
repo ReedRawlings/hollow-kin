@@ -4,7 +4,6 @@ import {
   CRIT_MULTIPLIER, BASE_CRIT_RATE, HIGH_CRIT_RATE, MIN_HIT_CHANCE,
   DamageType,
 } from '../types';
-import { getAbility } from '../data/abilities';
 
 export function calculateTurnOrder(combatants: CombatCreature[]): CombatCreature[] {
   const alive = combatants.filter(c => !c.isKnockedOut);
@@ -204,29 +203,6 @@ export function isSkipTurn(creature: CombatCreature): boolean {
   return creature.statusEffects.some(
     s => s.type === 'freeze' || s.type === 'stun' || s.type === 'sleep'
   );
-}
-
-export function getEnemyAction(
-  enemy: CombatCreature,
-  playerParty: CombatCreature[],
-): { abilityId: string; target: CombatCreature } {
-  const aliveTargets = playerParty.filter(c => !c.isKnockedOut);
-  // Pick a random living target so enemies spread damage across the party
-  // instead of always focusing the same creature.
-  const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
-
-  // Pick strongest usable ability
-  const usable = enemy.instance.abilities
-    .filter((id): id is string => id !== null)
-    .map(id => getAbility(id))
-    .filter(a => a.mpCost <= enemy.currentMp && a.category !== 'Status');
-
-  if (usable.length > 0) {
-    usable.sort((a, b) => b.power - a.power);
-    return { abilityId: usable[0].id, target };
-  }
-
-  return { abilityId: 'basic_attack', target };
 }
 
 export function createCombatCreature(

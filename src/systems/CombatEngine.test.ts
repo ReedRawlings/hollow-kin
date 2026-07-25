@@ -2,7 +2,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   CombatCreature, CreatureInstance, CreatureTemplate, BaseStats, DamageType,
 } from '../types';
-import { createCombatCreature, getEnemyAction } from './CombatEngine';
+import { createCombatCreature } from './CombatEngine';
+import { getEnemyAction } from './TacticsAI';
 
 export function testStats(over: Partial<BaseStats> = {}): BaseStats {
   return { hp: 100, mp: 20, str: 40, def: 20, wis: 20, spd: 20, int: 40, ...over };

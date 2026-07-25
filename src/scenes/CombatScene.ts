@@ -8,9 +8,10 @@ import {
 } from '../types';
 import {
   calculateTurnOrder, calculateDamage, applyDamage, applyHeal,
-  applyAbilityEffects, tickStatusEffects, isSkipTurn, getEnemyAction,
+  applyAbilityEffects, tickStatusEffects, isSkipTurn,
   createCombatCreature,
 } from '../systems/CombatEngine';
+import { getEnemyAction } from '../systems/TacticsAI';
 import { obolsForEncounter } from '../systems/Economy';
 import { renderBattlefield } from './combat/BattlefieldRenderer';
 
