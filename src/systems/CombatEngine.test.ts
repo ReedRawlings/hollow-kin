@@ -224,4 +224,16 @@ describe('calculateDamage — RNG contract', () => {
     const hero = makeTestCreature({ speciesId: 'hero', isPlayer: true });
     expect(calculateDamage(enemy, hero, getAbility('smash')).isCrit).toBe(false);
   });
+
+  it('returns damage: 0 for zero-power Status abilities that hit (guards against baseDamage early return regression)', () => {
+    // bold has power: 0, accuracy: 100. Math.random() for hit check must be < 1.0.
+    seedRandom([0]);
+    const user = makeTestCreature({ speciesId: 'user', isPlayer: true });
+    const target = makeTestCreature({ speciesId: 'target', isPlayer: false });
+    const result = calculateDamage(user, target, getAbility('bold'));
+    // Without the early return at line 73, baseDamage returns 0, but then line 88
+    // would return Math.max(1, 0) = 1, breaking zero-power abilities.
+    expect(result.damage).toBe(0);
+    expect(result.missed).toBe(false);
+  });
 });
