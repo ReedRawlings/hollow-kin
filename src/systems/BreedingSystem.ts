@@ -84,5 +84,6 @@ export function breed(
     isRetired: false,
     isBreedReady: false,
     xp: 0,
+    tactic: 'fight_wisely',
   };
 }

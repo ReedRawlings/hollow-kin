@@ -224,3 +224,58 @@ describe('depth-jump start floor', () => {
     expect(gameState.selectedStartFloor).toBe(6);
   });
 });
+
+describe('tactics and settings persistence', () => {
+  it('gives new creatures the balanced tactic by default', () => {
+    const c = gameState.createCreatureInstance('ironjaw', 0);
+    expect(c.tactic).toBe('fight_wisely');
+  });
+
+  it('records seen species without duplicates', () => {
+    gameState.seenSpecies = new Set();
+    gameState.recordSeenSpecies('ironjaw');
+    gameState.recordSeenSpecies('ironjaw');
+    expect(gameState.seenSpecies.size).toBe(1);
+    expect(gameState.seenSpecies.has('ironjaw')).toBe(true);
+  });
+
+  it('round-trips seenSpecies, battleSpeed, and tactic through save/load', () => {
+    gameState.initializeNewGame(['ironjaw']);
+    gameState.creatureBox[0].tactic = 'heal_first';
+    gameState.seenSpecies = new Set(['mossgolem', 'petalward']);
+    gameState.battleSpeed = 4;
+    gameState.saveToLocalStorage();
+
+    gameState.creatureBox = [];
+    gameState.seenSpecies = new Set();
+    gameState.battleSpeed = 1;
+    expect(gameState.loadFromLocalStorage()).toBe(true);
+
+    expect(gameState.creatureBox[0].tactic).toBe('heal_first');
+    expect(gameState.battleSpeed).toBe(4);
+    expect([...gameState.seenSpecies].sort()).toEqual(['mossgolem', 'petalward']);
+  });
+
+  it('migrates a v2 save with safe defaults', () => {
+    localStorage.setItem('hollow_kin_save', JSON.stringify({
+      version: 2,
+      essence: 40,
+      deepestBreakCleared: 5,
+      selectedStartFloor: 1,
+      hasCompletedFirstRun: true,
+      creatureBox: [{
+        instanceId: 'old-1', speciesId: 'ironjaw', nickname: null, starRating: 1,
+        currentLevel: 3, levelCap: 10, abilities: ['ember'], traitSlots: [],
+        lineage: { parentA: null, parentB: null },
+        currentStats: { hp: 50, mp: 10, str: 10, def: 10, wis: 10, spd: 10, int: 10 },
+        resistances: [], weaknesses: [], isRetired: false, isBreedReady: false, xp: 0,
+      }],
+    }));
+
+    expect(gameState.loadFromLocalStorage()).toBe(true);
+    expect(gameState.creatureBox[0].tactic).toBe('fight_wisely');
+    expect(gameState.battleSpeed).toBe(1);
+    expect(gameState.seenSpecies.size).toBe(0);
+    expect(gameState.essence).toBe(40);
+  });
+});

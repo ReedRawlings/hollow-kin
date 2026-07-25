@@ -83,6 +83,7 @@ export class CombatScene extends Phaser.Scene {
         isRetired: false,
         isBreedReady: false,
         xp: 0,
+        tactic: 'fight_wisely', // unused for enemies; they run the enemy_default profile
       };
       // Scale enemy stats by level
       const statNames = ['hp', 'mp', 'str', 'def', 'wis', 'spd', 'int'] as const;

@@ -1,6 +1,7 @@
 import {
   CreatureInstance, RunState, BaseStats,
   STAR_LEVEL_CAPS, generateId, isBossFloor, TOWER_FLOORS,
+  BattleSpeed, TacticId,
 } from '../types';
 import { getTemplate } from '../data/creatures';
 import { convertObolsToEssence, essenceCostForLevel, depthJumpCost } from '../systems/Economy';
@@ -13,6 +14,8 @@ class GameStateManager {
   selectedStartFloor = 1;
   currentRun: RunState | null = null;
   hasCompletedFirstRun = false;
+  seenSpecies: Set<string> = new Set();
+  battleSpeed: BattleSpeed = 1;
 
   createCreatureInstance(speciesId: string, starRating = 0): CreatureInstance {
     const template = getTemplate(speciesId);
@@ -40,6 +43,7 @@ class GameStateManager {
       isRetired: false,
       isBreedReady: false,
       xp: 0,
+      tactic: 'fight_wisely',
     };
   }
 
@@ -93,6 +97,17 @@ class GameStateManager {
   recordBreakCleared(floor: number): void {
     if (!isBossFloor(floor)) return;
     if (floor > this.deepestBreakCleared) this.deepestBreakCleared = floor;
+  }
+
+  /** Note that the player has met this species; unlocks weakness use for auto-combat. */
+  recordSeenSpecies(speciesId: string): void {
+    this.seenSpecies.add(speciesId);
+  }
+
+  /** Cycle 1x -> 2x -> 4x -> 1x. Returns the new speed. */
+  cycleBattleSpeed(): BattleSpeed {
+    this.battleSpeed = this.battleSpeed === 1 ? 2 : this.battleSpeed === 2 ? 4 : 1;
+    return this.battleSpeed;
   }
 
   /** Floors a run may start on: floor 1, plus the floor after each cleared 5-floor break. */
@@ -181,16 +196,20 @@ class GameStateManager {
     this.deepestBreakCleared = 0;
     this.selectedStartFloor = 1;
     this.hasCompletedFirstRun = false;
+    this.seenSpecies = new Set();
+    this.battleSpeed = 1;
   }
 
   saveToLocalStorage(): void {
     const data = {
-      version: 2,
+      version: 3,
       creatureBox: this.creatureBox,
       essence: this.essence,
       deepestBreakCleared: this.deepestBreakCleared,
       selectedStartFloor: this.selectedStartFloor,
       hasCompletedFirstRun: this.hasCompletedFirstRun,
+      seenSpecies: [...this.seenSpecies],
+      battleSpeed: this.battleSpeed,
     };
     localStorage.setItem('hollow_kin_save', JSON.stringify(data));
   }
@@ -205,12 +224,16 @@ class GameStateManager {
       this.deepestBreakCleared = data.deepestBreakCleared ?? 0;
       this.selectedStartFloor = data.selectedStartFloor ?? 1;
       this.hasCompletedFirstRun = data.hasCompletedFirstRun ?? false;
+      // v3 additions — absent on v2 saves, so default safely.
+      this.seenSpecies = new Set<string>(data.seenSpecies ?? []);
+      this.battleSpeed = (data.battleSpeed ?? 1) as BattleSpeed;
       this.creatureBox = (data.creatureBox ?? []).map((c: any) => {
         const { longevity, ...rest } = c; // drop longevity if present
         return {
           ...rest,
           permanentLevel: c.permanentLevel ?? 1,
           essenceInvested: c.essenceInvested ?? 0,
+          tactic: (c.tactic ?? 'fight_wisely') as TacticId,
         } as CreatureInstance;
       });
       return true;

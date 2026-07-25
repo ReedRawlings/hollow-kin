@@ -51,6 +51,7 @@ export function makeTestCreature(opts: TestCreatureOpts = {}): CombatCreature {
     isRetired: false,
     isBreedReady: false,
     xp: 0,
+    tactic: 'fight_wisely',
   };
   const c = createCombatCreature(instance, template, opts.isPlayer ?? true);
   // opts.hp/opts.mp set currentHp/currentMp directly. createCombatCreature already

@@ -27,6 +27,7 @@ export class RunScene extends Phaser.Scene {
         partyMp: {},
         partyKO: {},
         xpEarned: 0,
+        autoCombat: false,
       };
       // Initialize party HP/MP
       for (const c of gameState.runParty) {
