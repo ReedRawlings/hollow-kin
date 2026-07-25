@@ -1,140 +1,105 @@
 # Monsterpedia — Design Spec
 
 **Date:** 2026-07-25
-**Status:** Draft for review — decisions marked below need your sign-off
-**Scope:** A persistent creature catalog. Turns the `seenSpecies` data auto-combat already collects into something the player can see, and gives auto-combat's knowledge fog a progression curve instead of a binary flip.
-
-> **Read this first.** You asked for a plan to review, so unlike the auto-combat spec this one was written without a back-and-forth. I made the calls I'd have asked about and marked each one **[DECISION]** with the alternative I rejected and why. Overturn any of them and I'll revise — §9 says which plan tasks each one moves.
+**Status:** Approved — single-tier discovery
+**Scope:** A persistent creature catalog that surfaces the `seenSpecies` data auto-combat already collects. Read-only UI over existing state.
 
 ---
 
-## Why This One, Now
+## Guiding Principle
 
-Three things point at it:
+**Draw the screen, don't build a system.** This ships a catalog over data the game already records. It adds no new persisted state, no save migration, and changes nothing about combat or the auto-combat knowledge fog.
 
-- `game-design-document.md:435` lists "Bestiary / Monsterpedia design" as referenced by two systems but having no dedicated doc. It is the last undesigned dependency of work already shipped.
-- `combat-system.md:212` says auto-combat "does not know enemy resistances until they've been encountered before... We'll need to develop a monsterpedia to track creature strength/weaknesses we can leverage here." The auto-combat branch built the *storage* for this (`gameState.seenSpecies`) but nothing reads it except the AI, and nothing shows it to the player.
-- `ui-ux.md:101-107` already sketches the screen. Most of the design work is deciding what knowledge means, not what the screen looks like.
-
-It is also genuinely small: one new scene, one data-model change, one save migration. No new combat mechanics.
+That is a deliberate narrowing. An earlier draft proposed two knowledge tiers — Encountered (met) versus Studied (beaten), with the fog reading the second tier — so that beating a creature, not merely meeting it, taught your AI its weaknesses. That was rejected in favour of the smaller version, and the reasoning holds up: with only 36 creatures in the roster, a graded-knowledge system would add ceremony to a catalog that does not yet have enough content to justify it. The two-tier idea is recorded in §7 as a future option if the roster grows and the fog starts feeling binary.
 
 ---
 
-## 1. The core design question: what does "knowing" a creature mean?
+## 1. What already exists
 
-Today `seenSpecies` is a flat `Set<string>` — you have met a species or you have not, and meeting it once tells auto-combat everything about its resistances. That is the cheapest possible model and it wastes the interesting part.
+The auto-combat branch shipped the data layer:
 
-**[DECISION 1] Two knowledge tiers, not one.**
+- `gameState.seenSpecies: Set<string>` — species the player has met, persisted in save v3.
+- Recording happens in `CombatScene.showBattleEnd()`, the single choke point both battle-end paths pass through, so a species is recorded **whether the player won or lost** but *not* during the fight that introduced it. That timing is what makes the fog's "blind on first encounter" promise real.
+- `TacticsAI.chooseAction` receives this set as its `known` argument and applies type multipliers only for species in it.
 
-| Tier | Earned by | Unlocks |
-|---|---|---|
-| **Encountered** | The species appears in a battle you enter | Name, archetype, sprite colour, the fact that it exists. Entry stops being a silhouette. |
-| **Studied** | You defeat at least one of that species | Base stats, default abilities, resistances and weaknesses. **Auto-combat's fog reads this tier.** |
+**This spec adds no state.** Everything below reads `seenSpecies` and `CREATURE_TEMPLATES`.
 
-Why two rather than one: meeting a creature and understanding it are different things, and the gap is where the Monsterpedia earns its place. Under a binary model the catalog is a checklist you never revisit. Under two tiers, "I've seen it but haven't beaten it" is a real state with a real consequence — your Fight Wisely creatures swing blind at it until you win once.
+## 2. Discovery model
 
-Why not three or more (e.g. "defeat 5 times → full stat block"): grind for information is a tax, not a decision. Two tiers is the smallest model that makes the distinction meaningful.
+One state per species: **discovered** or **not**. `seenSpecies.has(speciesId)` is the whole model.
 
-**Consequence for already-merged work, flagged explicitly:** the auto-combat branch records `seenSpecies` at *encounter start*. Under this design the fog moves to the Studied tier, so `TacticsAI` gets its knowledge set from defeats instead. That is a real behavior change to code that just shipped — auto-combat becomes blind slightly longer. I think that is the correct behavior and it is a two-line change, but it is a change, and you should know it is on the table before approving.
+- Not discovered → the entry is a silhouette. No name, no stats. Per `ui-ux.md:106`, "no spoilers."
+- Discovered → everything: name, archetype, base stats, default abilities, resistances, weaknesses.
 
-## 2. Data model
+There is no partial reveal and no per-entry counter. A species you have met once shows the same as one you have fought twenty times.
 
-Replace the flat set with a record keyed by species id:
-
-```ts
-export interface BestiaryEntry {
-  speciesId: string;
-  encountered: boolean;
-  studied: boolean;      // implies encountered
-  defeatCount: number;   // displayed; also the studied trigger
-  capturedCount: number; // reserved for the capture system; 0 until then
-}
-```
-
-`GameState` gains `bestiary: Record<string, BestiaryEntry>` and drops `seenSpecies`.
-
-**[DECISION 2] Replace `seenSpecies` rather than keeping both.** Keeping a set alongside a record would be two sources of truth for the same fact, and they would drift. The AI's `KnownSpecies` type is already `ReadonlySet<string>`, so `GameState` exposes a derived getter — `studiedSpecies(): ReadonlySet<string>` — and `TacticsAI` needs no change at all beyond what it is handed.
-
-**Save migration v3 → v4.** A v3 save has `seenSpecies: string[]`. Each entry migrates to `{ encountered: true, studied: true, defeatCount: 0, capturedCount: 0 }`.
-
-**[DECISION 3] Migrate existing `seenSpecies` to Studied, not Encountered.** Those species were met *and* almost certainly beaten — you don't survive to save otherwise. Migrating them to Encountered-only would silently make auto-combat dumber for a player who did nothing wrong. `defeatCount: 0` is a small lie (the real count is unknown and unrecoverable), so the UI shows "—" rather than "0" for entries with `studied: true && defeatCount === 0`.
-
-## 3. Recording
-
-Two hooks in `CombatScene`:
-
-- **Encountered** — in `initBattle`, per enemy species. This is where `recordSeenSpecies` already lives; it becomes `recordEncountered`.
-- **Studied** — on victory, per *distinct* enemy species in that encounter. Increments `defeatCount` and sets `studied`.
-
-**[DECISION 4] Fleeing or wiping records Encountered but not Studied.** You saw it; you didn't beat it. This is what makes the tier gap real.
-
-**[DECISION 5] Species-level, not instance-level.** Beating one Emberwhelp teaches you about Emberwhelp generally. Tracking per-instance would be noise — the player never meets the same instance twice.
-
-## 4. The screen
+## 3. The screen
 
 A new `BestiaryScene`, reached from town.
 
-**Grid of entries**, one per species in `CREATURES` (36 today, 96 eventually), ordered by archetype then species id so the layout is stable as the roster grows and a player can learn where things sit.
+**Grid**, one cell per species in `CREATURE_TEMPLATES`, ordered by **archetype, then species id**. Stable ordering matters more than it sounds: the player learns where things sit, and the layout must not reshuffle as the roster grows from 36 toward 96.
 
-- **Undiscovered:** dark silhouette, archetype-tinted, no name. Per `ui-ux.md:106` — "no spoilers."
-- **Encountered:** sprite colour, name, archetype. Stats and resistances shown as `???`.
-- **Studied:** everything — base stats, default abilities, resistances, weaknesses, defeat count.
+Each cell shows the sprite colour block and the name (or a dimmed silhouette block and `???` when undiscovered).
 
-A header counter: `Studied 12 / Encountered 19 / 36`. Completion is the whole reward for a catalog; it should be legible at a glance.
+**Header counter:** `Discovered 19 / 36`. Completion is the entire reward a catalog offers; it should be readable at a glance.
 
-**[DECISION 6] Detail-on-click, not everything-inline.** 36 full stat blocks will not fit at 960×640, and 96 certainly won't. The grid shows sprite, name, and tier; clicking opens a detail panel. This also gives the future capture and breed-recipe content somewhere to live without a redesign.
+**Detail on click.** 36 full stat blocks do not fit at 960×640, and 96 certainly will not. Clicking a discovered cell opens a detail panel with the full entry; clicking an undiscovered cell does nothing. This also leaves somewhere for capture counts and breed recipes to live later without a redesign.
 
-**[DECISION 7] Town-only for now, not accessible mid-run.** In-run access is a genuine convenience — checking a weakness mid-descent is exactly when you want it — but it means a scene push/pop over `RunScene` and `CombatScene` with save-state care, and it makes the fog partially pointless if you can look up what your creatures supposedly don't know. Town-only first; revisit after playtest. I'd rather ship the catalog and learn whether you miss it in-run than build the harder version blind.
+**Paging.** 36 cells fit on one screen at a sensible cell size; 96 will not. The grid takes a page size and a page index from the start, with next/previous controls that hide themselves when there is only one page. Retrofitting paging onto a single-screen grid later is more work than accommodating it now, and this is the one piece of forward-thinking worth paying for.
 
-## 5. What this deliberately does NOT include
+**Town-only.** Not reachable mid-run. In-run access would be a genuine convenience — checking a weakness mid-descent is exactly when you want it — but it needs scene push/pop over `RunScene` and `CombatScene` with run-state care, and it partly defeats the fog if you can look up what your creatures supposedly do not know. Revisit after playtest.
 
-- **Breed-only recipes.** `creature-roster-and-generation.md:246` says discovered breed-only creatures record their parent combination here. Breed-only creatures do not exist in the code yet. The `BestiaryEntry` shape leaves room (a `discoveredVia` field is an additive migration later), but building recipe display for content that does not exist is speculative.
-- **Capture counts as a real feature.** `capturedCount` is in the shape because the capture system is the next roadmap item and adding a field later is a migration; populating it is not this task's job.
-- **Variant tracking.** `creature-roster-and-generation.md:249` mentions wild variants of bred creatures. Not designed yet; out of scope.
-- **Notifications.** `ui-ux.md:152` asks how the player learns about a breed-only discovery. Depends on breed-only creatures existing. Deferred.
+## 4. Architecture
+
+`BestiaryScene` renders; a small pure module holds everything worth testing.
+
+```
+src/systems/Bestiary.ts     — pure: entry list construction, progress counts, paging
+src/scenes/BestiaryScene.ts — grid + detail panel + paging controls
+src/scenes/TownScene.ts     — entry point button
+```
+
+`src/systems/Bestiary.ts` exposes:
+
+- `BestiaryEntry` — a view model: `{ speciesId, name, archetype, discovered, template }`.
+- `buildBestiary(seen: ReadonlySet<string>): BestiaryEntry[]` — every species in `CREATURE_TEMPLATES`, sorted by archetype then id, each flagged discovered or not.
+- `bestiaryProgress(entries): { discovered: number; total: number }`.
+- `pageOf(entries, pageIndex, pageSize): BestiaryEntry[]` and `pageCount(total, pageSize): number`.
+
+The scene holds no derivation logic — it takes the entry list and draws it. That is what keeps this testable without a Phaser harness, which the project does not have.
+
+## 5. Element lifecycle — non-negotiable
+
+The auto-combat branch fixed two real bugs caused by the same trap, and `BestiaryScene` is a redrawing scene (paging, opening and closing the detail panel), so it will hit the same trap.
+
+**Phaser's `children.removeAll()` only detaches objects from the display list. It does not call `.destroy()` and does not deregister input handlers.** Detached interactive objects stay live and clickable — invisible hotspots that fire the wrong thing.
+
+`BestiaryScene` must follow the pattern `CombatScene` and `RunScene` now use: track every interactive object it creates, and `.destroy()` them before each redraw. Do not rely on `removeAll()`.
 
 ## 6. Testing
 
-- `GameState`: `recordEncountered` / `recordDefeated` set the right tiers; defeating implies encountered; `defeatCount` increments per victory, not per enemy instance of the same species in one fight.
-- `studiedSpecies()` returns only studied entries — the fog must not leak encountered-but-unbeaten species.
-- Migration: a v3 save's `seenSpecies` array becomes studied entries; a v4 save round-trips; a save with neither field yields an empty bestiary.
-- A pure `bestiaryProgress(bestiary)` helper returning `{ studied, encountered, total }` — tested directly rather than through the scene.
+`Bestiary.ts` is pure functions over plain data, so it tests under vitest with no Phaser:
 
-Scene rendering stays untested, consistent with the rest of the project (no Phaser test harness exists).
+- `buildBestiary` returns one entry per species in `CREATURE_TEMPLATES`, with `discovered` matching the passed set, and marks nothing discovered for an empty set.
+- Ordering is by archetype then species id, and is stable — assert an exact expected sequence for a small fixture rather than merely "sorted".
+- `bestiaryProgress` counts discovered against total.
+- `pageOf` / `pageCount`: exact page boundaries, the final partial page, an out-of-range index, and a total that divides evenly (the off-by-one that page maths always gets wrong).
 
-## 7. Files
+Scene rendering stays untested, consistent with the rest of the project.
 
-```
-src/types.ts                  — BestiaryEntry interface
-src/managers/GameState.ts     — bestiary record, record/query methods, save v4
-src/systems/Bestiary.ts       — pure helpers (progress counts, tier resolution)
-src/scenes/BestiaryScene.ts   — grid + detail panel
-src/scenes/TownScene.ts       — entry point button
-src/scenes/CombatScene.ts     — swap recordSeenSpecies for the two hooks
-src/systems/TacticsAI.ts      — unchanged; receives studiedSpecies() from the caller
-```
+## 7. Explicitly out of scope
 
-`BestiaryScene` is the only substantial new file. If the grid and detail panel together push past ~250 lines, the detail panel splits out — the auto-combat branch already established `src/scenes/combat/` as the pattern for that.
+- **Two-tier knowledge.** Rejected for now (see Guiding Principle). Revisit if the roster grows past ~60 and the fog starts feeling like a formality.
+- **Breed-only recipes.** `creature-roster-and-generation.md:246` says discovered breed-only creatures record their parent combination here. Breed-only creatures do not exist in the code yet.
+- **Capture counts.** The capture system is the next roadmap item; the detail panel has room when it lands.
+- **Variant tracking**, per `creature-roster-and-generation.md:249`. Not designed.
+- **Discovery notifications** (`ui-ux.md:152`). Depends on breed-only creatures existing.
+- **In-run access.** See §3.
 
-## 8. Risks
+## 8. Known limitation
 
-- **The fog change is the only thing here that alters existing behavior.** Everything else is additive. If Decision 1 is rejected, the whole spec collapses to "draw a screen over the existing set" — much smaller, and honestly still worth doing.
-- **36 entries is not enough content for a catalog to feel good.** At 96 it will. This ships slightly ahead of the content that justifies it, which is fine — it is cheaper to build now than to retrofit onto 96 creatures plus capture plus traits.
+36 entries is thin for a catalog. It will feel better at 96. This ships slightly ahead of the content that justifies it, which is the right order — it is cheaper to build now than to retrofit onto 96 creatures plus capture plus traits.
 
-## 9. If you overturn a decision
+## 9. Open question for playtest
 
-| Decision | If rejected | Plan impact |
-|---|---|---|
-| 1 — two tiers | Keep binary discovery | Drops the `studied` field, the victory hook, and the fog change. Tasks 1, 3, 5 shrink; roughly halves the work. |
-| 2 — replace `seenSpecies` | Keep both | Adds a sync concern; I'd argue against it, but it is a smaller diff. |
-| 3 — migrate to Studied | Migrate to Encountered | One line, but existing saves lose auto-combat knowledge until re-earned. |
-| 6 — detail on click | Everything inline | Only viable at 36 creatures; would need redesign before 96. |
-| 7 — town-only | In-run access too | Adds a task for scene push/pop and run-state preservation. |
-
----
-
-## Open questions for you
-
-1. **Decision 1 is the one that matters.** Two tiers, or keep it binary and just draw the screen?
-2. Does `defeatCount` belong on the entry at all, or is it stat-tracking you don't want to commit to displaying?
-3. Should the Monsterpedia eventually gate anything besides auto-combat's fog — capture rates, for instance — or is it purely informational plus the fog?
+Should the Monsterpedia eventually gate anything beyond auto-combat's fog — capture rates, for instance — or stay purely informational? Nothing in this spec depends on the answer.
