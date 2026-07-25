@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
+import { TACTIC_ORDER, TACTIC_LABELS } from '../types';
 
 export class PartySelectScene extends Phaser.Scene {
   private selected: string[] = [];
@@ -55,6 +56,22 @@ export class PartySelectScene extends Phaser.Scene {
       });
       this.add.text(x - 45, y + 58, `Lv ${creature.permanentLevel}`, {
         fontSize: '10px', color: '#44ff44', fontFamily: 'monospace',
+      });
+
+      // Tactic cycler — a standing behavior for auto-combat, persists across runs.
+      const tacticBg = this.add.rectangle(x + 62, y + 62, 96, 18, 0x223344, 0.95)
+        .setStrokeStyle(1, 0x446688).setInteractive({ useHandCursor: true });
+      const tacticText = this.add.text(x + 62, y + 62, TACTIC_LABELS[creature.tactic], {
+        fontSize: '9px', color: '#88bbdd', fontFamily: 'monospace',
+      }).setOrigin(0.5);
+
+      tacticBg.on('pointerover', () => tacticBg.setFillStyle(0x334466));
+      tacticBg.on('pointerout', () => tacticBg.setFillStyle(0x223344));
+      tacticBg.on('pointerdown', () => {
+        const idx = TACTIC_ORDER.indexOf(creature.tactic);
+        creature.tactic = TACTIC_ORDER[(idx + 1) % TACTIC_ORDER.length];
+        tacticText.setText(TACTIC_LABELS[creature.tactic]);
+        gameState.saveToLocalStorage();
       });
 
       bg.on('pointerdown', () => this.toggleSelect(creature.instanceId, bg));
