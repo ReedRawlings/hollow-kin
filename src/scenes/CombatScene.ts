@@ -5,6 +5,7 @@ import { getAbility } from '../data/abilities';
 import {
   CombatCreature, BattlePhase, Encounter, CreatureInstance,
   generateId, STAR_LEVEL_CAPS, TacticId, COMBAT_DELAY_AUTO_THINK,
+  scaledDelay, COMBAT_DELAY_ACTION, COMBAT_DELAY_TURN_END, COMBAT_DELAY_STATUS_SKIP,
 } from '../types';
 import {
   calculateTurnOrder, calculateDamage, applyDamage, applyHeal,
@@ -166,7 +167,7 @@ export class CombatScene extends Phaser.Scene {
       current.isDefending = false;
       this.currentTurnIndex++;
       this.drawBattlefield();
-      this.time.delayedCall(1000, () => this.nextTurn());
+      this.time.delayedCall(scaledDelay(COMBAT_DELAY_STATUS_SKIP, gameState.battleSpeed), () => this.nextTurn());
       return;
     }
 
@@ -176,7 +177,7 @@ export class CombatScene extends Phaser.Scene {
       if (run2.autoCombat && tactic !== 'follow_orders') {
         this.phase = BattlePhase.EXECUTING;
         this.drawBattlefield();
-        this.time.delayedCall(COMBAT_DELAY_AUTO_THINK, () => this.executeAutoTurn(current));
+        this.time.delayedCall(scaledDelay(COMBAT_DELAY_AUTO_THINK, gameState.battleSpeed), () => this.executeAutoTurn(current));
       } else {
         this.phase = BattlePhase.PLAYER_CHOOSING;
         this.drawBattlefield();
@@ -336,7 +337,7 @@ export class CombatScene extends Phaser.Scene {
     }
 
     this.drawBattlefield();
-    this.time.delayedCall(800, () => this.finishTurn(attacker));
+    this.time.delayedCall(scaledDelay(COMBAT_DELAY_ACTION, gameState.battleSpeed), () => this.finishTurn(attacker));
   }
 
   private executeAutoTurn(creature: CombatCreature): void {
@@ -375,7 +376,7 @@ export class CombatScene extends Phaser.Scene {
     }
 
     this.drawBattlefield();
-    this.time.delayedCall(800, () => this.finishTurn(enemy));
+    this.time.delayedCall(scaledDelay(COMBAT_DELAY_ACTION, gameState.battleSpeed), () => this.finishTurn(enemy));
   }
 
   private resolveAbility(
@@ -413,7 +414,7 @@ export class CombatScene extends Phaser.Scene {
 
     this.currentTurnIndex++;
     this.drawBattlefield();
-    this.time.delayedCall(400, () => this.nextTurn());
+    this.time.delayedCall(scaledDelay(COMBAT_DELAY_TURN_END, gameState.battleSpeed), () => this.nextTurn());
   }
 
   private showBattleEnd(victory: boolean): void {
@@ -593,11 +594,30 @@ export class CombatScene extends Phaser.Scene {
         this.clearUI();
         this.phase = BattlePhase.EXECUTING;
         this.drawBattlefield();
-        this.time.delayedCall(COMBAT_DELAY_AUTO_THINK, () => this.executeAutoTurn(current));
+        this.time.delayedCall(scaledDelay(COMBAT_DELAY_AUTO_THINK, gameState.battleSpeed), () => this.executeAutoTurn(current));
       } else {
         this.drawBattlefield();
         if (this.phase === BattlePhase.PLAYER_CHOOSING && current) this.showActionMenu(current);
       }
+    });
+
+    const speed = gameState.battleSpeed;
+    const speedBg = this.add.rectangle(880, 52, 120, 24, 0x333344, 0.95)
+      .setStrokeStyle(2, 0x555566).setInteractive({ useHandCursor: true });
+    this.hudElements.push(speedBg);
+    const speedLabel = this.add.text(880, 52, `SPEED ${speed}x`, {
+      fontSize: '11px', color: '#bbbbcc', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+    this.hudElements.push(speedLabel);
+
+    speedBg.on('pointerover', () => speedBg.setFillStyle(0x444455));
+    speedBg.on('pointerout', () => speedBg.setFillStyle(0x333344));
+    speedBg.on('pointerdown', () => {
+      gameState.cycleBattleSpeed();
+      gameState.saveToLocalStorage();
+      this.drawBattlefield();
+      const current = this.turnOrder[this.currentTurnIndex];
+      if (this.phase === BattlePhase.PLAYER_CHOOSING && current) this.showActionMenu(current);
     });
   }
 

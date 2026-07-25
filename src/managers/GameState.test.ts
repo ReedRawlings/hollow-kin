@@ -256,6 +256,16 @@ describe('tactics and settings persistence', () => {
     expect([...gameState.seenSpecies].sort()).toEqual(['mossgolem', 'petalward']);
   });
 
+  it('cycles battle speed 1 -> 2 -> 4 -> 1', () => {
+    expect(gameState.battleSpeed).toBe(1);
+    expect(gameState.cycleBattleSpeed()).toBe(2);
+    expect(gameState.battleSpeed).toBe(2);
+    expect(gameState.cycleBattleSpeed()).toBe(4);
+    expect(gameState.battleSpeed).toBe(4);
+    expect(gameState.cycleBattleSpeed()).toBe(1);
+    expect(gameState.battleSpeed).toBe(1);
+  });
+
   it('migrates a v2 save with safe defaults', () => {
     localStorage.setItem('hollow_kin_save', JSON.stringify({
       version: 2,

@@ -114,6 +114,20 @@ export class RunScene extends Phaser.Scene {
       });
     });
 
+    // AUTO toggle — combat-system.md: switchable "during battle or from the map overview".
+    const autoOn = run.autoCombat;
+    const autoBg = this.add.rectangle(860, 45, 140, 26, autoOn ? 0x336633 : 0x333344, 0.95)
+      .setStrokeStyle(2, autoOn ? 0x66cc66 : 0x555566)
+      .setInteractive({ useHandCursor: true });
+    this.add.text(860, 45, autoOn ? 'AUTO: ON' : 'AUTO: OFF', {
+      fontSize: '12px', color: autoOn ? '#bbffbb' : '#9999aa', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+    autoBg.on('pointerdown', () => {
+      run.autoCombat = !run.autoCombat;
+      gameState.saveToLocalStorage();
+      this.drawUI();
+    });
+
     // Flee button — a deliberate exit (keeps captures, converts Obols at 100%)
     this.createButton(cx, 500, 'FLEE TOWER', '#aa4444', () => {
       this.showRunEnd('fled');
