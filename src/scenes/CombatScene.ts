@@ -4,14 +4,17 @@ import { getTemplate } from '../data/creatures';
 import { getAbility } from '../data/abilities';
 import {
   CombatCreature, BattlePhase, Encounter, CreatureInstance,
-  generateId, STAR_LEVEL_CAPS,
+  generateId, STAR_LEVEL_CAPS, TacticId, COMBAT_DELAY_AUTO_THINK,
+  scaledDelay, COMBAT_DELAY_ACTION, COMBAT_DELAY_TURN_END, COMBAT_DELAY_STATUS_SKIP,
 } from '../types';
 import {
   calculateTurnOrder, calculateDamage, applyDamage, applyHeal,
-  applyAbilityEffects, tickStatusEffects, isSkipTurn, getEnemyAction,
+  applyAbilityEffects, tickStatusEffects, isSkipTurn,
   createCombatCreature,
 } from '../systems/CombatEngine';
+import { getEnemyAction, chooseAction } from '../systems/TacticsAI';
 import { obolsForEncounter } from '../systems/Economy';
+import { renderBattlefield } from './combat/BattlefieldRenderer';
 
 export class CombatScene extends Phaser.Scene {
   private playerParty: CombatCreature[] = [];
@@ -23,6 +26,25 @@ export class CombatScene extends Phaser.Scene {
   private messageLog: string[] = [];
   private uiElements: Phaser.GameObjects.GameObject[] = [];
   private selectedAbilityId: string | null = null;
+  /**
+   * Objects drawn by drawHud(), tracked separately from uiElements/battlefield
+   * children so they can be explicitly destroyed rather than merely detached.
+   */
+  private hudElements: Phaser.GameObjects.GameObject[] = [];
+  /**
+   * Phases in which the AUTO toggle is allowed to render at all. Deliberately
+   * an allowlist rather than a denylist: a future phase that isn't added here
+   * simply gets no toggle (safe default) instead of silently getting one that's
+   * live and clickable on top of a screen that doesn't expect it (the original
+   * bug — the toggle survived into VICTORY/DEFEAT and dead-ended the game).
+   */
+  private static readonly HUD_ACTIVE_PHASES: ReadonlySet<BattlePhase> = new Set([
+    BattlePhase.NEXT_TURN,
+    BattlePhase.PLAYER_CHOOSING,
+    BattlePhase.PLAYER_TARGETING,
+    BattlePhase.EXECUTING,
+    BattlePhase.TURN_END,
+  ]);
 
   constructor() {
     super({ key: 'CombatScene' });
@@ -36,6 +58,8 @@ export class CombatScene extends Phaser.Scene {
     this.currentTurnIndex = 0;
     this.messageLog = [];
     this.selectedAbilityId = null;
+    this.uiElements = [];
+    this.hudElements = [];
   }
 
   create(): void {
@@ -82,6 +106,7 @@ export class CombatScene extends Phaser.Scene {
         isRetired: false,
         isBreedReady: false,
         xp: 0,
+        tactic: 'fight_wisely', // unused for enemies; they run the enemy_default profile
       };
       // Scale enemy stats by level
       const statNames = ['hp', 'mp', 'str', 'def', 'wis', 'spd', 'int'] as const;
@@ -142,14 +167,22 @@ export class CombatScene extends Phaser.Scene {
       current.isDefending = false;
       this.currentTurnIndex++;
       this.drawBattlefield();
-      this.time.delayedCall(1000, () => this.nextTurn());
+      this.time.delayedCall(scaledDelay(COMBAT_DELAY_STATUS_SKIP, gameState.battleSpeed), () => this.nextTurn());
       return;
     }
 
     if (current.isPlayerOwned) {
-      this.phase = BattlePhase.PLAYER_CHOOSING;
-      this.drawBattlefield();
-      this.showActionMenu(current);
+      const run2 = gameState.currentRun!;
+      const tactic = current.instance.tactic;
+      if (run2.autoCombat && tactic !== 'follow_orders') {
+        this.phase = BattlePhase.EXECUTING;
+        this.drawBattlefield();
+        this.time.delayedCall(scaledDelay(COMBAT_DELAY_AUTO_THINK, gameState.battleSpeed), () => this.executeAutoTurn(current));
+      } else {
+        this.phase = BattlePhase.PLAYER_CHOOSING;
+        this.drawBattlefield();
+        this.showActionMenu(current);
+      }
     } else {
       this.phase = BattlePhase.EXECUTING;
       this.executeEnemyTurn(current);
@@ -194,8 +227,13 @@ export class CombatScene extends Phaser.Scene {
           if (ability.targeting === 'self' || ability.targeting === 'all_enemies' || ability.targeting === 'all_allies') {
             this.executePlayerAction(creature, abilityId, creature);
           } else if (ability.targeting === 'single_ally') {
-            // For now, self-heal
-            this.executePlayerAction(creature, abilityId, creature);
+            // A single_ally ability may target any living ally, including the caster.
+            const livingAllies = this.playerParty.filter(p => !p.isKnockedOut);
+            if (livingAllies.length === 1) {
+              this.executePlayerAction(creature, abilityId, livingAllies[0]);
+            } else {
+              this.showAllyTargetSelection(creature, abilityId);
+            }
           } else {
             // Single-enemy targeting: auto-target when only one enemy is alive,
             // otherwise let the player pick.
@@ -228,6 +266,7 @@ export class CombatScene extends Phaser.Scene {
 
   private showTargetSelection(attacker: CombatCreature, abilityId: string): void {
     this.clearUI();
+    this.phase = BattlePhase.PLAYER_TARGETING;
     const ability = getAbility(abilityId);
 
     this.add.text(this.cameras.main.centerX, 500, `Select target for ${ability.name}`, {
@@ -247,6 +286,32 @@ export class CombatScene extends Phaser.Scene {
       highlight.on('pointerout', () => highlight.setAlpha(0.15));
       highlight.on('pointerdown', () => {
         this.executePlayerAction(attacker, abilityId, enemy);
+      });
+    });
+  }
+
+  private showAllyTargetSelection(caster: CombatCreature, abilityId: string): void {
+    this.clearUI();
+    this.phase = BattlePhase.PLAYER_TARGETING;
+    const ability = getAbility(abilityId);
+
+    this.add.text(this.cameras.main.centerX, 500, `Select ally for ${ability.name}`, {
+      fontSize: '14px', color: '#88ffaa', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    this.playerParty.forEach((ally, i) => {
+      if (ally.isKnockedOut) return;
+      const x = 140;
+      const y = 120 + i * 120;
+
+      const highlight = this.add.rectangle(x, y, 110, 90, 0x88ffaa, 0.15)
+        .setStrokeStyle(2, 0x88ffaa).setInteractive({ useHandCursor: true });
+      this.uiElements.push(highlight);
+
+      highlight.on('pointerover', () => highlight.setAlpha(0.4));
+      highlight.on('pointerout', () => highlight.setAlpha(0.15));
+      highlight.on('pointerdown', () => {
+        this.executePlayerAction(caster, abilityId, ally);
       });
     });
   }
@@ -274,7 +339,27 @@ export class CombatScene extends Phaser.Scene {
     }
 
     this.drawBattlefield();
-    this.time.delayedCall(800, () => this.finishTurn(attacker));
+    this.time.delayedCall(scaledDelay(COMBAT_DELAY_ACTION, gameState.battleSpeed), () => this.finishTurn(attacker));
+  }
+
+  private executeAutoTurn(creature: CombatCreature): void {
+    // tactic is narrowed to TacticProfile — 'follow_orders' never reaches here.
+    const profile = creature.instance.tactic as Exclude<TacticId, 'follow_orders'>;
+    const action = chooseAction(
+      creature,
+      this.playerParty,
+      this.enemyParty,
+      profile,
+      gameState.seenSpecies,
+    );
+
+    if (action.kind === 'defend') {
+      creature.isDefending = true;
+      this.addMessage(`${creature.template.name} defends!`);
+      this.finishTurn(creature);
+      return;
+    }
+    this.executePlayerAction(creature, action.abilityId, action.target);
   }
 
   private executeEnemyTurn(enemy: CombatCreature): void {
@@ -293,7 +378,7 @@ export class CombatScene extends Phaser.Scene {
     }
 
     this.drawBattlefield();
-    this.time.delayedCall(800, () => this.finishTurn(enemy));
+    this.time.delayedCall(scaledDelay(COMBAT_DELAY_ACTION, gameState.battleSpeed), () => this.finishTurn(enemy));
   }
 
   private resolveAbility(
@@ -331,11 +416,35 @@ export class CombatScene extends Phaser.Scene {
 
     this.currentTurnIndex++;
     this.drawBattlefield();
-    this.time.delayedCall(400, () => this.nextTurn());
+    this.time.delayedCall(scaledDelay(COMBAT_DELAY_TURN_END, gameState.battleSpeed), () => this.nextTurn());
   }
 
   private showBattleEnd(victory: boolean): void {
     this.clearUI();
+    // showBattleEnd() never routes through drawBattlefield()/drawHud(), so the
+    // AUTO toggle painted by the last in-battle drawBattlefield() call (e.g.
+    // from finishTurn(), while phase was still EXECUTING) is still live and
+    // interactive underneath this screen. The phase gate in drawHud() stops
+    // it from being redrawn, but that stale instance must be destroyed here
+    // explicitly or it dead-ends the game (clicking it wipes this screen via
+    // drawBattlefield() and draws nothing to replace it).
+    this.destroyHud();
+
+    // The player has now met every species in this encounter — win, loss, or
+    // (should combat ever grow a mid-battle flee) any other exit — so record
+    // them here, at the single choke point both battle-end paths (VICTORY and
+    // DEFEAT branches of nextTurn(), the only two callers of showBattleEnd())
+    // pass through. Recording in initBattle() instead (as the branch
+    // originally did) makes every species already "known" before the AI ever
+    // evaluates the battle it was just generated for, so the fog can never
+    // suppress a type multiplier in the fight where it should. Per the design
+    // spec §1 ("blind on first encounter") — the intent §3 contradicted by
+    // asking for population at encounter-generation time — this battle stays
+    // blind and only battles from here on are informed.
+    for (const enemy of this.enemyParty) {
+      gameState.recordSeenSpecies(enemy.instance.speciesId);
+    }
+
     const cx = this.cameras.main.centerX;
     const run = gameState.currentRun!;
 
@@ -465,97 +574,113 @@ export class CombatScene extends Phaser.Scene {
 
   // ---------- RENDERING ----------
 
+  /**
+   * Toggle row, redrawn after every battlefield repaint since children are
+   * detached (not destroyed) each repaint. Always destroys the previous
+   * HUD objects first — detaching from the display list does not deregister
+   * interactive objects from the input plugin, so a bare repaint would leak
+   * an accumulating pile of clickable rectangles (finding 2).
+   *
+   * Renders nothing once the battle has ended (see HUD_ACTIVE_PHASES) so the
+   * toggle can't sit on top of — or wipe — the VICTORY/DEFEAT screen.
+   */
+  private drawHud(): void {
+    this.destroyHud();
+    if (!CombatScene.HUD_ACTIVE_PHASES.has(this.phase)) return;
+
+    const run = gameState.currentRun!;
+
+    const autoOn = run.autoCombat;
+    const autoBg = this.add.rectangle(880, 20, 120, 28, autoOn ? 0x336633 : 0x333344, 0.95)
+      .setStrokeStyle(2, autoOn ? 0x66cc66 : 0x555566)
+      .setInteractive({ useHandCursor: true });
+    this.hudElements.push(autoBg);
+    const autoLabel = this.add.text(880, 20, autoOn ? 'AUTO: ON' : 'AUTO: OFF', {
+      fontSize: '12px', color: autoOn ? '#bbffbb' : '#9999aa', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+    this.hudElements.push(autoLabel);
+
+    autoBg.on('pointerdown', () => {
+      // Destroy whatever menu/target-selection elements are currently registered
+      // with the input plugin before anything else. drawBattlefield() below only
+      // detaches uiElements (children.removeAll()), it doesn't destroy them — a
+      // bare redraw would leave the previous prompt's hotspots alive and
+      // clickable underneath whatever gets drawn next (finding 1b).
+      this.clearUI();
+      run.autoCombat = !run.autoCombat;
+      // NOTE: intentionally not calling gameState.saveToLocalStorage() here.
+      // autoCombat lives on RunState (gameState.currentRun), and currentRun is
+      // not part of the serialized save — this toggle is never persisted by
+      // this call regardless, so the call would just be a no-op flush of
+      // unrelated state (finding 4).
+      // If we just switched on while waiting for input, hand this turn to the AI.
+      const current = this.turnOrder[this.currentTurnIndex];
+      if (run.autoCombat
+        && this.phase === BattlePhase.PLAYER_CHOOSING
+        && current?.isPlayerOwned
+        && current.instance.tactic !== 'follow_orders') {
+        this.phase = BattlePhase.EXECUTING;
+        this.drawBattlefield();
+        this.time.delayedCall(scaledDelay(COMBAT_DELAY_AUTO_THINK, gameState.battleSpeed), () => this.executeAutoTurn(current));
+      } else {
+        this.drawBattlefield();
+        // Re-show the ability menu whenever the player was mid-decision — for
+        // PLAYER_CHOOSING that's an unchanged redraw of the menu; for
+        // PLAYER_TARGETING (a target/ally prompt was just destroyed by the
+        // clearUI() above) this deliberately returns the player to the ability
+        // menu rather than leaving them with no prompt at all. Their
+        // in-progress ability selection is lost — defensible and simple, and
+        // strictly better than a dead screen (finding 1c).
+        if ((this.phase === BattlePhase.PLAYER_CHOOSING || this.phase === BattlePhase.PLAYER_TARGETING) && current) {
+          this.phase = BattlePhase.PLAYER_CHOOSING;
+          this.showActionMenu(current);
+        }
+      }
+    });
+
+    const speed = gameState.battleSpeed;
+    const speedBg = this.add.rectangle(880, 52, 120, 24, 0x333344, 0.95)
+      .setStrokeStyle(2, 0x555566).setInteractive({ useHandCursor: true });
+    this.hudElements.push(speedBg);
+    const speedLabel = this.add.text(880, 52, `SPEED ${speed}x`, {
+      fontSize: '11px', color: '#bbbbcc', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+    this.hudElements.push(speedLabel);
+
+    speedBg.on('pointerover', () => speedBg.setFillStyle(0x444455));
+    speedBg.on('pointerout', () => speedBg.setFillStyle(0x333344));
+    speedBg.on('pointerdown', () => {
+      // See the AUTO handler above — must destroy, not just detach, the
+      // currently-registered menu/target-selection elements before redrawing
+      // (finding 1b).
+      this.clearUI();
+      gameState.cycleBattleSpeed();
+      gameState.saveToLocalStorage();
+      this.drawBattlefield();
+      const current = this.turnOrder[this.currentTurnIndex];
+      // See the AUTO handler above for why PLAYER_TARGETING is included here
+      // (finding 1c).
+      if ((this.phase === BattlePhase.PLAYER_CHOOSING || this.phase === BattlePhase.PLAYER_TARGETING) && current) {
+        this.phase = BattlePhase.PLAYER_CHOOSING;
+        this.showActionMenu(current);
+      }
+    });
+  }
+
   private drawBattlefield(): void {
     // Clear previous battlefield elements (but not UI overlay)
     this.children.removeAll();
     this.uiElements = [];
 
-    // Background
-    this.add.rectangle(480, 320, 960, 640, 0x1a1a2e);
-
-    // Battle area divider
-    this.add.line(480, 0, 0, 70, 0, 460, 0x333355, 0.5);
-
-    // Turn indicator
-    const current = this.turnOrder[this.currentTurnIndex];
-    if (current) {
-      this.add.text(480, 15, `Turn: ${current.template.name}`, {
-        fontSize: '14px', color: '#ffdd88', fontFamily: 'monospace',
-      }).setOrigin(0.5);
-    }
-
-    // Draw player creatures
-    this.playerParty.forEach((creature, i) => {
-      this.drawCreature(creature, 140, 120 + i * 120, true);
+    renderBattlefield(this, {
+      playerParty: this.playerParty,
+      enemyParty: this.enemyParty,
+      currentActor: this.turnOrder[this.currentTurnIndex],
+      messageLog: this.messageLog,
+      showTactics: gameState.currentRun?.autoCombat ?? false,
     });
 
-    // Draw enemy creatures
-    this.enemyParty.forEach((creature, i) => {
-      this.drawCreature(creature, 700, 120 + i * 110, false);
-    });
-
-    // Message log
-    const logY = 400;
-    const recentMessages = this.messageLog.slice(-4);
-    recentMessages.forEach((msg, i) => {
-      this.add.text(20, logY + i * 18, msg, {
-        fontSize: '11px', color: '#aaaacc', fontFamily: 'monospace',
-      });
-    });
-  }
-
-  private drawCreature(creature: CombatCreature, x: number, y: number, isPlayer: boolean): void {
-    const alpha = creature.isKnockedOut ? 0.3 : 1;
-
-    // Rectangle sprite
-    const rect = this.add.rectangle(x, y, 70, 55, creature.template.spriteColor, alpha);
-    if (creature.isDefending) rect.setStrokeStyle(2, 0x8888ff);
-
-    // Name and level
-    const labelX = isPlayer ? x + 50 : x - 50;
-    const align = isPlayer ? 'left' : 'right';
-    const origin = isPlayer ? 0 : 1;
-
-    this.add.text(labelX, y - 30, `${creature.template.name}`, {
-      fontSize: '11px', color: creature.isKnockedOut ? '#666666' : '#ffffff', fontFamily: 'monospace',
-    }).setOrigin(origin, 0.5);
-
-    // HP bar
-    const hpPct = creature.currentHp / creature.maxHp;
-    const hpColor = hpPct > 0.5 ? 0x44aa44 : hpPct > 0.25 ? 0xaaaa44 : 0xaa4444;
-    const barX = isPlayer ? x + 50 : x - 120;
-    this.add.rectangle(barX, y - 14, 70, 6, 0x333333).setOrigin(0);
-    this.add.rectangle(barX, y - 14, 70 * hpPct, 6, hpColor).setOrigin(0);
-
-    // HP text
-    this.add.text(barX, y - 5, `${creature.currentHp}/${creature.maxHp}`, {
-      fontSize: '9px', color: '#aaaaaa', fontFamily: 'monospace',
-    }).setOrigin(0);
-
-    // MP bar (player only)
-    if (isPlayer) {
-      const mpPct = creature.currentMp / creature.maxMp;
-      this.add.rectangle(barX, y + 8, 70, 4, 0x333333).setOrigin(0);
-      this.add.rectangle(barX, y + 8, 70 * mpPct, 4, 0x4466aa).setOrigin(0);
-      this.add.text(barX, y + 15, `MP:${creature.currentMp}/${creature.maxMp}`, {
-        fontSize: '8px', color: '#6688aa', fontFamily: 'monospace',
-      }).setOrigin(0);
-    }
-
-    // Status effects
-    const statuses = creature.statusEffects.map(s => s.type.substring(0, 3).toUpperCase()).join(' ');
-    if (statuses) {
-      this.add.text(x, y + 35, statuses, {
-        fontSize: '9px', color: '#ff8888', fontFamily: 'monospace',
-      }).setOrigin(0.5);
-    }
-
-    // KO marker
-    if (creature.isKnockedOut) {
-      this.add.text(x, y, 'KO', {
-        fontSize: '18px', color: '#ff4444', fontFamily: 'monospace', fontStyle: 'bold',
-      }).setOrigin(0.5);
-    }
+    this.drawHud();
   }
 
   private addMessage(msg: string): void {
@@ -568,5 +693,12 @@ export class CombatScene extends Phaser.Scene {
       el.destroy();
     }
     this.uiElements = [];
+  }
+
+  private destroyHud(): void {
+    for (const el of this.hudElements) {
+      el.destroy();
+    }
+    this.hudElements = [];
   }
 }

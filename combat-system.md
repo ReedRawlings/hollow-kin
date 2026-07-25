@@ -209,8 +209,9 @@ Inspired by Dragon Quest's tactics system. The player assigns a general behavior
 
 * Auto does not use items from inventory
 * Auto does not swap party members
-* Auto does not know enemy resistances until they've been encountered before (first encounter is always blind). We'll need to develop a monsterpedia to track creature strength/weaknesses we can leverage here
+* Auto does not know enemy resistances until they've been encountered before (first encounter is always blind). **Implemented:** `gameState.seenSpecies` records a species at *battle end* — recording it at encounter start would mean the AI already knew it during the very fight that introduced it, and the fog would never fog anything. A full Monsterpedia UI over this data is designed in `docs/superpowers/specs/2026-07-25-monsterpedia-design.md` but not yet built
 * The player can toggle off Auto during battle at any time. Doing so will switch them to manual
+* **Battle speed** is a persisted player preference (1×/2×/4×) scaling all combat pacing, with a 100 ms floor so animations and the message log cannot collapse into a single frame
 
 ---
 
@@ -229,6 +230,8 @@ Inspired by Dragon Quest's tactics system. The player assigns a general behavior
 ## **Open Questions**
 
 * Exact damage formula constants and scaling curves — requires playtesting
-* Detailed auto-combat AI decision trees per tactic
+* ~~Detailed auto-combat AI decision trees per tactic~~ — **resolved.** Each tactic is an explicit ordered rule ladder (first match wins), specified in `docs/superpowers/specs/2026-07-24-auto-combat-tactics-design.md` §5 and implemented in `src/systems/TacticsAI.ts`. Ladders were chosen over utility scoring deliberately: a strategic layer only works if the player can predict what their tactic will do
+* Whether Heal First should hold its MP reserve across its buff/debuff rules, not just its damage rule — today it can spend on a debuff and then be unable to afford the heal the reserve exists to protect (playtest)
+* Whether Fight Wisely's "half current MP" budget drains too fast across a 30-floor descent (playtest)
 * Whether bosses have multiple phases or unique mechanics beyond stat inflation
 * Specific crit-related trait effects and balancing

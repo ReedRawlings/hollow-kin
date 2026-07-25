@@ -10,6 +10,7 @@ function makeParent(overrides: Partial<CreatureInstance>): CreatureInstance {
     abilities: [], traitSlots: [], lineage: { parentA: null, parentB: null },
     currentStats: { hp: 30, mp: 5, str: 10, def: 8, wis: 5, spd: 7, int: 4 },
     resistances: [], weaknesses: [], isRetired: false, isBreedReady: false, xp: 0,
+    tactic: 'fight_wisely',
     ...overrides,
   };
 }

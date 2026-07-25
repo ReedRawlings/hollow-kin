@@ -10,6 +10,38 @@ export type AbilityCategory = 'Physical' | 'Special' | 'Status';
 
 export type TargetingType = 'single_enemy' | 'all_enemies' | 'self' | 'single_ally' | 'all_allies';
 
+/** A standing behavior the player assigns to a creature. */
+export type TacticId =
+  | 'fight_wisely'
+  | 'all_out'
+  | 'conserve_mp'
+  | 'heal_first'
+  | 'follow_orders';
+
+/**
+ * A profile the AI can actually execute. Excludes 'follow_orders' — that value
+ * means "do not call the AI at all" — and adds the enemy profile, which the
+ * player can never select. The scene narrows TacticId to TacticProfile, so the
+ * type system makes it impossible to hand 'follow_orders' to chooseAction.
+ */
+export type TacticProfile = Exclude<TacticId, 'follow_orders'> | 'enemy_default';
+
+export const TACTIC_LABELS: Record<TacticId, string> = {
+  fight_wisely: 'Fight Wisely',
+  all_out: 'All Out',
+  conserve_mp: 'Conserve MP',
+  heal_first: 'Heal First',
+  follow_orders: 'Follow Orders',
+};
+
+/** Player-assignable tactics, in cycle order for the UI. */
+export const TACTIC_ORDER: TacticId[] = [
+  'fight_wisely', 'all_out', 'conserve_mp', 'heal_first', 'follow_orders',
+];
+
+/** Species whose resistances and weaknesses a side is allowed to exploit. */
+export type KnownSpecies = ReadonlySet<string>;
+
 export type EncounterType = 'combat' | 'shop' | 'rest' | 'event' | 'boss';
 
 export interface BaseStats {
@@ -80,6 +112,7 @@ export interface CreatureInstance {
   isRetired: boolean;
   isBreedReady: boolean;
   xp: number;
+  tactic: TacticId;       // standing auto-combat behavior; persists across runs
 }
 
 export interface ActiveStatus {
@@ -100,6 +133,11 @@ export interface CombatCreature {
   isDefending: boolean;
   isPlayerOwned: boolean;
 }
+
+/** What the tactics AI decides to do. The AI never applies it — the scene does. */
+export type CombatAction =
+  | { kind: 'ability'; abilityId: string; target: CombatCreature }
+  | { kind: 'defend' };
 
 export enum BattlePhase {
   STARTING = 'STARTING',
@@ -132,6 +170,7 @@ export interface RunState {
   partyMp: Record<string, number>;
   partyKO: Record<string, boolean>;
   xpEarned: number;
+  autoCombat: boolean;    // AUTO toggle state; persists across encounters within a run
 }
 
 export const STAR_LEVEL_CAPS: Record<number, number> = {
@@ -186,4 +225,19 @@ export const BREED_CARRYOVER_FRACTION = 0.5; // fraction of parents' avg investe
 
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+}
+
+// --- Battle pacing ---
+export const BATTLE_SPEEDS = [1, 2, 4] as const;
+export type BattleSpeed = typeof BATTLE_SPEEDS[number];
+
+export const COMBAT_DELAY_ACTION = 800;       // after an action resolves
+export const COMBAT_DELAY_TURN_END = 400;     // after a turn finishes
+export const COMBAT_DELAY_STATUS_SKIP = 1000; // on a status-skip message
+export const COMBAT_DELAY_AUTO_THINK = 350;   // beat before an AI acts, so it reads as a decision
+export const COMBAT_DELAY_FLOOR = 100;        // never go below this, or tweens collapse
+
+/** Scale a pacing delay by the player's battle speed, never below the floor. */
+export function scaledDelay(baseMs: number, speed: BattleSpeed): number {
+  return Math.max(COMBAT_DELAY_FLOOR, Math.round(baseMs / speed));
 }

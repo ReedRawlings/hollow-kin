@@ -6,6 +6,17 @@ import { convertObolsToEssence } from '../systems/Economy';
 import { Encounter, RunState, TOWER_FLOORS } from '../types';
 
 export class RunScene extends Phaser.Scene {
+  /**
+   * Interactive objects created by drawUI()/showRunEnd() (buttons, the AUTO
+   * toggle), tracked so they can be destroy()ed — not merely detached — before
+   * every redraw. children.removeAll() only detaches objects from the display
+   * list; it never deregisters them from the input plugin, so an interactive
+   * rectangle removed that way stays clickable even though it's invisible.
+   * Non-interactive text/rects are left to children.removeAll() since they
+   * can't receive clicks.
+   */
+  private uiElements: Phaser.GameObjects.GameObject[] = [];
+
   constructor() {
     super({ key: 'RunScene' });
   }
@@ -27,6 +38,7 @@ export class RunScene extends Phaser.Scene {
         partyMp: {},
         partyKO: {},
         xpEarned: 0,
+        autoCombat: false,
       };
       // Initialize party HP/MP
       for (const c of gameState.runParty) {
@@ -42,6 +54,7 @@ export class RunScene extends Phaser.Scene {
   }
 
   private drawUI(): void {
+    this.clearUI();
     this.children.removeAll();
     const cx = this.cameras.main.centerX;
     const run = gameState.currentRun!;
@@ -113,6 +126,25 @@ export class RunScene extends Phaser.Scene {
       });
     });
 
+    // AUTO toggle — combat-system.md: switchable "during battle or from the map overview".
+    const autoOn = run.autoCombat;
+    const autoBg = this.add.rectangle(860, 45, 140, 26, autoOn ? 0x336633 : 0x333344, 0.95)
+      .setStrokeStyle(2, autoOn ? 0x66cc66 : 0x555566)
+      .setInteractive({ useHandCursor: true });
+    this.uiElements.push(autoBg);
+    this.add.text(860, 45, autoOn ? 'AUTO: ON' : 'AUTO: OFF', {
+      fontSize: '12px', color: autoOn ? '#bbffbb' : '#9999aa', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+    autoBg.on('pointerdown', () => {
+      run.autoCombat = !run.autoCombat;
+      // NOTE: intentionally not calling gameState.saveToLocalStorage() here.
+      // autoCombat lives on RunState (gameState.currentRun), and currentRun is
+      // not part of the serialized save — this toggle is never persisted by
+      // that call regardless, so it would just be a no-op flush of unrelated
+      // state (whole-branch review finding 4).
+      this.drawUI();
+    });
+
     // Flee button — a deliberate exit (keeps captures, converts Obols at 100%)
     this.createButton(cx, 500, 'FLEE TOWER', '#aa4444', () => {
       this.showRunEnd('fled');
@@ -154,6 +186,10 @@ export class RunScene extends Phaser.Scene {
   }
 
   private showRunEnd(outcome: 'cleared' | 'fled' | 'wiped'): void {
+    // Terminal screen reached from a live drawUI() state — tear down whatever
+    // interactive objects that call left registered (FLEE TOWER, encounter
+    // choices, AUTO toggle) before drawing this screen's own button.
+    this.clearUI();
     this.children.removeAll();
     const cx = this.cameras.main.centerX;
     const cy = this.cameras.main.centerY;
@@ -210,11 +246,19 @@ export class RunScene extends Phaser.Scene {
   private createButton(x: number, y: number, text: string, color: string, callback: () => void): void {
     const bg = this.add.rectangle(x, y, 170, 50, Phaser.Display.Color.HexStringToColor(color).color, 0.8)
       .setStrokeStyle(2, 0xffffff).setInteractive({ useHandCursor: true });
+    this.uiElements.push(bg);
     this.add.text(x, y, text, {
       fontSize: '13px', color: '#ffffff', fontFamily: 'monospace',
     }).setOrigin(0.5);
     bg.on('pointerover', () => bg.setAlpha(1));
     bg.on('pointerout', () => bg.setAlpha(0.8));
     bg.on('pointerdown', callback);
+  }
+
+  private clearUI(): void {
+    for (const el of this.uiElements) {
+      el.destroy();
+    }
+    this.uiElements = [];
   }
 }

@@ -71,8 +71,9 @@ src/
 - Turn-based combat (abilities, MP, buffs/debuffs, status, player-only crits, defend); **random enemy targeting**; single-enemy auto-target
 - Damage formula: `(ATK - DEF/2) × (Power/50) × TypeMultiplier`; per-creature resistances/weaknesses
 - localStorage **save v2** with migration from old (townResources→essence, drop longevity/plasm)
+- **Auto-combat / tactics (DQ-style):** per-creature standing tactic (Fight Wisely / All Out / Conserve MP / Heal First / Follow Orders), set in Party Select and persisted; global AUTO toggle in combat and on the run map, with `follow_orders` creatures still prompting manually while AUTO is on. One side-agnostic `TacticsAI.chooseAction()` drives **both** player tactics and enemy AI (`enemy_default` is a literal port of the old `getEnemyAction`, pinned by characterization tests). Knowledge fog: auto only exploits resistances/weaknesses of species already fought — recorded at battle end, so the first encounter with a species is genuinely blind. Persisted **1×/2×/4× battle speed** scales all combat pacing with a 100 ms floor.
 - **31 abilities** (MP costs cut ~40% for a healthier MP economy), **36 creatures** distributed across 3 depth bands
-- vitest test suite (Economy, GameState, RunGenerator, BreedingSystem)
+- vitest test suite (Economy, GameState, RunGenerator, BreedingSystem, CombatEngine, TacticsAI, types) — 121 tests
 
 **Removed in the pivot:** Plasm, Longevity, Breeding Stones, Enhancer, Leathersmith, the 3-zone structure.
 
@@ -85,13 +86,13 @@ src/
 - **Marks system** + Mark-binder vendor (earn-then-lock; Floor Marks on bosses)
 - **Inventory / Quartermaster** vendor (backpack capacity; pairs with capture) + Obols→Essence conversion-rate levers
 - Run relics (temporary power-ups)
-- Auto-combat / tactics system
+- **Monsterpedia / bestiary UI** — `gameState.seenSpecies` now collects the data, but nothing shows it to the player. Design drafted in `docs/superpowers/specs/2026-07-25-monsterpedia-design.md` (awaiting review).
 - Onboarding tutorial (old-man flow in `onboarding.md`)
 - Remaining ~41 abilities from `Abilities.csv` (31 of 72)
 - Remaining creatures (36 of target 96)
 - Any art/sprites
 
-**Open thread:** a combat "freeze after one action" was seen while hot-reloading mid-edit — likely an HMR artifact, unconfirmed on a fresh load. Verify before assuming it's a real turn-loop bug.
+**Resolved (2026-07-25):** the combat "freeze after one action" is **not** a bug and **not** an HMR artifact. Chrome throttles `requestAnimationFrame` to zero in a backgrounded or unfocused tab, so Phaser's game loop stops stepping and the Scene Clock never advances — every `this.time.delayedCall` in `CombatScene` (which is how turns advance) simply never fires. Measured directly: `document.hidden === true`, `game.loop.frame` advancing 0 frames per second, `scene.time.now` frozen. The canvas still *appears* to update because DOM input events keep dispatching and a screenshot forces a paint, which is exactly what makes it look like a logic hang. **Keep the tab focused and visible when playtesting combat.** Verify before assuming it's a real turn-loop bug.
 
 **Placeholder numbers to tune (playtest):** Obol rewards 5/25/75, conversion rate 0.5, wipe penalty 50%, level cost `10·L^1.5`, depth-jump `(floor-1)×15`, breeding carry-over 50%, enemy/XP scaling by floor/depth band.
 

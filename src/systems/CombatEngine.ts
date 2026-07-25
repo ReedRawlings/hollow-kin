@@ -4,7 +4,6 @@ import {
   CRIT_MULTIPLIER, BASE_CRIT_RATE, HIGH_CRIT_RATE, MIN_HIT_CHANCE,
   DamageType,
 } from '../types';
-import { getAbility } from '../data/abilities';
 
 export function calculateTurnOrder(combatants: CombatCreature[]): CombatCreature[] {
   const alive = combatants.filter(c => !c.isKnockedOut);
@@ -18,18 +17,22 @@ export function getEffectiveStat(creature: CombatCreature, stat: StatName): numb
   return Math.floor(base * mult);
 }
 
-export function calculateDamage(
+/**
+ * Deterministic damage core: stat matchup, power, optional type multiplier,
+ * and the defend halving. No RNG — no hit roll, no crit, no accuracy weighting.
+ * Shared by calculateDamage (which layers the rolls on top) and the AI's
+ * estimateDamage (which layers accuracy on top).
+ *
+ * `useTypeMultiplier` is false when the caller must not assume knowledge of the
+ * defender's resistances — that is how the AI's knowledge fog is enforced.
+ */
+export function baseDamage(
   attacker: CombatCreature,
   defender: CombatCreature,
   ability: Ability,
-): { damage: number; isCrit: boolean; missed: boolean } {
-  // Check hit
-  const hitChance = Math.max(MIN_HIT_CHANCE, ability.accuracy / 100);
-  if (Math.random() > hitChance) {
-    return { damage: 0, isCrit: false, missed: true };
-  }
-
-  if (ability.power === 0) return { damage: 0, isCrit: false, missed: false };
+  useTypeMultiplier: boolean,
+): number {
+  if (ability.power === 0) return 0;
 
   const isPhysical = ability.category === 'Physical';
   const atkStat = isPhysical ? getEffectiveStat(attacker, 'str') : getEffectiveStat(attacker, 'int');
@@ -38,8 +41,7 @@ export function calculateDamage(
   // Core formula: (ATK - DEF/2) * (Power/50) * TypeMult
   let damage = Math.max(1, atkStat - defStat / 2) * (ability.power / 50);
 
-  // Type multiplier
-  if (ability.damageType !== 'None') {
+  if (useTypeMultiplier && ability.damageType !== 'None') {
     const dmgType = ability.damageType as DamageType;
     if (defender.instance.resistances.includes(dmgType)) {
       damage *= RESISTANCE_MULTIPLIER;
@@ -47,6 +49,29 @@ export function calculateDamage(
       damage *= WEAKNESS_MULTIPLIER;
     }
   }
+
+  // Defend halves damage
+  if (defender.isDefending) {
+    damage *= 0.5;
+  }
+
+  return damage;
+}
+
+export function calculateDamage(
+  attacker: CombatCreature,
+  defender: CombatCreature,
+  ability: Ability,
+): { damage: number; isCrit: boolean; missed: boolean } {
+  // Check hit — this roll must stay first to preserve the RNG stream.
+  const hitChance = Math.max(MIN_HIT_CHANCE, ability.accuracy / 100);
+  if (Math.random() > hitChance) {
+    return { damage: 0, isCrit: false, missed: true };
+  }
+
+  if (ability.power === 0) return { damage: 0, isCrit: false, missed: false };
+
+  let damage = baseDamage(attacker, defender, ability, true);
 
   // Crit check (player only)
   let isCrit = false;
@@ -57,11 +82,6 @@ export function calculateDamage(
       isCrit = true;
       damage *= CRIT_MULTIPLIER;
     }
-  }
-
-  // Defend halves damage
-  if (defender.isDefending) {
-    damage *= 0.5;
   }
 
   return { damage: Math.max(1, Math.floor(damage)), isCrit, missed: false };
@@ -183,29 +203,6 @@ export function isSkipTurn(creature: CombatCreature): boolean {
   return creature.statusEffects.some(
     s => s.type === 'freeze' || s.type === 'stun' || s.type === 'sleep'
   );
-}
-
-export function getEnemyAction(
-  enemy: CombatCreature,
-  playerParty: CombatCreature[],
-): { abilityId: string; target: CombatCreature } {
-  const aliveTargets = playerParty.filter(c => !c.isKnockedOut);
-  // Pick a random living target so enemies spread damage across the party
-  // instead of always focusing the same creature.
-  const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
-
-  // Pick strongest usable ability
-  const usable = enemy.instance.abilities
-    .filter((id): id is string => id !== null)
-    .map(id => getAbility(id))
-    .filter(a => a.mpCost <= enemy.currentMp && a.category !== 'Status');
-
-  if (usable.length > 0) {
-    usable.sort((a, b) => b.power - a.power);
-    return { abilityId: usable[0].id, target };
-  }
-
-  return { abilityId: 'basic_attack', target };
 }
 
 export function createCombatCreature(
