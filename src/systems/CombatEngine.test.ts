@@ -53,8 +53,22 @@ export function makeTestCreature(opts: TestCreatureOpts = {}): CombatCreature {
     xp: 0,
   };
   const c = createCombatCreature(instance, template, opts.isPlayer ?? true);
-  if (opts.hp !== undefined) c.currentHp = opts.hp;
-  if (opts.mp !== undefined) c.currentMp = opts.mp;
+  // opts.hp/opts.mp set currentHp/currentMp directly. createCombatCreature already
+  // derived maxHp/maxMp from the stats block, so an opts.hp/opts.mp that exceeds
+  // that stat-derived max would otherwise produce an impossible currentHp > maxHp
+  // (or currentMp > maxMp) state. When that happens, raise the max to match instead
+  // — this lets callers build either "damaged creature" fixtures (hp below the
+  // stats-derived max, e.g. { hp: 20 } against the default 100 stats) or "tankier
+  // creature at full health" fixtures (hp above the default max, e.g. { hp: 500 })
+  // without needing to also override `stats`.
+  if (opts.hp !== undefined) {
+    c.currentHp = opts.hp;
+    if (opts.hp > c.maxHp) c.maxHp = opts.hp;
+  }
+  if (opts.mp !== undefined) {
+    c.currentMp = opts.mp;
+    if (opts.mp > c.maxMp) c.maxMp = opts.mp;
+  }
   c.isKnockedOut = c.currentHp <= 0;
   return c;
 }
@@ -121,6 +135,28 @@ describe('getEnemyAction — characterization', () => {
     vi.restoreAllMocks();
     seedRandom([0.99]);
     expect(getEnemyAction(enemy, [a, b, c]).target.instance.speciesId).toBe('c');
+
+    // Distinguishing seed: against the *filtered* aliveTargets ([a, c], length 2),
+    // 0.4 selects floor(0.4*2)=0 -> a. A regressed port that forgot to filter out
+    // the knocked-out member would index into the unfiltered [a, b, c] (length 3),
+    // selecting floor(0.4*3)=1 -> b, the knocked-out creature. This is the only
+    // seed of the three that would actually catch that regression.
+    vi.restoreAllMocks();
+    seedRandom([0.4]);
+    expect(getEnemyAction(enemy, [a, b, c]).target.instance.speciesId).toBe('a');
+  });
+
+  it('never targets the knocked-out member, across a spread of seeds', () => {
+    const a = makeTestCreature({ speciesId: 'a' });
+    const b = makeTestCreature({ speciesId: 'b', hp: 0 });
+    const c = makeTestCreature({ speciesId: 'c' });
+    const enemy = makeTestCreature({ speciesId: 'foe', isPlayer: false, mp: 0 });
+
+    for (const seed of [0, 0.1, 0.25, 0.4, 0.5, 0.75, 0.9, 0.99]) {
+      seedRandom([seed]);
+      expect(getEnemyAction(enemy, [a, b, c]).target.instance.speciesId).not.toBe('b');
+      vi.restoreAllMocks();
+    }
   });
 
   it('consumes exactly one Math.random call per decision', () => {
