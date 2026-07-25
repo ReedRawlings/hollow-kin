@@ -109,3 +109,135 @@ describe('bestBy tie-break (exercised via chooseAction — fallback path)', () =
     expect(reversed).toEqual(forward);
   });
 });
+
+describe('chooseAction — fight_wisely', () => {
+  it('rule 1: heals an ally below 30% before attacking', () => {
+    const healer = makeTestCreature({
+      speciesId: 'healer', mp: 20, abilities: ['soothe', 'thrash'],
+    });
+    const hurt = makeTestCreature({ speciesId: 'hurt', hp: 20 }); // 20%
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false });
+    const action = chooseAction(healer, [healer, hurt], [foe], 'fight_wisely', NO_KNOWLEDGE);
+    expect(action).toEqual({ kind: 'ability', abilityId: 'soothe', target: hurt });
+  });
+
+  it('rule 1 does not fire when everyone is above the threshold', () => {
+    const healer = makeTestCreature({
+      speciesId: 'healer', mp: 20, abilities: ['soothe', 'thrash'],
+    });
+    const fine = makeTestCreature({ speciesId: 'fine', hp: 90 });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false });
+    const action = chooseAction(healer, [healer, fine], [foe], 'fight_wisely', NO_KNOWLEDGE);
+    expect(action).toMatchObject({ abilityId: 'thrash' });
+  });
+
+  it('rule 2: takes the cheapest ability that still kills', () => {
+    const hero = makeTestCreature({
+      speciesId: 'hero', mp: 20, abilities: ['jab', 'thrash'], // cost 2 / 5
+    });
+    // With str 40 vs def 20: basic_attack ~12, jab ~18, thrash ~45.
+    // At 15 HP only jab and thrash kill, so the cheaper of those two wins —
+    // and the free basic_attack is correctly excluded for being too weak.
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 15 });
+    const action = chooseAction(hero, [hero], [foe], 'fight_wisely', NO_KNOWLEDGE);
+    expect(action).toMatchObject({ abilityId: 'jab', target: foe });
+  });
+
+  it('rule 3: uses a spread ability when it out-totals the best single hit', () => {
+    const hero = makeTestCreature({
+      speciesId: 'hero', mp: 20, abilities: ['discharge', 'spark'], // spread 70 / single 40
+    });
+    const a = makeTestCreature({ speciesId: 'fa', isPlayer: false });
+    const b = makeTestCreature({ speciesId: 'fb', isPlayer: false });
+    const c = makeTestCreature({ speciesId: 'fc', isPlayer: false });
+    const action = chooseAction(hero, [hero], [a, b, c], 'fight_wisely', NO_KNOWLEDGE);
+    expect(action).toMatchObject({ abilityId: 'discharge' });
+  });
+
+  it('rule 4: knowledge flips the choice toward the weakness', () => {
+    // gale: Wind, power 60, 5 MP -> ~36 damage.
+    // ember: Fire, power 40, 2 MP -> ~24 blind, ~36 against a Fire weakness.
+    // Blind, gale is strictly stronger. Informed, ember ties it and wins the
+    // cheaper-cost tie-break. Same board, opposite decision.
+    const foe = makeTestCreature({
+      speciesId: 'foe', isPlayer: false, hp: 500, weaknesses: ['Fire'],
+    });
+    const blindHero = makeTestCreature({
+      speciesId: 'hero', mp: 20, abilities: ['ember', 'gale'],
+    });
+    expect(chooseAction(blindHero, [blindHero], [foe], 'fight_wisely', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'gale' });
+
+    const informedHero = makeTestCreature({
+      speciesId: 'hero', mp: 20, abilities: ['ember', 'gale'],
+    });
+    expect(chooseAction(informedHero, [informedHero], [foe], 'fight_wisely', new Set(['foe'])))
+      .toMatchObject({ abilityId: 'ember' });
+  });
+
+  it('rule 4: budgets to half its current MP', () => {
+    // thrash costs 5. At 20 MP the budget is 10 and it is affordable;
+    // at 8 MP the budget is 4 and it is not, so the free basic attack wins.
+    const rich = makeTestCreature({ speciesId: 'hero', mp: 20, abilities: ['thrash'] });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    expect(chooseAction(rich, [rich], [foe], 'fight_wisely', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'thrash' });
+
+    const poor = makeTestCreature({ speciesId: 'hero', mp: 8, abilities: ['thrash'] });
+    expect(chooseAction(poor, [poor], [foe], 'fight_wisely', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'basic_attack' });
+  });
+
+  it('rule 5: basic attacks with no MP', () => {
+    const hero = makeTestCreature({ speciesId: 'hero', mp: 0, abilities: ['thrash'] });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    expect(chooseAction(hero, [hero], [foe], 'fight_wisely', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'basic_attack' });
+  });
+
+  it('consumes no RNG', () => {
+    const spy = vi.spyOn(Math, 'random');
+    const hero = makeTestCreature({ speciesId: 'hero', mp: 20, abilities: ['thrash'] });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    chooseAction(hero, [hero], [foe], 'fight_wisely', NO_KNOWLEDGE);
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe('chooseAction — all_out', () => {
+  it('picks the highest raw damage regardless of MP cost', () => {
+    const hero = makeTestCreature({
+      speciesId: 'hero', mp: 20, abilities: ['jab', 'thrash'], // 30 cheap / 75 dear
+    });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    expect(chooseAction(hero, [hero], [foe], 'all_out', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'thrash' });
+  });
+
+  it('never heals even with a dying ally', () => {
+    const hero = makeTestCreature({
+      speciesId: 'hero', mp: 20, abilities: ['soothe', 'thrash'],
+    });
+    const dying = makeTestCreature({ speciesId: 'dying', hp: 1 });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    expect(chooseAction(hero, [hero, dying], [foe], 'all_out', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'thrash' });
+  });
+
+  it('kills with the highest-damage option rather than the cheapest', () => {
+    const hero = makeTestCreature({
+      speciesId: 'hero', mp: 20, abilities: ['jab', 'thrash'],
+    });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 1 });
+    expect(chooseAction(hero, [hero], [foe], 'all_out', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'thrash' });
+  });
+
+  it('consumes no RNG', () => {
+    const spy = vi.spyOn(Math, 'random');
+    const hero = makeTestCreature({ speciesId: 'hero', mp: 20, abilities: ['thrash'] });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    chooseAction(hero, [hero], [foe], 'all_out', NO_KNOWLEDGE);
+    expect(spy).not.toHaveBeenCalled();
+  });
+});

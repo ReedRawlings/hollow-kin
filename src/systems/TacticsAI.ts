@@ -124,6 +124,132 @@ function toAction(o: Option | null): CombatAction | null {
   return o ? { kind: 'ability', abilityId: o.abilityId, target: o.target } : null;
 }
 
+interface HealOption {
+  abilityId: string;
+  target: CombatCreature;
+  mpCost: number;
+  /** Fraction of the target's max HP restored. */
+  value: number;
+}
+
+/**
+ * Every affordable heal the actor can cast, paired with each ally it can reach.
+ * `mend` (targeting 'self') reaches only the actor; `soothe` (targeting
+ * 'single_ally') reaches any living ally, the actor included.
+ */
+function healCandidates(actor: CombatCreature, allies: CombatCreature[]): HealOption[] {
+  const out: HealOption[] = [];
+  for (const ability of abilityList(actor)) {
+    if (!affordable(actor, ability)) continue;
+    const heal = ability.effects?.find(e => e.type === 'heal');
+    if (!heal?.value) continue;
+
+    if (ability.targeting === 'self') {
+      out.push({ abilityId: ability.id, target: actor, mpCost: ability.mpCost, value: heal.value });
+    } else if (ability.targeting === 'single_ally' || ability.targeting === 'all_allies') {
+      for (const ally of living(allies)) {
+        out.push({ abilityId: ability.id, target: ally, mpCost: ability.mpCost, value: heal.value });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * The heal that best serves the most-hurt ally under `threshold`. Prefers the
+ * lowest-HP recipient, then the largest heal, then the cheapest, then abilityId.
+ */
+function bestHeal(
+  actor: CombatCreature,
+  allies: CombatCreature[],
+  threshold: number,
+): HealOption | null {
+  const needy = living(allies).filter(a => hpFraction(a) <= threshold);
+  if (needy.length === 0) return null;
+
+  const options = healCandidates(actor, allies)
+    .filter(o => needy.includes(o.target) && o.target.currentHp < o.target.maxHp);
+  if (options.length === 0) return null;
+
+  let best = options[0];
+  for (const o of options.slice(1)) {
+    const a = hpFraction(o.target);
+    const b = hpFraction(best.target);
+    if (a !== b) { if (a < b) best = o; continue; }
+    if (o.value !== best.value) { if (o.value > best.value) best = o; continue; }
+    if (o.mpCost !== best.mpCost) { if (o.mpCost < best.mpCost) best = o; continue; }
+    if (o.abilityId < best.abilityId) best = o;
+  }
+  return best;
+}
+
+function healAction(o: HealOption | null): CombatAction | null {
+  return o ? { kind: 'ability', abilityId: o.abilityId, target: o.target } : null;
+}
+
+/** Options that would drop their target this turn. Spread hits are excluded. */
+function killers(options: Option[]): Option[] {
+  return options.filter(o => !o.isSpread && o.damage >= o.target.currentHp);
+}
+
+function fightWisely(
+  actor: CombatCreature,
+  allies: CombatCreature[],
+  foes: CombatCreature[],
+  known: KnownSpecies,
+): CombatAction {
+  // 1. Rescue an ally in real danger.
+  const rescue = healAction(bestHeal(actor, allies, 0.30));
+  if (rescue) return rescue;
+
+  const options = damageCandidates(actor, foes, known);
+
+  // 2. Close a kill as cheaply as possible.
+  const kill = bestBy(killers(options), o => -o.mpCost);
+  if (kill) return toAction(kill)!;
+
+  // 3. Spread damage when it genuinely beats the best single hit.
+  if (living(foes).length >= 2) {
+    const spread = bestBy(options.filter(o => o.isSpread), o => o.damage);
+    const single = bestBy(options.filter(o => !o.isSpread), o => o.damage);
+    if (spread && single && spread.damage > single.damage) return toAction(spread)!;
+  }
+
+  // 4. Hit hardest within a self-imposed budget of half its CURRENT MP. This
+  //    spends freely while MP is plentiful and tightens automatically as it
+  //    drains. Basic attack, at 0 MP, is always inside the budget.
+  //    (Deliberately not "best damage per MP" — with real ability numbers a
+  //    baseline creature's free basic_attack scores 12/1=12 while thrash
+  //    scores 45/5=9, so a damage-per-MP rule makes the free action beat
+  //    nearly every paid ability and collapses this tactic into a
+  //    basic-attack bot.)
+  const budget = Math.floor(actor.currentMp / 2);
+  const withinBudget = options.filter(o => o.mpCost <= budget);
+  const strongest = bestBy(withinBudget, o => o.damage);
+  if (strongest) return toAction(strongest)!;
+
+  // 5. Nothing affordable.
+  return fallback(actor, foes, known);
+}
+
+function allOut(
+  actor: CombatCreature,
+  foes: CombatCreature[],
+  known: KnownSpecies,
+): CombatAction {
+  const options = damageCandidates(actor, foes, known);
+
+  // 1. Kill, hitting as hard as possible while doing it.
+  const kill = bestBy(killers(options), o => o.damage);
+  if (kill) return toAction(kill)!;
+
+  // 2. Maximum damage, cost disregarded entirely.
+  const hardest = bestBy(options, o => o.damage);
+  if (hardest) return toAction(hardest)!;
+
+  return fallback(actor, foes, known);
+}
+
 // ---------- profiles ----------
 
 /**
@@ -172,8 +298,12 @@ export function chooseAction(
   switch (profile) {
     case 'enemy_default':
       return enemyDefault(actor, foes);
+    case 'fight_wisely':
+      return fightWisely(actor, allies, foes, known);
+    case 'all_out':
+      return allOut(actor, foes, known);
     default:
-      // Remaining profiles land in Tasks 7 and 8.
+      // conserve_mp and heal_first land in Task 8.
       return fallback(actor, foes, known);
   }
 }
