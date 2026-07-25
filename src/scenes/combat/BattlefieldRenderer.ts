@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
-import { CombatCreature } from '../../types';
+import { CombatCreature, TACTIC_LABELS } from '../../types';
 
 export interface BattlefieldView {
   playerParty: CombatCreature[];
   enemyParty: CombatCreature[];
   currentActor: CombatCreature | undefined;
   messageLog: string[];
+  showTactics: boolean;
 }
 
 /**
@@ -28,11 +29,11 @@ export function renderBattlefield(scene: Phaser.Scene, view: BattlefieldView): v
   }
 
   view.playerParty.forEach((creature, i) => {
-    drawCreature(scene, creature, 140, 120 + i * 120, true);
+    drawCreature(scene, creature, 140, 120 + i * 120, true, view.showTactics);
   });
 
   view.enemyParty.forEach((creature, i) => {
-    drawCreature(scene, creature, 700, 120 + i * 110, false);
+    drawCreature(scene, creature, 700, 120 + i * 110, false, false);
   });
 
   // Message log
@@ -51,6 +52,7 @@ function drawCreature(
   x: number,
   y: number,
   isPlayer: boolean,
+  showTactic: boolean,
 ): void {
   const alpha = creature.isKnockedOut ? 0.3 : 1;
 
@@ -91,6 +93,12 @@ function drawCreature(
     scene.add.text(x, y + 35, statuses, {
       fontSize: '9px', color: '#ff8888', fontFamily: 'monospace',
     }).setOrigin(0.5);
+  }
+
+  if (showTactic && isPlayer && !creature.isKnockedOut) {
+    scene.add.text(labelX, y + 30, TACTIC_LABELS[creature.instance.tactic], {
+      fontSize: '9px', color: '#88aacc', fontFamily: 'monospace',
+    }).setOrigin(origin, 0.5);
   }
 
   // KO marker

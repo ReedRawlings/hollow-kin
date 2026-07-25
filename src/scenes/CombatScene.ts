@@ -4,14 +4,14 @@ import { getTemplate } from '../data/creatures';
 import { getAbility } from '../data/abilities';
 import {
   CombatCreature, BattlePhase, Encounter, CreatureInstance,
-  generateId, STAR_LEVEL_CAPS,
+  generateId, STAR_LEVEL_CAPS, TacticId, COMBAT_DELAY_AUTO_THINK,
 } from '../types';
 import {
   calculateTurnOrder, calculateDamage, applyDamage, applyHeal,
   applyAbilityEffects, tickStatusEffects, isSkipTurn,
   createCombatCreature,
 } from '../systems/CombatEngine';
-import { getEnemyAction } from '../systems/TacticsAI';
+import { getEnemyAction, chooseAction } from '../systems/TacticsAI';
 import { obolsForEncounter } from '../systems/Economy';
 import { renderBattlefield } from './combat/BattlefieldRenderer';
 
@@ -66,6 +66,8 @@ export class CombatScene extends Phaser.Scene {
     const enemyLevel = this.encounter.enemyLevels ?? 1;
     for (const speciesId of enemyIds) {
       const template = getTemplate(speciesId);
+      // The player has met this species — auto-combat may use its weaknesses from now on.
+      gameState.recordSeenSpecies(speciesId);
       const enemyInstance: CreatureInstance = {
         instanceId: generateId(),
         speciesId,
@@ -150,9 +152,17 @@ export class CombatScene extends Phaser.Scene {
     }
 
     if (current.isPlayerOwned) {
-      this.phase = BattlePhase.PLAYER_CHOOSING;
-      this.drawBattlefield();
-      this.showActionMenu(current);
+      const run2 = gameState.currentRun!;
+      const tactic = current.instance.tactic;
+      if (run2.autoCombat && tactic !== 'follow_orders') {
+        this.phase = BattlePhase.EXECUTING;
+        this.drawBattlefield();
+        this.time.delayedCall(COMBAT_DELAY_AUTO_THINK, () => this.executeAutoTurn(current));
+      } else {
+        this.phase = BattlePhase.PLAYER_CHOOSING;
+        this.drawBattlefield();
+        this.showActionMenu(current);
+      }
     } else {
       this.phase = BattlePhase.EXECUTING;
       this.executeEnemyTurn(current);
@@ -308,6 +318,26 @@ export class CombatScene extends Phaser.Scene {
 
     this.drawBattlefield();
     this.time.delayedCall(800, () => this.finishTurn(attacker));
+  }
+
+  private executeAutoTurn(creature: CombatCreature): void {
+    // tactic is narrowed to TacticProfile — 'follow_orders' never reaches here.
+    const profile = creature.instance.tactic as Exclude<TacticId, 'follow_orders'>;
+    const action = chooseAction(
+      creature,
+      this.playerParty,
+      this.enemyParty,
+      profile,
+      gameState.seenSpecies,
+    );
+
+    if (action.kind === 'defend') {
+      creature.isDefending = true;
+      this.addMessage(`${creature.template.name} defends!`);
+      this.finishTurn(creature);
+      return;
+    }
+    this.executePlayerAction(creature, action.abilityId, action.target);
   }
 
   private executeEnemyTurn(enemy: CombatCreature): void {
@@ -498,6 +528,38 @@ export class CombatScene extends Phaser.Scene {
 
   // ---------- RENDERING ----------
 
+  /** Toggle row, redrawn after every battlefield repaint since children are cleared. */
+  private drawHud(): void {
+    const run = gameState.currentRun!;
+
+    const autoOn = run.autoCombat;
+    const autoBg = this.add.rectangle(880, 20, 120, 28, autoOn ? 0x336633 : 0x333344, 0.95)
+      .setStrokeStyle(2, autoOn ? 0x66cc66 : 0x555566)
+      .setInteractive({ useHandCursor: true });
+    this.add.text(880, 20, autoOn ? 'AUTO: ON' : 'AUTO: OFF', {
+      fontSize: '12px', color: autoOn ? '#bbffbb' : '#9999aa', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    autoBg.on('pointerdown', () => {
+      run.autoCombat = !run.autoCombat;
+      gameState.saveToLocalStorage();
+      // If we just switched on while waiting for input, hand this turn to the AI.
+      const current = this.turnOrder[this.currentTurnIndex];
+      if (run.autoCombat
+        && this.phase === BattlePhase.PLAYER_CHOOSING
+        && current?.isPlayerOwned
+        && current.instance.tactic !== 'follow_orders') {
+        this.clearUI();
+        this.phase = BattlePhase.EXECUTING;
+        this.drawBattlefield();
+        this.time.delayedCall(COMBAT_DELAY_AUTO_THINK, () => this.executeAutoTurn(current));
+      } else {
+        this.drawBattlefield();
+        if (this.phase === BattlePhase.PLAYER_CHOOSING && current) this.showActionMenu(current);
+      }
+    });
+  }
+
   private drawBattlefield(): void {
     // Clear previous battlefield elements (but not UI overlay)
     this.children.removeAll();
@@ -508,7 +570,10 @@ export class CombatScene extends Phaser.Scene {
       enemyParty: this.enemyParty,
       currentActor: this.turnOrder[this.currentTurnIndex],
       messageLog: this.messageLog,
+      showTactics: gameState.currentRun?.autoCombat ?? false,
     });
+
+    this.drawHud();
   }
 
   private addMessage(msg: string): void {
