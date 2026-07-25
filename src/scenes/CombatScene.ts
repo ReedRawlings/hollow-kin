@@ -194,8 +194,13 @@ export class CombatScene extends Phaser.Scene {
           if (ability.targeting === 'self' || ability.targeting === 'all_enemies' || ability.targeting === 'all_allies') {
             this.executePlayerAction(creature, abilityId, creature);
           } else if (ability.targeting === 'single_ally') {
-            // For now, self-heal
-            this.executePlayerAction(creature, abilityId, creature);
+            // A single_ally ability may target any living ally, including the caster.
+            const livingAllies = this.playerParty.filter(p => !p.isKnockedOut);
+            if (livingAllies.length === 1) {
+              this.executePlayerAction(creature, abilityId, livingAllies[0]);
+            } else {
+              this.showAllyTargetSelection(creature, abilityId);
+            }
           } else {
             // Single-enemy targeting: auto-target when only one enemy is alive,
             // otherwise let the player pick.
@@ -247,6 +252,31 @@ export class CombatScene extends Phaser.Scene {
       highlight.on('pointerout', () => highlight.setAlpha(0.15));
       highlight.on('pointerdown', () => {
         this.executePlayerAction(attacker, abilityId, enemy);
+      });
+    });
+  }
+
+  private showAllyTargetSelection(caster: CombatCreature, abilityId: string): void {
+    this.clearUI();
+    const ability = getAbility(abilityId);
+
+    this.add.text(this.cameras.main.centerX, 500, `Select ally for ${ability.name}`, {
+      fontSize: '14px', color: '#88ffaa', fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    this.playerParty.forEach((ally, i) => {
+      if (ally.isKnockedOut) return;
+      const x = 140;
+      const y = 120 + i * 120;
+
+      const highlight = this.add.rectangle(x, y, 110, 90, 0x88ffaa, 0.15)
+        .setStrokeStyle(2, 0x88ffaa).setInteractive({ useHandCursor: true });
+      this.uiElements.push(highlight);
+
+      highlight.on('pointerover', () => highlight.setAlpha(0.4));
+      highlight.on('pointerout', () => highlight.setAlpha(0.15));
+      highlight.on('pointerdown', () => {
+        this.executePlayerAction(caster, abilityId, ally);
       });
     });
   }
