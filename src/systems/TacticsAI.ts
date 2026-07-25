@@ -87,8 +87,11 @@ function damageCandidates(
 
 /**
  * Picks the best option by `score`, higher wins. Ties break on lower MP cost,
- * then lower target HP, then abilityId — so the result never depends on
- * iteration luck.
+ * then lower target HP, then abilityId, then — since two same-species foes at
+ * identical HP targeted by the same ability tie on all three of those —
+ * lexicographically-lower target.instance.instanceId. instanceId is unique
+ * per creature instance, so this final key is guaranteed to break every tie:
+ * the chain is total, and the result never depends on iteration order.
  */
 function bestBy(options: Option[], score: (o: Option) => number): Option | null {
   let best: Option | null = null;
@@ -108,7 +111,11 @@ function bestBy(options: Option[], score: (o: Option) => number): Option | null 
       if (o.target.currentHp < best.target.currentHp) best = o;
       continue;
     }
-    if (o.abilityId < best.abilityId) best = o;
+    if (o.abilityId !== best.abilityId) {
+      if (o.abilityId < best.abilityId) best = o;
+      continue;
+    }
+    if (o.target.instance.instanceId < best.target.instance.instanceId) best = o;
   }
   return best;
 }
@@ -178,6 +185,28 @@ export function chooseAction(
  * than in CombatEngine to keep the module dependency one-way (TacticsAI ->
  * CombatEngine), since this module already imports baseDamage/getEffectiveStat
  * from CombatEngine.
+ *
+ * DELIBERATE DIVERGENCE from the pre-port `getEnemyAction`, empty-foes branch
+ * only: when every entry in `playerParty` is knocked out, this now returns
+ * `{ abilityId: 'basic_attack', target: playerParty[0] }` (a defined, if
+ * knocked-out, target) and consumes zero `Math.random()` calls.
+ *
+ * The pre-port code had no explicit empty-foes check. It indexed an empty
+ * array directly — `livingTargets[Math.floor(Math.random() * livingTargets.length)]`
+ * with `livingTargets.length === 0` — which still burned one `Math.random()`
+ * call, evaluated to `[][0]` = `undefined`, and then went on to pick the
+ * enemy's actual strongest affordable ability (not necessarily 'basic_attack')
+ * paired with that `undefined` target.
+ *
+ * `target: undefined` is a latent crash: any caller dereferencing
+ * `target.template.name` (or similar) throws. The new behavior trades an
+ * unpinned RNG call and an arbitrary ability id for a target that is always a
+ * real CombatCreature — strictly safer. This branch is unreachable in the
+ * live game today: `CombatScene.nextTurn` ends the battle via
+ * `playerParty.every(c => c.isKnockedOut)` before any enemy turn can run with
+ * an all-knocked-out party. Do NOT restore the old undefined-target behavior;
+ * see the "all foes knocked out" test in CombatEngine.test.ts, which pins
+ * this post-port contract.
  */
 export function getEnemyAction(
   enemy: CombatCreature,

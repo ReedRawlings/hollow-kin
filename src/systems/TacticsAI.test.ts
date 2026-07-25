@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { makeTestCreature } from './CombatEngine.test';
+import { makeTestCreature } from './testFixtures';
 import { getAbility } from '../data/abilities';
 import { chooseAction, estimateDamage, NO_KNOWLEDGE } from './TacticsAI';
 
@@ -77,5 +77,35 @@ describe('chooseAction — enemy_default', () => {
     const dead = makeTestCreature({ speciesId: 'hero', hp: 0 });
     expect(chooseAction(enemy, [enemy], [dead], 'enemy_default', NO_KNOWLEDGE))
       .toEqual({ kind: 'defend' });
+  });
+});
+
+describe('bestBy tie-break (exercised via chooseAction — fallback path)', () => {
+  // `bestBy` is only reachable through the `fallback` path today (every
+  // TacticProfile other than 'enemy_default' falls through to it). Tested here
+  // through the public `chooseAction` entry point rather than by exporting
+  // `bestBy` — going through the public API isn't awkward for this case, and it
+  // keeps the module's exported surface minimal.
+  it('is fully deterministic and order-independent when two foes tie on score, mpCost, HP, and abilityId', () => {
+    // Two same-species foes, identical stats, identical current HP, and the
+    // actor only has basic_attack — so both damage candidates tie on score,
+    // mpCost, and target.currentHp, and both share abilityId 'basic_attack'.
+    // Without a final instanceId tie-break, the winner would depend on
+    // iteration order alone.
+    const actor = makeTestCreature({ speciesId: 'actor', isPlayer: true, abilities: ['basic_attack'] });
+    const foeA = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 50 });
+    const foeB = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 50 });
+    // Force distinct, orderable instanceIds (makeTestCreature derives instanceId
+    // from speciesId, so same-species foes otherwise collide).
+    foeA.instance.instanceId = 'z-foe';
+    foeB.instance.instanceId = 'a-foe';
+
+    const forward = chooseAction(actor, [actor], [foeA, foeB], 'fight_wisely', NO_KNOWLEDGE);
+    const reversed = chooseAction(actor, [actor], [foeB, foeA], 'fight_wisely', NO_KNOWLEDGE);
+
+    expect(forward).toEqual({ kind: 'ability', abilityId: 'basic_attack', target: foeB });
+    // The order-independence assertion is the one that matters: a test that
+    // only ever calls with the same array order would pass even with the bug.
+    expect(reversed).toEqual(forward);
   });
 });

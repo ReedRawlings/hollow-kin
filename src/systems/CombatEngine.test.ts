@@ -1,79 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import {
-  CombatCreature, CreatureInstance, CreatureTemplate, BaseStats, DamageType,
-} from '../types';
-import { createCombatCreature } from './CombatEngine';
 import { getEnemyAction } from './TacticsAI';
-
-export function testStats(over: Partial<BaseStats> = {}): BaseStats {
-  return { hp: 100, mp: 20, str: 40, def: 20, wis: 20, spd: 20, int: 40, ...over };
-}
-
-export interface TestCreatureOpts {
-  speciesId?: string;
-  abilities?: (string | null)[];
-  isPlayer?: boolean;
-  hp?: number;
-  mp?: number;
-  stats?: Partial<BaseStats>;
-  weaknesses?: DamageType[];
-  resistances?: DamageType[];
-}
-
-/** Builds a CombatCreature with predictable stats for AI and engine tests. */
-export function makeTestCreature(opts: TestCreatureOpts = {}): CombatCreature {
-  const speciesId = opts.speciesId ?? 'dummy';
-  const s = testStats(opts.stats);
-  const template: CreatureTemplate = {
-    id: speciesId,
-    name: speciesId,
-    archetype: 'Fauna',
-    baseStats: s,
-    defaultAbilities: [],
-    resistances: [],
-    weaknesses: [],
-    spriteColor: 0,
-  };
-  const instance: CreatureInstance = {
-    instanceId: `i-${speciesId}`,
-    speciesId,
-    nickname: null,
-    starRating: 0,
-    currentLevel: 1,
-    levelCap: 5,
-    permanentLevel: 1,
-    essenceInvested: 0,
-    abilities: opts.abilities ?? ['basic_attack'],
-    traitSlots: [],
-    lineage: { parentA: null, parentB: null },
-    currentStats: s,
-    resistances: opts.resistances ?? [],
-    weaknesses: opts.weaknesses ?? [],
-    isRetired: false,
-    isBreedReady: false,
-    xp: 0,
-    tactic: 'fight_wisely',
-  };
-  const c = createCombatCreature(instance, template, opts.isPlayer ?? true);
-  // opts.hp/opts.mp set currentHp/currentMp directly. createCombatCreature already
-  // derived maxHp/maxMp from the stats block, so an opts.hp/opts.mp that exceeds
-  // that stat-derived max would otherwise produce an impossible currentHp > maxHp
-  // (or currentMp > maxMp) state. When that happens, raise the max to match instead
-  // — this lets callers build either "damaged creature" fixtures (hp below the
-  // stats-derived max, e.g. { hp: 20 } against the default 100 stats) or "tankier
-  // creature at full health" fixtures (hp above the default max, e.g. { hp: 500 })
-  // without needing to also override `stats`.
-  if (opts.hp !== undefined) {
-    c.currentHp = opts.hp;
-    if (opts.hp > c.maxHp) c.maxHp = opts.hp;
-  }
-  if (opts.mp !== undefined) {
-    c.currentMp = opts.mp;
-    if (opts.mp > c.maxMp) c.maxMp = opts.mp;
-  }
-  c.isKnockedOut = c.currentHp <= 0;
-  return c;
-}
+import { makeTestCreature } from './testFixtures';
 
 /** Forces Math.random to yield the given sequence, then repeat its last value. */
 function seedRandom(values: number[]): void {
@@ -168,6 +95,24 @@ describe('getEnemyAction — characterization', () => {
     });
     getEnemyAction(enemy, [makeTestCreature({ speciesId: 'hero' })]);
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  // Pins the POST-PORT contract for the empty-foes branch — this is a deliberate
+  // divergence from the pre-port getEnemyAction, not an accidental regression.
+  // See the doc comment on getEnemyAction in TacticsAI.ts for the full rationale:
+  // the old code indexed an empty array (burning one Math.random() call) and
+  // returned an undefined target paired with the enemy's actual best ability;
+  // this returns a safe, defined (if knocked-out) target and burns zero RNG.
+  it('all foes knocked out (post-port): returns basic_attack, a defined target, and zero Math.random calls', () => {
+    const spy = vi.spyOn(Math, 'random');
+    const enemy = makeTestCreature({
+      speciesId: 'foe', isPlayer: false, mp: 20, abilities: ['jab', 'thrash', 'smash'],
+    });
+    const downedHero = makeTestCreature({ speciesId: 'hero', hp: 0 });
+    const result = getEnemyAction(enemy, [downedHero]);
+    expect(result).toEqual({ abilityId: 'basic_attack', target: downedHero });
+    expect(result.target).toBeDefined();
+    expect(spy).not.toHaveBeenCalled();
   });
 });
 
