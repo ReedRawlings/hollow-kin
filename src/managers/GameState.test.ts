@@ -13,6 +13,9 @@ beforeAll(() => {
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { gameState } from './GameState';
+import { estimateDamage, NO_KNOWLEDGE } from '../systems/TacticsAI';
+import { makeTestCreature } from '../systems/testFixtures';
+import { getAbility } from '../data/abilities';
 
 beforeEach(() => {
   gameState.initializeNewGame(['ironjaw', 'stoneguard', 'voltarc']);
@@ -287,5 +290,42 @@ describe('tactics and settings persistence', () => {
     expect(gameState.battleSpeed).toBe(1);
     expect(gameState.seenSpecies.size).toBe(0);
     expect(gameState.essence).toBe(40);
+  });
+});
+
+describe('seenSpecies fog timing (finding 2 regression)', () => {
+  // Pins *when* recordSeenSpecies must be called relative to a battle, not
+  // just that it eventually gets called (the dedup test above already covers
+  // that). CombatScene originally called it inside initBattle() — before
+  // nextTurn() ever runs, i.e. before the AI evaluates the fight the species
+  // belongs to — so `known.has(foe.speciesId)` was always true and the fog
+  // could never suppress a type multiplier. CombatScene can't be exercised
+  // here without a Phaser harness, so this pins the same defect shape one
+  // layer down: it fails if a species is marked "seen" before the AI's
+  // damage estimate for *that same fight* is taken, and passes only when the
+  // recording happens after — mirroring CombatScene.showBattleEnd(), the
+  // sole choke point both battle-end paths (VICTORY and DEFEAT) pass through.
+  it('stays blind to a species until it is recorded, and only reflects the weakness afterward', () => {
+    gameState.seenSpecies = new Set();
+
+    const attacker = makeTestCreature({ speciesId: 'attacker' });
+    const foe = makeTestCreature({ speciesId: 'weak-foe', weaknesses: ['Fire'] });
+    const ability = getAbility('ember');
+    const blindDamage = estimateDamage(attacker, foe, ability, NO_KNOWLEDGE);
+
+    // "Battle start" — mirrors CombatScene.initBattle(). The species must not
+    // be known yet, and the AI's estimate for this fight must match the
+    // fully-blind baseline exactly.
+    expect(gameState.seenSpecies.has(foe.instance.speciesId)).toBe(false);
+    const midBattleDamage = estimateDamage(attacker, foe, ability, gameState.seenSpecies);
+    expect(midBattleDamage).toBe(blindDamage);
+
+    // "Battle resolution" — mirrors CombatScene.showBattleEnd(), called
+    // regardless of victory or defeat.
+    gameState.recordSeenSpecies(foe.instance.speciesId);
+
+    expect(gameState.seenSpecies.has(foe.instance.speciesId)).toBe(true);
+    const nextBattleDamage = estimateDamage(attacker, foe, ability, gameState.seenSpecies);
+    expect(nextBattleDamage).toBeGreaterThan(blindDamage);
   });
 });

@@ -1,5 +1,6 @@
 import {
   CombatCreature, Ability, CombatAction, TacticProfile, KnownSpecies, StatName,
+  MIN_HIT_CHANCE,
 } from '../types';
 import { getAbility } from '../data/abilities';
 import { baseDamage, getEffectiveStat } from './CombatEngine';
@@ -19,7 +20,7 @@ export function estimateDamage(
   known: KnownSpecies,
 ): number {
   if (ability.power === 0) return 0;
-  const hitChance = Math.max(0.3, ability.accuracy / 100);
+  const hitChance = Math.max(MIN_HIT_CHANCE, ability.accuracy / 100);
   const raw = baseDamage(actor, foe, ability, known.has(foe.instance.speciesId));
   return Math.max(1, Math.floor(raw * hitChance));
 }

@@ -137,7 +137,11 @@ export class RunScene extends Phaser.Scene {
     }).setOrigin(0.5);
     autoBg.on('pointerdown', () => {
       run.autoCombat = !run.autoCombat;
-      gameState.saveToLocalStorage();
+      // NOTE: intentionally not calling gameState.saveToLocalStorage() here.
+      // autoCombat lives on RunState (gameState.currentRun), and currentRun is
+      // not part of the serialized save — this toggle is never persisted by
+      // that call regardless, so it would just be a no-op flush of unrelated
+      // state (whole-branch review finding 4).
       this.drawUI();
     });
 

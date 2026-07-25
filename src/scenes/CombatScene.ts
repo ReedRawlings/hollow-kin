@@ -58,6 +58,8 @@ export class CombatScene extends Phaser.Scene {
     this.currentTurnIndex = 0;
     this.messageLog = [];
     this.selectedAbilityId = null;
+    this.uiElements = [];
+    this.hudElements = [];
   }
 
   create(): void {
@@ -86,8 +88,6 @@ export class CombatScene extends Phaser.Scene {
     const enemyLevel = this.encounter.enemyLevels ?? 1;
     for (const speciesId of enemyIds) {
       const template = getTemplate(speciesId);
-      // The player has met this species — auto-combat may use its weaknesses from now on.
-      gameState.recordSeenSpecies(speciesId);
       const enemyInstance: CreatureInstance = {
         instanceId: generateId(),
         speciesId,
@@ -266,6 +266,7 @@ export class CombatScene extends Phaser.Scene {
 
   private showTargetSelection(attacker: CombatCreature, abilityId: string): void {
     this.clearUI();
+    this.phase = BattlePhase.PLAYER_TARGETING;
     const ability = getAbility(abilityId);
 
     this.add.text(this.cameras.main.centerX, 500, `Select target for ${ability.name}`, {
@@ -291,6 +292,7 @@ export class CombatScene extends Phaser.Scene {
 
   private showAllyTargetSelection(caster: CombatCreature, abilityId: string): void {
     this.clearUI();
+    this.phase = BattlePhase.PLAYER_TARGETING;
     const ability = getAbility(abilityId);
 
     this.add.text(this.cameras.main.centerX, 500, `Select ally for ${ability.name}`, {
@@ -427,6 +429,22 @@ export class CombatScene extends Phaser.Scene {
     // explicitly or it dead-ends the game (clicking it wipes this screen via
     // drawBattlefield() and draws nothing to replace it).
     this.destroyHud();
+
+    // The player has now met every species in this encounter — win, loss, or
+    // (should combat ever grow a mid-battle flee) any other exit — so record
+    // them here, at the single choke point both battle-end paths (VICTORY and
+    // DEFEAT branches of nextTurn(), the only two callers of showBattleEnd())
+    // pass through. Recording in initBattle() instead (as the branch
+    // originally did) makes every species already "known" before the AI ever
+    // evaluates the battle it was just generated for, so the fog can never
+    // suppress a type multiplier in the fight where it should. Per the design
+    // spec §1 ("blind on first encounter") — the intent §3 contradicted by
+    // asking for population at encounter-generation time — this battle stays
+    // blind and only battles from here on are informed.
+    for (const enemy of this.enemyParty) {
+      gameState.recordSeenSpecies(enemy.instance.speciesId);
+    }
+
     const cx = this.cameras.main.centerX;
     const run = gameState.currentRun!;
 
@@ -583,21 +601,40 @@ export class CombatScene extends Phaser.Scene {
     this.hudElements.push(autoLabel);
 
     autoBg.on('pointerdown', () => {
+      // Destroy whatever menu/target-selection elements are currently registered
+      // with the input plugin before anything else. drawBattlefield() below only
+      // detaches uiElements (children.removeAll()), it doesn't destroy them — a
+      // bare redraw would leave the previous prompt's hotspots alive and
+      // clickable underneath whatever gets drawn next (finding 1b).
+      this.clearUI();
       run.autoCombat = !run.autoCombat;
-      gameState.saveToLocalStorage();
+      // NOTE: intentionally not calling gameState.saveToLocalStorage() here.
+      // autoCombat lives on RunState (gameState.currentRun), and currentRun is
+      // not part of the serialized save — this toggle is never persisted by
+      // this call regardless, so the call would just be a no-op flush of
+      // unrelated state (finding 4).
       // If we just switched on while waiting for input, hand this turn to the AI.
       const current = this.turnOrder[this.currentTurnIndex];
       if (run.autoCombat
         && this.phase === BattlePhase.PLAYER_CHOOSING
         && current?.isPlayerOwned
         && current.instance.tactic !== 'follow_orders') {
-        this.clearUI();
         this.phase = BattlePhase.EXECUTING;
         this.drawBattlefield();
         this.time.delayedCall(scaledDelay(COMBAT_DELAY_AUTO_THINK, gameState.battleSpeed), () => this.executeAutoTurn(current));
       } else {
         this.drawBattlefield();
-        if (this.phase === BattlePhase.PLAYER_CHOOSING && current) this.showActionMenu(current);
+        // Re-show the ability menu whenever the player was mid-decision — for
+        // PLAYER_CHOOSING that's an unchanged redraw of the menu; for
+        // PLAYER_TARGETING (a target/ally prompt was just destroyed by the
+        // clearUI() above) this deliberately returns the player to the ability
+        // menu rather than leaving them with no prompt at all. Their
+        // in-progress ability selection is lost — defensible and simple, and
+        // strictly better than a dead screen (finding 1c).
+        if ((this.phase === BattlePhase.PLAYER_CHOOSING || this.phase === BattlePhase.PLAYER_TARGETING) && current) {
+          this.phase = BattlePhase.PLAYER_CHOOSING;
+          this.showActionMenu(current);
+        }
       }
     });
 
@@ -613,11 +650,20 @@ export class CombatScene extends Phaser.Scene {
     speedBg.on('pointerover', () => speedBg.setFillStyle(0x444455));
     speedBg.on('pointerout', () => speedBg.setFillStyle(0x333344));
     speedBg.on('pointerdown', () => {
+      // See the AUTO handler above — must destroy, not just detach, the
+      // currently-registered menu/target-selection elements before redrawing
+      // (finding 1b).
+      this.clearUI();
       gameState.cycleBattleSpeed();
       gameState.saveToLocalStorage();
       this.drawBattlefield();
       const current = this.turnOrder[this.currentTurnIndex];
-      if (this.phase === BattlePhase.PLAYER_CHOOSING && current) this.showActionMenu(current);
+      // See the AUTO handler above for why PLAYER_TARGETING is included here
+      // (finding 1c).
+      if ((this.phase === BattlePhase.PLAYER_CHOOSING || this.phase === BattlePhase.PLAYER_TARGETING) && current) {
+        this.phase = BattlePhase.PLAYER_CHOOSING;
+        this.showActionMenu(current);
+      }
     });
   }
 
