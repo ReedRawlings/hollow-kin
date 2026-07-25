@@ -192,6 +192,130 @@ function killers(options: Option[]): Option[] {
   return options.filter(o => !o.isSpread && o.damage >= o.target.currentHp);
 }
 
+/** The cheapest affordable self-buff whose stat is still below +2. */
+function buffAction(actor: CombatCreature): CombatAction | null {
+  let best: Ability | null = null;
+  for (const ability of abilityList(actor)) {
+    if (ability.category !== 'Status' || ability.targeting !== 'self') continue;
+    if (!affordable(actor, ability)) continue;
+    const buffs = ability.effects?.filter(e => e.type === 'buff' && e.stat) ?? [];
+    if (buffs.length === 0) continue;
+    // Only worth casting if at least one of its stats has headroom below +2.
+    const useful = buffs.some(e => (actor.buffStages[e.stat as StatName] ?? 0) < 2);
+    if (!useful) continue;
+    if (best === null || ability.mpCost < best.mpCost
+      || (ability.mpCost === best.mpCost && ability.id < best.id)) {
+      best = ability;
+    }
+  }
+  return best ? { kind: 'ability', abilityId: best.id, target: actor } : null;
+}
+
+/** The cheapest affordable debuff against the strongest foe not already at -2. */
+function debuffAction(actor: CombatCreature, foes: CombatCreature[]): CombatAction | null {
+  const alive = living(foes);
+  if (alive.length === 0) return null;
+
+  // "Strongest" = highest effective STR, tie-broken on species id for determinism.
+  let strongest = alive[0];
+  for (const f of alive.slice(1)) {
+    const a = getEffectiveStat(f, 'str');
+    const b = getEffectiveStat(strongest, 'str');
+    if (a > b || (a === b && f.instance.speciesId < strongest.instance.speciesId)) strongest = f;
+  }
+
+  let best: Ability | null = null;
+  for (const ability of abilityList(actor)) {
+    if (ability.targeting !== 'single_enemy' || ability.power > 0) continue;
+    if (!affordable(actor, ability)) continue;
+    const debuffs = ability.effects?.filter(e => e.type === 'debuff' && e.stat) ?? [];
+    if (debuffs.length === 0) continue;
+    const useful = debuffs.some(e => (strongest.buffStages[e.stat as StatName] ?? 0) > -2);
+    if (!useful) continue;
+    if (best === null || ability.mpCost < best.mpCost
+      || (ability.mpCost === best.mpCost && ability.id < best.id)) {
+      best = ability;
+    }
+  }
+  return best ? { kind: 'ability', abilityId: best.id, target: strongest } : null;
+}
+
+function conserveMp(
+  actor: CombatCreature,
+  allies: CombatCreature[],
+  foes: CombatCreature[],
+  known: KnownSpecies,
+): CombatAction {
+  // 1. Patch itself up when it is the one in danger.
+  const selfHeal = healCandidates(actor, allies)
+    .filter(o => o.target === actor && hpFraction(actor) <= 0.35 && actor.currentHp < actor.maxHp);
+  if (selfHeal.length > 0) {
+    const cheapest = selfHeal.reduce((a, b) => (b.mpCost < a.mpCost ? b : a));
+    return healAction(cheapest)!;
+  }
+
+  // 2. Emergencies beat thrift.
+  const rescue = healAction(bestHeal(actor, allies, 0.25));
+  if (rescue) return rescue;
+
+  const options = damageCandidates(actor, foes, known);
+
+  // 3. A free kill is always worth taking.
+  const freeKill = bestBy(killers(options).filter(o => o.mpCost === 0), o => o.damage);
+  if (freeKill) return toAction(freeKill)!;
+
+  // 4. Spend only while the party is under pressure.
+  const underPressure = living(allies).some(a => hpFraction(a) <= 0.50);
+  if (underPressure) {
+    const paidKill = bestBy(killers(options), o => -o.mpCost);
+    if (paidKill) return toAction(paidKill)!;
+
+    // Hardest hit inside a third of max MP. Damage-per-MP would be wrong here:
+    // the free basic attack always wins that ratio, so rule 4 would never
+    // actually spend and the pressure gate would be dead code.
+    const ceiling = Math.floor(actor.maxMp / 3);
+    const affordableNow = options.filter(o => o.mpCost <= ceiling);
+    const strongest = bestBy(affordableNow, o => o.damage);
+    if (strongest) return toAction(strongest)!;
+  }
+
+  // 5. Save the MP.
+  return fallback(actor, foes, known);
+}
+
+function healFirst(
+  actor: CombatCreature,
+  allies: CombatCreature[],
+  foes: CombatCreature[],
+  known: KnownSpecies,
+): CombatAction {
+  // 1. Keep the party standing.
+  const heal = healAction(bestHeal(actor, allies, 0.60));
+  if (heal) return heal;
+
+  // 2. Nobody hurt — set the party up.
+  const buff = buffAction(actor);
+  if (buff) return buff;
+
+  // 3. Take the edge off the biggest threat.
+  const debuff = debuffAction(actor, foes);
+  if (debuff) return debuff;
+
+  // 4. Contribute damage, but never spend the MP that keeps the party alive.
+  const heals = healCandidates(actor, allies);
+  if (heals.length > 0) {
+    const cheapestHeal = heals.reduce((a, b) => (b.mpCost < a.mpCost ? b : a)).mpCost;
+    if (actor.currentMp < cheapestHeal * 2) return fallback(actor, foes, known);
+  }
+  // Past the reserve check, spending is already sanctioned — so hit hardest
+  // rather than most efficiently, for the same reason as Conserve MP's rule 4.
+  const strongest = bestBy(damageCandidates(actor, foes, known), o => o.damage);
+  if (strongest) return toAction(strongest)!;
+
+  // 5.
+  return fallback(actor, foes, known);
+}
+
 function fightWisely(
   actor: CombatCreature,
   allies: CombatCreature[],
@@ -311,9 +435,10 @@ export function chooseAction(
       return fightWisely(actor, allies, foes, known);
     case 'all_out':
       return allOut(actor, foes, known);
-    default:
-      // conserve_mp and heal_first land in Task 8.
-      return fallback(actor, foes, known);
+    case 'conserve_mp':
+      return conserveMp(actor, allies, foes, known);
+    case 'heal_first':
+      return healFirst(actor, allies, foes, known);
   }
 }
 

@@ -262,3 +262,147 @@ describe('chooseAction — all_out', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 });
+
+describe('chooseAction — conserve_mp', () => {
+  it('rule 3: basic attacks while the party is healthy', () => {
+    const hero = makeTestCreature({ speciesId: 'hero', mp: 20, abilities: ['thrash'] });
+    const ally = makeTestCreature({ speciesId: 'ally', hp: 100 });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    expect(chooseAction(hero, [hero, ally], [foe], 'conserve_mp', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'basic_attack' });
+  });
+
+  it('rule 1: self-heals below 35%', () => {
+    const hero = makeTestCreature({
+      speciesId: 'hero', mp: 20, hp: 30, abilities: ['mend', 'thrash'],
+    });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    expect(chooseAction(hero, [hero], [foe], 'conserve_mp', NO_KNOWLEDGE))
+      .toEqual({ kind: 'ability', abilityId: 'mend', target: hero });
+  });
+
+  it('rule 2: soothes an ally below 25%', () => {
+    const hero = makeTestCreature({ speciesId: 'hero', mp: 20, abilities: ['soothe', 'thrash'] });
+    const dying = makeTestCreature({ speciesId: 'dying', hp: 20 });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    expect(chooseAction(hero, [hero, dying], [foe], 'conserve_mp', NO_KNOWLEDGE))
+      .toEqual({ kind: 'ability', abilityId: 'soothe', target: dying });
+  });
+
+  it('rule 3 beats rule 4: kills with a free basic attack', () => {
+    const hero = makeTestCreature({ speciesId: 'hero', mp: 20, abilities: ['thrash'] });
+    const hurtAlly = makeTestCreature({ speciesId: 'ally', hp: 40 }); // under pressure
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 1 });
+    expect(chooseAction(hero, [hero, hurtAlly], [foe], 'conserve_mp', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'basic_attack' });
+  });
+
+  it('rule 4: spends only when the party is under pressure', () => {
+    // A tanky foe basic attack cannot kill; hero has a cheap strong option.
+    const hero = makeTestCreature({
+      speciesId: 'hero', mp: 20, stats: { mp: 20 }, abilities: ['smash'],
+    });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+
+    const healthy = makeTestCreature({ speciesId: 'ally', hp: 100 });
+    expect(chooseAction(hero, [hero, healthy], [foe], 'conserve_mp', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'basic_attack' });
+
+    const pressured = makeTestCreature({ speciesId: 'ally', hp: 40 }); // 40% <= 50%
+    expect(chooseAction(hero, [hero, pressured], [foe], 'conserve_mp', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'smash' });
+  });
+
+  it('rule 4 respects the one-third max MP ceiling', () => {
+    // maxMp 20 -> ceiling 6. razor_wind costs 6 (allowed); discharge costs 7 (not).
+    const hero = makeTestCreature({
+      speciesId: 'hero', mp: 20, stats: { mp: 20 }, abilities: ['razor_wind', 'discharge'],
+    });
+    const pressured = makeTestCreature({ speciesId: 'ally', hp: 40 });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    expect(chooseAction(hero, [hero, pressured], [foe], 'conserve_mp', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'razor_wind' });
+  });
+
+  it('consumes no RNG', () => {
+    const spy = vi.spyOn(Math, 'random');
+    const hero = makeTestCreature({ speciesId: 'hero', mp: 20, abilities: ['thrash'] });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    chooseAction(hero, [hero], [foe], 'conserve_mp', NO_KNOWLEDGE);
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe('chooseAction — heal_first', () => {
+  it('rule 1: heals an ally below 60%', () => {
+    const hero = makeTestCreature({ speciesId: 'hero', mp: 20, abilities: ['soothe', 'thrash'] });
+    const hurt = makeTestCreature({ speciesId: 'hurt', hp: 50 });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    expect(chooseAction(hero, [hero, hurt], [foe], 'heal_first', NO_KNOWLEDGE))
+      .toEqual({ kind: 'ability', abilityId: 'soothe', target: hurt });
+  });
+
+  it('rule 2: buffs itself when nobody is hurt', () => {
+    const hero = makeTestCreature({ speciesId: 'hero', mp: 20, abilities: ['bold', 'thrash'] });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    expect(chooseAction(hero, [hero], [foe], 'heal_first', NO_KNOWLEDGE))
+      .toEqual({ kind: 'ability', abilityId: 'bold', target: hero });
+  });
+
+  it('rule 2 stops once the stat is at +2', () => {
+    const hero = makeTestCreature({ speciesId: 'hero', mp: 20, abilities: ['bold', 'thrash'] });
+    hero.buffStages.str = 2;
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    expect(chooseAction(hero, [hero], [foe], 'heal_first', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'thrash' });
+  });
+
+  it('rule 3: debuffs when it has no buff left to cast', () => {
+    const hero = makeTestCreature({ speciesId: 'hero', mp: 20, abilities: ['weaken', 'thrash'] });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    expect(chooseAction(hero, [hero], [foe], 'heal_first', NO_KNOWLEDGE))
+      .toEqual({ kind: 'ability', abilityId: 'weaken', target: foe });
+  });
+
+  it('rule 3 stops once the foe is at -2 on that stat', () => {
+    const hero = makeTestCreature({ speciesId: 'hero', mp: 20, abilities: ['weaken', 'thrash'] });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    foe.buffStages.str = -2;
+    expect(chooseAction(hero, [hero], [foe], 'heal_first', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'thrash' });
+  });
+
+  it('rule 4: holds MP in reserve below twice its cheapest heal', () => {
+    // soothe costs 4, so the reserve floor is 8. At 6 MP it must not spend on damage.
+    const hero = makeTestCreature({
+      speciesId: 'hero', mp: 6, stats: { mp: 20 }, abilities: ['soothe', 'smash'],
+    });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    expect(chooseAction(hero, [hero], [foe], 'heal_first', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'basic_attack' });
+  });
+
+  it('rule 4: attacks normally when it has MP to spare', () => {
+    const hero = makeTestCreature({
+      speciesId: 'hero', mp: 20, stats: { mp: 20 }, abilities: ['soothe', 'smash'],
+    });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    expect(chooseAction(hero, [hero], [foe], 'heal_first', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'smash' });
+  });
+
+  it('degrades to damage on a creature with no support kit', () => {
+    const hero = makeTestCreature({ speciesId: 'hero', mp: 20, abilities: ['thrash'] });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    expect(chooseAction(hero, [hero], [foe], 'heal_first', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'thrash' });
+  });
+
+  it('consumes no RNG', () => {
+    const spy = vi.spyOn(Math, 'random');
+    const hero = makeTestCreature({ speciesId: 'hero', mp: 20, abilities: ['soothe', 'thrash'] });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    chooseAction(hero, [hero], [foe], 'heal_first', NO_KNOWLEDGE);
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
