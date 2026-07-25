@@ -192,6 +192,26 @@ function killers(options: Option[]): Option[] {
   return options.filter(o => !o.isSpread && o.damage >= o.target.currentHp);
 }
 
+/**
+ * The MP cost of the actor's cheapest heal ability, ignoring affordability.
+ * Unlike `healCandidates` (which filters to what the actor can currently pay
+ * for), this looks at the actor's kit as a fact about the creature: it knows
+ * a heal ability and has a reserve floor to protect for it, whether or not it
+ * can currently afford to cast that heal. Returns null if the actor has no
+ * heal ability at all, in which case there is nothing to reserve for.
+ */
+function cheapestHealCost(actor: CombatCreature): number | null {
+  let cheapest: number | null = null;
+  for (const ability of abilityList(actor)) {
+    if (ability.targeting !== 'self' && ability.targeting !== 'single_ally'
+      && ability.targeting !== 'all_allies') continue;
+    const heal = ability.effects?.find(e => e.type === 'heal');
+    if (!heal?.value) continue;
+    if (cheapest === null || ability.mpCost < cheapest) cheapest = ability.mpCost;
+  }
+  return cheapest;
+}
+
 /** The cheapest affordable self-buff whose stat is still below +2. */
 function buffAction(actor: CombatCreature): CombatAction | null {
   let best: Ability | null = null;
@@ -216,12 +236,19 @@ function debuffAction(actor: CombatCreature, foes: CombatCreature[]): CombatActi
   const alive = living(foes);
   if (alive.length === 0) return null;
 
-  // "Strongest" = highest effective STR, tie-broken on species id for determinism.
+  // "Strongest" = highest effective STR, tie-broken on species id, then —
+  // matching `bestBy`'s discipline — on target.instance.instanceId, so
+  // iteration order can never decide the outcome.
   let strongest = alive[0];
   for (const f of alive.slice(1)) {
     const a = getEffectiveStat(f, 'str');
     const b = getEffectiveStat(strongest, 'str');
-    if (a > b || (a === b && f.instance.speciesId < strongest.instance.speciesId)) strongest = f;
+    if (a !== b) { if (a > b) strongest = f; continue; }
+    if (f.instance.speciesId !== strongest.instance.speciesId) {
+      if (f.instance.speciesId < strongest.instance.speciesId) strongest = f;
+      continue;
+    }
+    if (f.instance.instanceId < strongest.instance.instanceId) strongest = f;
   }
 
   let best: Ability | null = null;
@@ -302,17 +329,28 @@ function healFirst(
   if (debuff) return debuff;
 
   // 4. Contribute damage, but never spend the MP that keeps the party alive.
-  const heals = healCandidates(actor, allies);
-  if (heals.length > 0) {
-    const cheapestHeal = heals.reduce((a, b) => (b.mpCost < a.mpCost ? b : a)).mpCost;
-    if (actor.currentMp < cheapestHeal * 2) return fallback(actor, foes, known);
+  // The reserve floor comes from the actor's cheapest heal *ability*, not from
+  // `healCandidates` (which filters by affordability) — otherwise, once MP
+  // drops below the heal's own cost, the candidate list would go empty, the
+  // gate would be skipped entirely, and the AI would spend most freely
+  // exactly when it is most MP-starved. If the actor has no heal ability at
+  // all, there is nothing to reserve for and the gate correctly does not apply.
+  const cheapestHeal = cheapestHealCost(actor);
+  if (cheapestHeal !== null && actor.currentMp < cheapestHeal * 2) {
+    return fallback(actor, foes, known);
   }
   // Past the reserve check, spending is already sanctioned — so hit hardest
   // rather than most efficiently, for the same reason as Conserve MP's rule 4.
   const strongest = bestBy(damageCandidates(actor, foes, known), o => o.damage);
   if (strongest) return toAction(strongest)!;
 
-  // 5.
+  // Type-level exhaustiveness branch, not a fifth rule: `bestBy` returns
+  // `Option | null`, so TypeScript requires this null case to be handled. It
+  // cannot execute at runtime — basic_attack always costs 0 MP, so it always
+  // survives the rule-4 reserve gate above and is always present in
+  // `damageCandidates`, meaning `strongest` always resolves to at least
+  // basic_attack once any foe is alive. Do not go looking for the conditions
+  // that would trigger this; there are none.
   return fallback(actor, foes, known);
 }
 

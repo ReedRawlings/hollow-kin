@@ -297,6 +297,30 @@ describe('chooseAction — conserve_mp', () => {
       .toMatchObject({ abilityId: 'basic_attack' });
   });
 
+  it('rule 3: a free kill is taken over raw damage even without pressure', () => {
+    // Party healthy, so rule 4's pressure gate is closed and — without rule 3
+    // — the ladder would fall all the way to rule 5's fallback, which ranks
+    // by raw damage with no kill filter.
+    //
+    // Foe A: DEF 60, HP 4. basic_attack damage = max(1, 40 - 30) * (20/50) = 4,
+    // which kills (4 >= 4 HP).
+    // Foe B: DEF 0, HP 100. basic_attack damage = max(1, 40 - 0) * (20/50) = 16,
+    // which does not kill (16 < 100 HP) but is the higher raw-damage hit.
+    //
+    // Rule 3 takes the free kill on A. Without it, rule 5's fallback would
+    // pick the harder-hitting B instead.
+    const hero = makeTestCreature({ speciesId: 'hero', mp: 20, abilities: [] });
+    const ally = makeTestCreature({ speciesId: 'ally', hp: 100 }); // healthy — no pressure
+    const foeA = makeTestCreature({
+      speciesId: 'fa', isPlayer: false, hp: 4, stats: { def: 60 },
+    });
+    const foeB = makeTestCreature({
+      speciesId: 'fb', isPlayer: false, hp: 100, stats: { def: 0 },
+    });
+    const action = chooseAction(hero, [hero, ally], [foeA, foeB], 'conserve_mp', NO_KNOWLEDGE);
+    expect(action).toMatchObject({ abilityId: 'basic_attack', target: foeA });
+  });
+
   it('rule 4: spends only when the party is under pressure', () => {
     // A tanky foe basic attack cannot kill; hero has a cheap strong option.
     const hero = makeTestCreature({
@@ -389,6 +413,22 @@ describe('chooseAction — heal_first', () => {
     const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
     expect(chooseAction(hero, [hero], [foe], 'heal_first', NO_KNOWLEDGE))
       .toMatchObject({ abilityId: 'smash' });
+  });
+
+  it('rule 4: the reserve gate still holds once the cheapest heal itself is unaffordable', () => {
+    // soothe costs 4, so the reserve floor is 8. At 2 MP, soothe is not even
+    // affordable — so a reserve check derived from *affordable* heal
+    // candidates would find none and skip the gate entirely, falling through
+    // to unrestricted damage selection where jab (2 MP, higher damage than
+    // basic_attack) would win. The gate must instead derive the reserve floor
+    // from the actor's heal *ability* (soothe exists in its kit) regardless
+    // of whether it can pay for it right now, and hold at basic_attack.
+    const hero = makeTestCreature({
+      speciesId: 'hero', mp: 2, stats: { mp: 20 }, abilities: ['soothe', 'jab'],
+    });
+    const foe = makeTestCreature({ speciesId: 'foe', isPlayer: false, hp: 500 });
+    expect(chooseAction(hero, [hero], [foe], 'heal_first', NO_KNOWLEDGE))
+      .toMatchObject({ abilityId: 'basic_attack' });
   });
 
   it('degrades to damage on a creature with no support kit', () => {
