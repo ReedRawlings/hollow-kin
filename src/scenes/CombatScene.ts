@@ -25,6 +25,25 @@ export class CombatScene extends Phaser.Scene {
   private messageLog: string[] = [];
   private uiElements: Phaser.GameObjects.GameObject[] = [];
   private selectedAbilityId: string | null = null;
+  /**
+   * Objects drawn by drawHud(), tracked separately from uiElements/battlefield
+   * children so they can be explicitly destroyed rather than merely detached.
+   */
+  private hudElements: Phaser.GameObjects.GameObject[] = [];
+  /**
+   * Phases in which the AUTO toggle is allowed to render at all. Deliberately
+   * an allowlist rather than a denylist: a future phase that isn't added here
+   * simply gets no toggle (safe default) instead of silently getting one that's
+   * live and clickable on top of a screen that doesn't expect it (the original
+   * bug — the toggle survived into VICTORY/DEFEAT and dead-ended the game).
+   */
+  private static readonly HUD_ACTIVE_PHASES: ReadonlySet<BattlePhase> = new Set([
+    BattlePhase.NEXT_TURN,
+    BattlePhase.PLAYER_CHOOSING,
+    BattlePhase.PLAYER_TARGETING,
+    BattlePhase.EXECUTING,
+    BattlePhase.TURN_END,
+  ]);
 
   constructor() {
     super({ key: 'CombatScene' });
@@ -399,6 +418,14 @@ export class CombatScene extends Phaser.Scene {
 
   private showBattleEnd(victory: boolean): void {
     this.clearUI();
+    // showBattleEnd() never routes through drawBattlefield()/drawHud(), so the
+    // AUTO toggle painted by the last in-battle drawBattlefield() call (e.g.
+    // from finishTurn(), while phase was still EXECUTING) is still live and
+    // interactive underneath this screen. The phase gate in drawHud() stops
+    // it from being redrawn, but that stale instance must be destroyed here
+    // explicitly or it dead-ends the game (clicking it wipes this screen via
+    // drawBattlefield() and draws nothing to replace it).
+    this.destroyHud();
     const cx = this.cameras.main.centerX;
     const run = gameState.currentRun!;
 
@@ -528,17 +555,31 @@ export class CombatScene extends Phaser.Scene {
 
   // ---------- RENDERING ----------
 
-  /** Toggle row, redrawn after every battlefield repaint since children are cleared. */
+  /**
+   * Toggle row, redrawn after every battlefield repaint since children are
+   * detached (not destroyed) each repaint. Always destroys the previous
+   * HUD objects first — detaching from the display list does not deregister
+   * interactive objects from the input plugin, so a bare repaint would leak
+   * an accumulating pile of clickable rectangles (finding 2).
+   *
+   * Renders nothing once the battle has ended (see HUD_ACTIVE_PHASES) so the
+   * toggle can't sit on top of — or wipe — the VICTORY/DEFEAT screen.
+   */
   private drawHud(): void {
+    this.destroyHud();
+    if (!CombatScene.HUD_ACTIVE_PHASES.has(this.phase)) return;
+
     const run = gameState.currentRun!;
 
     const autoOn = run.autoCombat;
     const autoBg = this.add.rectangle(880, 20, 120, 28, autoOn ? 0x336633 : 0x333344, 0.95)
       .setStrokeStyle(2, autoOn ? 0x66cc66 : 0x555566)
       .setInteractive({ useHandCursor: true });
-    this.add.text(880, 20, autoOn ? 'AUTO: ON' : 'AUTO: OFF', {
+    this.hudElements.push(autoBg);
+    const autoLabel = this.add.text(880, 20, autoOn ? 'AUTO: ON' : 'AUTO: OFF', {
       fontSize: '12px', color: autoOn ? '#bbffbb' : '#9999aa', fontFamily: 'monospace',
     }).setOrigin(0.5);
+    this.hudElements.push(autoLabel);
 
     autoBg.on('pointerdown', () => {
       run.autoCombat = !run.autoCombat;
@@ -586,5 +627,12 @@ export class CombatScene extends Phaser.Scene {
       el.destroy();
     }
     this.uiElements = [];
+  }
+
+  private destroyHud(): void {
+    for (const el of this.hudElements) {
+      el.destroy();
+    }
+    this.hudElements = [];
   }
 }
