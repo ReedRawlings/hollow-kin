@@ -116,7 +116,7 @@ export class PartySelectScene extends Phaser.Scene {
     if (idx !== -1) {
       this.selected.splice(idx, 1);
       bg.setStrokeStyle(2, 0x444466);
-    } else if (this.selected.length < 3) {
+    } else if (this.selected.length < PARTY_SIZE) {
       this.selected.push(instanceId);
       bg.setStrokeStyle(3, 0x44ff44);
     }
@@ -124,8 +124,8 @@ export class PartySelectScene extends Phaser.Scene {
   }
 
   private updateConfirm(): void {
-    this.confirmText.setText(`CONFIRM (${this.selected.length}/3)`);
-    if (this.selected.length === 3) {
+    this.confirmText.setText(`CONFIRM (${this.selected.length}/${PARTY_SIZE})`);
+    if (this.selected.length === PARTY_SIZE) {
       this.confirmBtn.setFillStyle(0x336633, 1);
       this.confirmText.setColor('#ffffff');
     } else {

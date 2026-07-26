@@ -53,3 +53,21 @@ export function resolvePartyStatus(
   if (missingNames.length > 0) return { kind: 'missing', missingNames, remaining: members };
   return { kind: 'ready', members };
 }
+
+/**
+ * The player-facing sentence for a non-ready party status, or null when the party is
+ * ready and there is nothing to say. Breeding retires both parents, so two names is the
+ * ordinary case, not an edge case — the verb must agree with the count.
+ *
+ * Extracted out of TownScene so it is testable: this exact string (and its singular vs.
+ * plural agreement) previously lived inline in a scene and was untested, which is how it
+ * shipped broken.
+ */
+export function describePartyStatus(status: PartyStatus): string | null {
+  if (status.kind === 'ready') return null;
+  if (status.kind === 'incomplete') {
+    return `Choose ${PARTY_SIZE - status.have} more — set your party in PARTY.`;
+  }
+  const verb = status.missingNames.length === 1 ? 'is' : 'are';
+  return `${status.missingNames.join(' and ')} ${verb} no longer available.`;
+}

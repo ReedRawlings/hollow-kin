@@ -79,18 +79,22 @@ describe('depth costs', () => {
     expect(depthRunFee(11)).toBeGreaterThan(depthRunFee(6));
   });
 
-  it('charges far more to unlock a floor than to depart from it', () => {
-    // The split's whole point: a large one-time gate, a small recurring fee.
-    for (const floor of [6, 11, 16, 21, 26]) {
-      expect(depthUnlockCost(floor)).toBeGreaterThan(depthRunFee(floor));
-    }
+  it('pins the unlock-vs-fee margin, not just the ordering', () => {
+    // The split's whole point: a large one-time gate, a small recurring fee. Comparing
+    // only depthUnlockCost(f) > depthRunFee(f) would let a 6-vs-5-per-floor retune pass
+    // while violating that intent — pin the ratio at the constant level instead.
+    expect(DEPTH_UNLOCK_COST_PER_FLOOR).toBeGreaterThanOrEqual(DEPTH_RUN_FEE_PER_FLOOR * 4);
   });
 
   it('keeps the per-run fee below the old flat per-run cost at every depth', () => {
-    // The old model charged (floor - 1) * 15 every single run. The split is only
-    // an improvement for the player if the recurring part actually got cheaper.
+    // The old (pre-split) model charged a flat (floor - 1) * OLD_FLAT_PER_RUN_COST every
+    // single run — this was depthJumpCost, since deleted. OLD_FLAT_PER_RUN_COST is a
+    // historical baseline recorded here, not a live constant to keep in sync with
+    // anything: the split is only an improvement for the player if the recurring part
+    // actually got cheaper than that baseline.
+    const OLD_FLAT_PER_RUN_COST = 15;
     for (const floor of [6, 11, 16, 21, 26]) {
-      expect(depthRunFee(floor)).toBeLessThan((floor - 1) * 15);
+      expect(depthRunFee(floor)).toBeLessThan((floor - 1) * OLD_FLAT_PER_RUN_COST);
     }
   });
 

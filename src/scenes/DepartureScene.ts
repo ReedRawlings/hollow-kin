@@ -68,9 +68,9 @@ export class DepartureScene extends Phaser.Scene {
     this.drawFloorChips();
 
     const floor = gameState.selectedStartFloor;
-    const affordable = gameState.canAffordStartFloor(floor);
+    const canDepart = gameState.canDepartFrom(floor);
 
-    if (affordable) {
+    if (canDepart) {
       this.drawButton(cx, 470, 220, floor > 1 ? `DESCEND — Floor ${floor}` : 'DESCEND', '#44aa44', () => {
         gameState.setRunParty(gameState.defaultParty);
         this.scene.start('RunScene');

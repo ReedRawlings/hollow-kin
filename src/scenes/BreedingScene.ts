@@ -195,9 +195,9 @@ export class BreedingScene extends Phaser.Scene {
 
     const offspring = breed(this.parentA, this.parentB, offspringSpecies, chosenAbilities);
 
-    // Remove parents from box (they're now retired)
-    gameState.removeFromBox(this.parentA.instanceId);
-    gameState.removeFromBox(this.parentB.instanceId);
+    // Parents stay in the box as tombstones (isRetired = true, set by breed()) rather
+    // than being removed — resolvePartyStatus() needs them there to name a stale party
+    // member instead of falling back to 'a former party member'.
 
     // Add offspring to box
     gameState.addToBox(offspring);

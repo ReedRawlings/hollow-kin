@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { CreatureInstance } from '../types';
-import { resolvePartyStatus, PARTY_SIZE } from './PartyStatus';
+import { resolvePartyStatus, describePartyStatus, PARTY_SIZE } from './PartyStatus';
+import { breed } from './BreedingSystem';
 
 function makeCreature(instanceId: string, speciesId = 'ironjaw', over: Partial<CreatureInstance> = {}): CreatureInstance {
   return {
@@ -94,5 +95,69 @@ describe('resolvePartyStatus', () => {
 
   it('expects a party of three', () => {
     expect(PARTY_SIZE).toBe(3);
+  });
+});
+
+describe('resolvePartyStatus after a real breed (finding 1 regression)', () => {
+  // This exercises the actual production flow, not a hand-set isRetired fixture: call
+  // the real breed(), then leave both parents in the box exactly as BreedingScene now
+  // does (it no longer calls removeFromBox — see BreedingScene.performBreed). A test
+  // that hand-sets isRetired: true would not catch a regression to the old behavior,
+  // because "parent removed from the box entirely" is a different state than "parent
+  // retired but still in the box", and only the latter is what breed() + BreedingScene
+  // together produce.
+  it('names both retired parents by their real names, not a placeholder', () => {
+    const parentA = makeCreature('a', 'ironjaw', { isBreedReady: true, starRating: 1 });
+    const parentB = makeCreature('b', 'emberwhelp', { isBreedReady: true, starRating: 1 });
+    const thirdMember = makeCreature('c', 'stoneguard');
+    const box: CreatureInstance[] = [parentA, parentB, thirdMember];
+
+    const offspring = breed(parentA, parentB, parentA.speciesId, []);
+    // Mirrors BreedingScene.performBreed(): add the offspring, do NOT remove the parents.
+    box.push(offspring);
+
+    expect(parentA.isRetired).toBe(true);
+    expect(parentB.isRetired).toBe(true);
+
+    const status = resolvePartyStatus(['a', 'b', 'c'], box);
+    expect(status.kind).toBe('missing');
+    if (status.kind !== 'missing') throw new Error('expected missing');
+    expect(status.missingNames).toEqual(['Ironjaw', 'Emberwhelp']);
+    expect(status.missingNames).not.toContain('a former party member');
+
+    expect(describePartyStatus(status)).toBe('Ironjaw and Emberwhelp are no longer available.');
+  });
+});
+
+describe('describePartyStatus', () => {
+  it('returns null when the party is ready', () => {
+    const box = [makeCreature('a'), makeCreature('b'), makeCreature('c')];
+    const status = resolvePartyStatus(['a', 'b', 'c'], box);
+    expect(describePartyStatus(status)).toBeNull();
+  });
+
+  it('uses singular "is" for exactly one missing name', () => {
+    const box = [
+      makeCreature('a'),
+      makeCreature('b', 'ironjaw', { isRetired: true }),
+      makeCreature('c'),
+    ];
+    const status = resolvePartyStatus(['a', 'b', 'c'], box);
+    expect(describePartyStatus(status)).toBe('Ironjaw is no longer available.');
+  });
+
+  it('uses plural "are" for two missing names — the ordinary post-breeding case', () => {
+    const box = [
+      makeCreature('a', 'ironjaw', { isRetired: true }),
+      makeCreature('b', 'emberwhelp', { isRetired: true }),
+      makeCreature('c'),
+    ];
+    const status = resolvePartyStatus(['a', 'b', 'c'], box);
+    expect(describePartyStatus(status)).toBe('Ironjaw and Emberwhelp are no longer available.');
+  });
+
+  it('describes the incomplete case by how many more are needed', () => {
+    const status = resolvePartyStatus(['a', 'b'], [makeCreature('a'), makeCreature('b')]);
+    expect(describePartyStatus(status)).toBe('Choose 1 more — set your party in PARTY.');
   });
 });

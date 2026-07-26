@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
 import { ARCHETYPE_COLORS } from '../types';
-import { resolvePartyStatus } from '../systems/PartyStatus';
+import { resolvePartyStatus, describePartyStatus } from '../systems/PartyStatus';
 
 export class TownScene extends Phaser.Scene {
   constructor() {
@@ -90,19 +90,17 @@ export class TownScene extends Phaser.Scene {
           fontSize: '10px', color: '#aaaaaa', fontFamily: 'monospace',
         });
       });
-    } else if (status.kind === 'incomplete') {
-      this.add.text(30, 365, `Choose ${3 - status.have} more — set your party in PARTY.`, {
-        fontSize: '13px', color: '#ffaa66', fontFamily: 'monospace',
-      });
     } else {
-      // Name the creature that left. "Party invalid" would make the player open the
+      // Name the creature(s) that left. "Party invalid" would make the player open the
       // editor just to work out what changed — breeding retires parents constantly.
-      this.add.text(30, 365, `${status.missingNames.join(' and ')} is no longer available.`, {
+      this.add.text(30, 365, describePartyStatus(status) ?? '', {
         fontSize: '13px', color: '#ffaa66', fontFamily: 'monospace',
       });
-      this.add.text(30, 383, 'Set a new party in PARTY.', {
-        fontSize: '12px', color: '#aaaaaa', fontFamily: 'monospace',
-      });
+      if (status.kind === 'missing') {
+        this.add.text(30, 383, 'Set a new party in PARTY.', {
+          fontSize: '12px', color: '#aaaaaa', fontFamily: 'monospace',
+        });
+      }
     }
 
     // Vendors (row 1)

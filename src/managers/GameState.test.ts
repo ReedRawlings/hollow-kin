@@ -502,6 +502,67 @@ describe('canAffordStartFloor', () => {
   });
 });
 
+describe('canDepartFrom', () => {
+  // The point of this suite is the equivalence itself — canDepartFrom(f) must return
+  // true exactly when resolveRunStartFloor() (run against the same state) would not
+  // throw. A test that only asserted canDepartFrom's own return value in isolation
+  // would not catch the two drifting apart (finding 2); this checks them together,
+  // across a spread of states, every time.
+  function resolveRunStartFloorThrows(): boolean {
+    try {
+      gameState.resolveRunStartFloor();
+      return false;
+    } catch {
+      return true;
+    }
+  }
+
+  function assertEquivalence(floor: number): void {
+    const before = gameState.essence;
+    gameState.selectedStartFloor = floor;
+    const departable = gameState.canDepartFrom(floor);
+    const threw = resolveRunStartFloorThrows();
+    gameState.essence = before; // undo any charge resolveRunStartFloor may have taken
+    expect(departable).toBe(!threw);
+  }
+
+  it('floor 1 is always departable, even with no essence and nothing unlocked', () => {
+    gameState.initializeNewGame(['ironjaw']);
+    gameState.essence = 0;
+    assertEquivalence(1);
+    expect(gameState.canDepartFrom(1)).toBe(true);
+  });
+
+  it('a floor that is unlocked and affordable is departable', () => {
+    gameState.initializeNewGame(['ironjaw']);
+    gameState.recordBreakCleared(5);
+    gameState.essence = 10_000;
+    gameState.purchaseFloorUnlock(6);
+    gameState.essence = depthRunFee(6);
+    assertEquivalence(6);
+    expect(gameState.canDepartFrom(6)).toBe(true);
+  });
+
+  it('a floor that is unlocked but unaffordable is not departable', () => {
+    gameState.initializeNewGame(['ironjaw']);
+    gameState.recordBreakCleared(5);
+    gameState.essence = 10_000;
+    gameState.purchaseFloorUnlock(6);
+    gameState.essence = depthRunFee(6) - 1;
+    assertEquivalence(6);
+    expect(gameState.canDepartFrom(6)).toBe(false);
+  });
+
+  it('a floor that was never unlocked is not departable, even flush with essence', () => {
+    gameState.initializeNewGame(['ironjaw']);
+    gameState.essence = 10_000;
+    // Never unlocked floor 6 — set selectedStartFloor directly, bypassing the guard
+    // in setSelectedStartFloor, the same way a stale/forced value could reach here.
+    assertEquivalence(6);
+    expect(gameState.canDepartFrom(6)).toBe(false);
+  });
+});
+
 describe('save v3 -> v4 migration', () => {
   it('grants unlocked floors for breaks already cleared, so no depth is lost', () => {
     localStorage.setItem('hollow_kin_save', JSON.stringify({

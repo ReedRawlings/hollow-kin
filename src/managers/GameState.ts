@@ -126,14 +126,25 @@ class GameStateManager {
     return [1, ...this.unlockedFloors].sort((a, b) => a - b);
   }
 
-  /** Floors whose break is cleared but which have not been bought yet. */
-  purchasableFloors(): number[] {
+  /**
+   * Floors granted by clearing breaks up to `deepestBreakCleared`, under the current
+   * 5-floor cadence (clear the break at f -> floor f+1 is earned). Single source of
+   * truth for this mapping — used both to compute what's purchasable now and, in the
+   * v3->v4 migration, to grant what a returning player already earned under the old
+   * rules. Keeping this in one place means retuning the break cadence can't make the
+   * two drift apart.
+   */
+  private floorsEarnedByBreaks(): number[] {
     const out: number[] = [];
     for (let f = 5; f <= this.deepestBreakCleared && f + 1 <= TOWER_FLOORS; f += 5) {
-      const floor = f + 1;
-      if (!this.unlockedFloors.includes(floor)) out.push(floor);
+      out.push(f + 1);
     }
     return out;
+  }
+
+  /** Floors whose break is cleared but which have not been bought yet. */
+  purchasableFloors(): number[] {
+    return this.floorsEarnedByBreaks().filter(floor => !this.unlockedFloors.includes(floor));
   }
 
   /** Buy a permanent unlock. Returns false if not purchasable, already owned, or unaffordable. */
@@ -150,6 +161,16 @@ class GameStateManager {
   /** Whether the per-run fee for `floor` is affordable right now. Floor 1 is always true. */
   canAffordStartFloor(floor: number): boolean {
     return this.essence >= depthRunFee(floor);
+  }
+
+  /**
+   * Whether departing from `floor` will succeed. This is the exact precondition of
+   * resolveRunStartFloor(), expressed once so the UI gate and the charge cannot
+   * drift apart — the same reason resolvePartyStatus exists for the party half.
+   */
+  canDepartFrom(floor: number): boolean {
+    if (floor <= 1) return true;
+    return this.unlockedStartFloors().includes(floor) && this.canAffordStartFloor(floor);
   }
 
   /** Choose a start floor for the next run. Only floors unlocked (purchased) are accepted. */
@@ -284,11 +305,7 @@ class GameStateManager {
         // v3 save: cleared breaks already granted deep starts under the old rules.
         // Grant them outright so nobody is asked to re-buy depth they earned.
         // Presence, not emptiness, is the test — a v4 player who owns nothing must stay that way.
-        const granted: number[] = [];
-        for (let f = 5; f <= this.deepestBreakCleared && f + 1 <= TOWER_FLOORS; f += 5) {
-          granted.push(f + 1);
-        }
-        this.unlockedFloors = granted;
+        this.unlockedFloors = this.floorsEarnedByBreaks();
         // A v3 save's selectedStartFloor was chosen under the old rules: a different
         // per-run fee formula ((floor-1)*15 vs the new (floor-1)*5) and floors that
         // auto-unlocked on clearing a break rather than being purchased. That value is
