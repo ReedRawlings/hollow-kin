@@ -94,9 +94,11 @@ The recurring cost drops to a third of today's and the difference moves into the
 
 **Affordability.** A floor the player cannot currently afford the per-run fee for is still shown on the departure screen, but greyed and unselectable, with the fee visible. Hiding it would make the player wonder where their purchase went.
 
-**A previously-selected floor can become unaffordable** — the player picks Floor 11, spends Essence at the Leveler, and comes back with too little for the fee. `selectedStartFloor` is persisted, so this state is reachable and must not produce a DESCEND button that fails. The departure screen resolves the selection on open: if the stored floor's fee is unaffordable, it falls back to the **deepest floor the player can currently afford** (worst case Floor 1, which is always free) and highlights that instead. The stored `selectedStartFloor` is left untouched, so the player's stated intent returns as soon as they can afford it again.
+**A previously-selected floor can become unaffordable** — the player picks Floor 11, spends Essence at the Leveler, and comes back with too little for the fee. `selectedStartFloor` is persisted, so this state is reachable.
 
-`GameState.resolveRunStartFloor()` currently deducts `depthJumpCost` and returns the floor; it changes to deduct `depthRunFee` and to apply the same affordability fallback, so the charge and the display can never disagree.
+**There is no substitution.** The chip stays selected and is drawn as unaffordable, DESCEND is disabled, and the screen says why: "Not enough Essence for Floor 11 — choose another floor." The player picks a different floor themselves. Departing from somewhere the player did not choose would read as a bug, and it is the same mistake as auto-filling a retired party slot — rejected in §9 for the same reason.
+
+`GameState.resolveRunStartFloor()` currently deducts `depthJumpCost` and returns the floor; it changes to deduct `depthRunFee`. It never falls back: if the selected floor is unaffordable it is a programming error for departure to have been reached at all, so it throws rather than silently starting somewhere else. The departure screen is the gate that prevents it.
 
 ## 7. Architecture
 
@@ -135,7 +137,7 @@ Pure modules under vitest; scenes untested, as elsewhere in this project.
 
 **`Economy`:** `depthUnlockCost` and `depthRunFee` are free at floor 1 and rise with depth; the per-run fee is strictly below today's `(floor − 1) × 15` at every unlocked floor, which is the property the split is supposed to deliver.
 
-**Affordability fallback:** given a stored selection the player cannot afford, resolution returns the deepest affordable floor — not Floor 1 — and returns Floor 1 only when nothing else is affordable. A test that only checks the Floor-1 case would pass against an implementation that always drops to Floor 1, so both cases need pinning.
+**No substitution:** `resolveRunStartFloor()` returns exactly the selected floor and deducts exactly its fee, for every affordable selection. Given an unaffordable selection it throws rather than returning a different floor — pin that, because "returns some other floor" is the failure mode this rule exists to prevent.
 
 **`GameState`:** `defaultParty` and `unlockedFloors` round-trip through save/load; a v3 save migrates with `unlockedFloors` granted for every cleared break; buying a floor deducts Essence, is idempotent (buying twice does not double-charge), and refuses when unaffordable.
 
@@ -143,7 +145,7 @@ Pure modules under vitest; scenes untested, as elsewhere in this project.
 
 - **Multiple saved party presets.** One default is what was asked for. Presets are a natural follow-up if swapping teams becomes common.
 - **Reordering party members.** Turn order is speed-derived, so slot order carries no meaning today.
-- **Auto-substituting a retired member.** Explicitly rejected: descending with a creature you did not choose is worse than being told to fix it.
+- **Auto-substituting a retired member, or a floor the player cannot afford.** Explicitly rejected in both cases: descending with a creature or at a depth you did not choose is worse than being told to fix it. Blocked, named, and left to the player.
 - **Removing the Gatekeeper.** It keeps a real job — selling unlocks.
 
 ## 10. Open question for playtest
