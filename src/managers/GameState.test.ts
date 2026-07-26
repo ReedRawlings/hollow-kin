@@ -844,3 +844,63 @@ describe('escrowed trait round-trip: breed -> spendEssenceOnLevel unlocks it', (
     expect(child.traitSlots[3].traitLevel).toBe(1);
   });
 });
+
+describe('calculateStatsForLevel — stat trait bonuses', () => {
+  it('an unlocked STR Up trait raises STR relative to the same creature without it', () => {
+    const plain = gameState.createCreatureInstance('ironjaw', 0);
+    const buffed = gameState.createCreatureInstance('ironjaw', 0);
+    buffed.traitSlots[0] = { traitId: 'str_up', traitLevel: 1, unlocked: true };
+
+    const plainStats = gameState.calculateStatsForLevel(plain);
+    const buffedStats = gameState.calculateStatsForLevel(buffed);
+
+    expect(buffedStats.str).toBeGreaterThan(plainStats.str);
+    // Only the targeted stat moves — trait bonuses don't leak across stats.
+    expect(buffedStats.hp).toBe(plainStats.hp);
+  });
+
+  it('a locked slot holding a traitId (an escrowed inherited trait) contributes nothing', () => {
+    const plain = gameState.createCreatureInstance('ironjaw', 0);
+    const escrowed = gameState.createCreatureInstance('ironjaw', 0);
+    escrowed.traitSlots[0] = { traitId: 'str_up', traitLevel: 4, unlocked: false };
+
+    const plainStats = gameState.calculateStatsForLevel(plain);
+    const escrowedStats = gameState.calculateStatsForLevel(escrowed);
+
+    expect(escrowedStats.str).toBe(plainStats.str);
+  });
+
+  it('an unlocked slot with a null traitId contributes nothing', () => {
+    const plain = gameState.createCreatureInstance('ironjaw', 0);
+    const empty = gameState.createCreatureInstance('ironjaw', 0);
+    empty.traitSlots[0] = { traitId: null, traitLevel: 0, unlocked: true };
+
+    const plainStats = gameState.calculateStatsForLevel(plain);
+    const emptyStats = gameState.calculateStatsForLevel(empty);
+
+    expect(emptyStats.str).toBe(plainStats.str);
+  });
+
+  it('a higher trait level yields a larger bonus than a lower one', () => {
+    const low = gameState.createCreatureInstance('ironjaw', 0);
+    const high = gameState.createCreatureInstance('ironjaw', 0);
+    low.traitSlots[0] = { traitId: 'str_up', traitLevel: 1, unlocked: true };
+    high.traitSlots[0] = { traitId: 'str_up', traitLevel: 4, unlocked: true };
+
+    const lowStats = gameState.calculateStatsForLevel(low);
+    const highStats = gameState.calculateStatsForLevel(high);
+
+    expect(highStats.str).toBeGreaterThan(lowStats.str);
+  });
+
+  it('is applied automatically at the natural calculateStatsForLevel call sites (e.g. startRun)', () => {
+    const c = gameState.creatureBox[0]; // ironjaw
+    c.traitSlots[0] = { traitId: 'str_up', traitLevel: 4, unlocked: true };
+    const withoutTrait = gameState.calculateStatsForLevel({ ...c, traitSlots: [] });
+    gameState.setRunParty([c.instanceId]);
+
+    gameState.startRun(); // recomputes currentStats via calculateStatsForLevel
+
+    expect(gameState.runParty[0].currentStats.str).toBeGreaterThan(withoutTrait.str);
+  });
+});

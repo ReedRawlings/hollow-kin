@@ -1,4 +1,4 @@
-import { STAR_LEVEL_CAPS, CreatureInstance } from '../types';
+import { STAR_LEVEL_CAPS, CreatureInstance, BaseStats } from '../types';
 import { TRAIT_LIBRARY, TraitDefinition } from '../data/traits';
 import { CREATURE_TEMPLATES } from '../data/creatures';
 
@@ -90,4 +90,46 @@ export function canSpeciesTakeTrait(
 /** Look up a trait's definition by id. Returns undefined (never throws) for an unknown id. */
 export function getTrait(traitId: string): TraitDefinition | undefined {
   return TRAIT_LIBRARY[traitId];
+}
+
+const STAT_NAMES: (keyof BaseStats)[] = ['hp', 'mp', 'str', 'def', 'wis', 'spd', 'int'];
+
+/**
+ * Total fractional bonus (e.g. 0.10 for +10%) a creature's `stat` gets from its `'stat'`-
+ * category traits. Only slots that are BOTH `unlocked: true` AND hold a non-null `traitId`
+ * contribute — a locked slot escrowing an inherited trait (see the breed -> spendEssenceOnLevel
+ * round-trip in GameState) is inert until it unlocks. `traitLevel` is 1-indexed into the
+ * 0-indexed `magnitudes` tuple. If more than one slot ever targets the same stat, their
+ * bonuses simply add — there's no stacking penalty, by design (this is alpha placeholder
+ * math per CLAUDE.md; only the shape — rises with level, zero when inert — is load-bearing).
+ */
+function statTraitBonusFraction(instance: CreatureInstance, stat: keyof BaseStats): number {
+  let total = 0;
+  for (const slot of instance.traitSlots ?? []) {
+    if (!slot.unlocked || !slot.traitId) continue;
+    const trait = getTrait(slot.traitId);
+    if (!trait || trait.category !== 'stat' || trait.target !== stat) continue;
+    const levelIndex = Math.min(Math.max(slot.traitLevel, 1), trait.magnitudes.length) - 1;
+    total += trait.magnitudes[levelIndex];
+  }
+  return total;
+}
+
+/**
+ * Layers stat-trait bonuses on top of an already level-scaled `BaseStats` block. Kept as a
+ * separate composable step (rather than folded inline into `calculateStatsForLevel`'s loop)
+ * so it can be called and tested in isolation, and so a later task can add non-stat trait
+ * effects (battle_start, resistance, ...) as their own composable steps at the appropriate
+ * seam without needing to touch this one. `calculateStatsForLevel` calls this once, at the
+ * end, on the result of its own level-scaling — see GameState.ts.
+ */
+export function applyStatTraitBonuses(stats: BaseStats, instance: CreatureInstance): BaseStats {
+  const result = { ...stats };
+  for (const stat of STAT_NAMES) {
+    const bonus = statTraitBonusFraction(instance, stat);
+    if (bonus > 0) {
+      result[stat] = Math.floor(result[stat] * (1 + bonus));
+    }
+  }
+  return result;
 }

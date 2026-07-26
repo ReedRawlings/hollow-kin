@@ -5,7 +5,7 @@ import {
 } from '../types';
 import { getTemplate } from '../data/creatures';
 import { convertObolsToEssence, essenceCostForLevel, depthUnlockCost, depthRunFee } from '../systems/Economy';
-import { unlockedSlotCount } from '../systems/Traits';
+import { unlockedSlotCount, applyStatTraitBonuses } from '../systems/Traits';
 
 class GameStateManager {
   creatureBox: CreatureInstance[] = [];
@@ -66,7 +66,10 @@ class GameStateManager {
       const maxStat = base[stat] * 2.5;
       result[stat] = Math.floor(base[stat] + (maxStat - base[stat]) * (level / cap));
     }
-    return result;
+    // Stat traits (unlocked slots with a non-null traitId only) layer on top of the
+    // level-scaled result. Kept as a separate composable step in Traits.ts — see its
+    // doc comment for why — rather than inlined into the loop above.
+    return applyStatTraitBonuses(result, instance);
   }
 
   xpForLevel(level: number): number {
