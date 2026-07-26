@@ -4,7 +4,7 @@ import {
   BattleSpeed, TacticId,
 } from '../types';
 import { getTemplate } from '../data/creatures';
-import { convertObolsToEssence, essenceCostForLevel, depthJumpCost } from '../systems/Economy';
+import { convertObolsToEssence, essenceCostForLevel, depthUnlockCost, depthRunFee } from '../systems/Economy';
 
 class GameStateManager {
   creatureBox: CreatureInstance[] = [];
@@ -16,6 +16,10 @@ class GameStateManager {
   hasCompletedFirstRun = false;
   seenSpecies: Set<string> = new Set();
   battleSpeed: BattleSpeed = 1;
+  /** Instance ids of the standing party. Persisted; resolved via resolvePartyStatus. */
+  defaultParty: string[] = [];
+  /** Floors purchased from the Gatekeeper. Floor 1 is always available and never stored. */
+  unlockedFloors: number[] = [];
 
   createCreatureInstance(speciesId: string, starRating = 0): CreatureInstance {
     const template = getTemplate(speciesId);
@@ -110,14 +114,45 @@ class GameStateManager {
     return this.battleSpeed;
   }
 
-  /** Floors a run may start on: floor 1, plus the floor after each cleared 5-floor break. */
-  unlockedStartFloors(): number[] {
-    const floors = [1];
-    for (let f = 5; f <= this.deepestBreakCleared && f + 1 <= TOWER_FLOORS; f += 5) floors.push(f + 1);
-    return floors;
+  setDefaultParty(instanceIds: string[]): void {
+    this.defaultParty = [...instanceIds];
   }
 
-  /** Choose a start floor for the next run. Only floors unlocked by cleared breaks are accepted. */
+  /**
+   * Floors a run may start on: floor 1, plus every floor purchased at the Gatekeeper.
+   * Clearing a break no longer grants a deep start on its own — it makes one purchasable.
+   */
+  unlockedStartFloors(): number[] {
+    return [1, ...this.unlockedFloors].sort((a, b) => a - b);
+  }
+
+  /** Floors whose break is cleared but which have not been bought yet. */
+  purchasableFloors(): number[] {
+    const out: number[] = [];
+    for (let f = 5; f <= this.deepestBreakCleared && f + 1 <= TOWER_FLOORS; f += 5) {
+      const floor = f + 1;
+      if (!this.unlockedFloors.includes(floor)) out.push(floor);
+    }
+    return out;
+  }
+
+  /** Buy a permanent unlock. Returns false if not purchasable, already owned, or unaffordable. */
+  purchaseFloorUnlock(floor: number): boolean {
+    if (!this.purchasableFloors().includes(floor)) return false;
+    const cost = depthUnlockCost(floor);
+    if (this.essence < cost) return false;
+    this.essence -= cost;
+    this.unlockedFloors.push(floor);
+    this.unlockedFloors.sort((a, b) => a - b);
+    return true;
+  }
+
+  /** Whether the per-run fee for `floor` is affordable right now. Floor 1 is always true. */
+  canAffordStartFloor(floor: number): boolean {
+    return this.essence >= depthRunFee(floor);
+  }
+
+  /** Choose a start floor for the next run. Only floors unlocked (purchased) are accepted. */
   setSelectedStartFloor(floor: number): boolean {
     if (!this.unlockedStartFloors().includes(floor)) return false;
     this.selectedStartFloor = floor;
@@ -125,19 +160,24 @@ class GameStateManager {
   }
 
   /**
-   * Resolve the floor a starting run begins on. If a deep start is selected, still unlocked,
-   * and affordable, deducts its Essence cost and returns it; otherwise returns 1 (free).
+   * Charge for and return the floor this run begins on.
+   *
+   * Deliberately throws rather than falling back. Departing from a floor the player did
+   * not choose reads as a bug, so an unaffordable or unowned selection is a programming
+   * error here — DepartureScene is the gate that must prevent it reaching this point.
    */
   resolveRunStartFloor(): number {
     const chosen = this.selectedStartFloor;
-    if (chosen > 1 && this.unlockedStartFloors().includes(chosen)) {
-      const cost = depthJumpCost(chosen);
-      if (this.essence >= cost) {
-        this.essence -= cost;
-        return chosen;
-      }
+    if (chosen <= 1) return 1;
+    if (!this.unlockedStartFloors().includes(chosen)) {
+      throw new Error(`Start floor ${chosen} is not unlocked`);
     }
-    return 1;
+    const fee = depthRunFee(chosen);
+    if (this.essence < fee) {
+      throw new Error(`Cannot afford the ${fee} Essence fee for floor ${chosen}`);
+    }
+    this.essence -= fee;
+    return chosen;
   }
 
   addToBox(instance: CreatureInstance): void {
@@ -198,11 +238,13 @@ class GameStateManager {
     this.hasCompletedFirstRun = false;
     this.seenSpecies = new Set();
     this.battleSpeed = 1;
+    this.defaultParty = [];
+    this.unlockedFloors = [];
   }
 
   saveToLocalStorage(): void {
     const data = {
-      version: 3,
+      version: 4,
       creatureBox: this.creatureBox,
       essence: this.essence,
       deepestBreakCleared: this.deepestBreakCleared,
@@ -210,6 +252,8 @@ class GameStateManager {
       hasCompletedFirstRun: this.hasCompletedFirstRun,
       seenSpecies: [...this.seenSpecies],
       battleSpeed: this.battleSpeed,
+      defaultParty: this.defaultParty,
+      unlockedFloors: this.unlockedFloors,
     };
     localStorage.setItem('hollow_kin_save', JSON.stringify(data));
   }
@@ -227,6 +271,20 @@ class GameStateManager {
       // v3 additions — absent on v2 saves, so default safely.
       this.seenSpecies = new Set<string>(data.seenSpecies ?? []);
       this.battleSpeed = (data.battleSpeed ?? 1) as BattleSpeed;
+      // v4 additions.
+      this.defaultParty = data.defaultParty ?? [];
+      if (Array.isArray(data.unlockedFloors)) {
+        this.unlockedFloors = [...data.unlockedFloors];
+      } else {
+        // v3 save: cleared breaks already granted deep starts under the old rules.
+        // Grant them outright so nobody is asked to re-buy depth they earned.
+        // Presence, not emptiness, is the test — a v4 player who owns nothing must stay that way.
+        const granted: number[] = [];
+        for (let f = 5; f <= this.deepestBreakCleared && f + 1 <= TOWER_FLOORS; f += 5) {
+          granted.push(f + 1);
+        }
+        this.unlockedFloors = granted;
+      }
       this.creatureBox = (data.creatureBox ?? []).map((c: any) => {
         const { longevity, ...rest } = c; // drop longevity if present
         return {
