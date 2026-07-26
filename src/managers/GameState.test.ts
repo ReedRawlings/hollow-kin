@@ -814,3 +814,33 @@ describe('trait slot unlocking (permanentLevel-driven)', () => {
     expect(c.traitSlots[2].unlocked).toBe(true); // stays unlocked, monotonic
   });
 });
+
+describe('escrowed trait round-trip: breed -> spendEssenceOnLevel unlocks it', () => {
+  it('an inherited trait stuck in a locked slot survives to become active once permanentLevel opens that slot', () => {
+    // Star 3 gives levelCap 30 == TRAIT_SLOT_LEVELS[3], the last slot's threshold.
+    const parentA = gameState.createCreatureInstance('ironjaw', 3);
+    const parentB = gameState.createCreatureInstance('ironjaw', 3);
+    parentA.traitSlots[3] = { traitId: 'deep-trait', traitLevel: 1, unlocked: true };
+    // parentB's slot 3 stays empty; both parents have essenceInvested 0, so the
+    // offspring carries over to permanentLevel 1 — well below every threshold.
+
+    const child = breed(parentA, parentB, 'ironjaw', []);
+
+    expect(child.levelCap).toBe(TRAIT_SLOT_LEVELS[3]);
+    expect(child.permanentLevel).toBe(1);
+    expect(child.traitSlots[3].traitId).toBe('deep-trait'); // escrowed, not dropped
+    expect(child.traitSlots[3].unlocked).toBe(false);
+
+    gameState.essence = 10_000_000;
+    while (child.permanentLevel < TRAIT_SLOT_LEVELS[3]) {
+      expect(gameState.spendEssenceOnLevel(child)).toBe(true);
+    }
+
+    expect(child.permanentLevel).toBe(TRAIT_SLOT_LEVELS[3]);
+    expect(child.traitSlots[3].unlocked).toBe(true);
+    // The regression this guards: unlockEarnedTraitSlots must only flip `unlocked`,
+    // never touch `traitId`/`traitLevel` on a slot it opens.
+    expect(child.traitSlots[3].traitId).toBe('deep-trait');
+    expect(child.traitSlots[3].traitLevel).toBe(1);
+  });
+});

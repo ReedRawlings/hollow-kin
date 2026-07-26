@@ -71,6 +71,10 @@ export function resolveInheritedTraitSlots(
   const openCount = unlockedSlotCount(offspringPermanentLevel);
   const slots: TraitSlot[] = [];
   for (let i = 0; i < MAX_TRAIT_SLOTS; i++) {
+    // Deliberately NOT gated on parentX.traitSlots[i].unlocked: slot indices are
+    // positional in the bloodline, so a trait a parent carries in a still-locked
+    // (escrowed) slot propagates exactly as if it were active. Whether the parent
+    // ever leveled far enough to unlock it is irrelevant to inheritance.
     const traitA = parentA.traitSlots[i]?.traitId ?? null;
     const traitB = parentB.traitSlots[i]?.traitId ?? null;
 
