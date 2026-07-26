@@ -2,6 +2,10 @@
 
 *Balancing Document — Subject to Change*
 
+> **Owns:** individual mark entries — IDs, earn thresholds, effects, stacking notes.
+> **Defers to:** `marks-system.md` for the rules, the GDD for the progression model.
+> **Last verified:** 2026-07-26. All thresholds are placeholders.
+
 ---
 
 ## **Overview**

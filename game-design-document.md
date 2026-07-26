@@ -6,7 +6,11 @@
 
 ## **Overview**
 
-Hollow Kin is a browser-based creature collector roguelite. Players descend a procedurally generated tower with a party of bred creatures, harvesting **Essence** from every fight and spending it to permanently strengthen their creatures, capturing new creatures, and earning genealogy progress that persists across runs. The core loop is built around a breeding system inspired by Dragon Quest Monsters, tower progression inspired by Azure Dreams, and roguelite run structure — but progression is permanent and essence-driven rather than reset each run.
+Hollow Kin is a browser-based **permanent-progression creature collector** built on a roguelite run structure. Players descend a procedurally generated tower with a party of three bred creatures, harvest **Obols** from every fight, and convert what they carry back out into **Essence** — the permanent currency that buys levels, traits, marks, and deeper starting floors.
+
+**A run is a harvesting trip, not the unit of progress.** Creatures do not reset. They keep an essence-bought level floor, their bloodline, and anything permanence has been paid for. What a run risks is the *take* — the Obols you were carrying and one item from your pack — not the creatures themselves.
+
+The core loop draws its breeding from Dragon Quest Monsters, its tower from Azure Dreams, and its run pacing from Slay the Spire. The roguelite inheritance is the **shape of a descent** — procedural floors, push-your-luck depth, run-only relics. It is not the progression model.
 
 ---
 
@@ -19,6 +23,29 @@ Hollow Kin is a browser-based creature collector roguelite. Players descend a pr
 * No archetype-level rock-paper-scissors matchups to avoid run-ruining matchup problems  
 * Individual creature resistances and weaknesses provide tactical depth without hard counters  
 * Breeding is a natural rhythm, not a wall the player hits — retiring parents carries essence forward to the offspring as a jump-start
+
+---
+
+## **What Persists, What Resets**
+
+Progression is permanent. A handful of things are still deliberately run-scoped, and **those four are the ones that get mistaken for leftovers from the old roguelite design.** Each is intentional. Do not "fix" them into persistence.
+
+| Resets at run end | Why it resets — and what not to change |
+| ----- | ----- |
+| **Temporary in-run levels** | Deliberate (Model A). The essence-bought level *floor* persists; levels gained on top of it during a descent do not. Do not remove in-run leveling as a reset leftover — dropping it (Model B) is a playtest fallback, not the current design. |
+| **Obols** | Deliberate. Obols are run-scoped fuel. Leftover Obols convert to Essence on exit; spent Obols are simply gone. Do not make Obols persist — a second permanent currency was explicitly rejected. |
+| **Relics** | Deliberate, and this is the roguelite element the design keeps on purpose. Run-only power-ups are the intended shape. |
+| **Unbound marks** | Deliberate (earn-then-lock). A mark earned in a run fades unless Essence is spent at the Mark-binder to bind it. Do not make earned marks automatically permanent — essence buys permanence, not the mark. |
+
+Everything else persists: Essence, permanent levels, stars, bloodline, bound marks, unlocked trait slots, purchased depth-jumps, backpack capacity, and creatures themselves.
+
+### **The one asymmetric case**
+
+**A wipe costs exactly one thing, chosen at random from unprotected inventory — never the whole inventory.** That one thing may be a consumable, an item, or a **captured creature**, since captures ride in inventory slots like anything else. Only the **guaranteed inventory space** protects against it.
+
+**The three creatures the player entered the tower with can never be lost, under any circumstance.** That is absolute and separate from inventory entirely.
+
+> **This table is the single normative statement of what is run-scoped.** The Currency, Levels, Marks, and Relics sections below describe how each system *works* and refer back here rather than restating what survives a run. If another document disagrees with this table, this table wins.
 
 ---
 
@@ -94,24 +121,21 @@ Every Obol is a fork: **survive now, or bank for permanent power.** Spending kee
 * Lets veteran bloodlines skip proven-easy content and push their frontier while earning faster (deeper floors = more essence)
 * See `tower-structure.md` for full rules
 
-### **Run Shape**
+### **Run Shape — Pick-Next (decided and built)**
 
-The current leading options for how players navigate a run:
+After each encounter the player chooses between 2–3 offered next encounters. There is no map, just the immediate choice.
 
-* **Pick-Next** — After each fight, choose between 2–3 offered encounters. No map, just the immediate choice.
-  * Reduces decision anxiety and keeps pacing tight
-  * Trade-off options can still emerge through treasures, creature synergies, or path variety
-  * Seeds still work since the things that augment them would be earned during runs
-* **Branching Map (Slay the Spire style)** — See the whole act and pick a path through different node types
-  * May add unnecessary strategic overhead for this game's pacing
-  * Could work better as a between-section choice (e.g., telegraphing the next 2–3 fights during reward selection and letting players swap creatures)
-* **Linear with Reward Options (Monster Train style)** — Linear progression but players choose between reward sets after encounters
-* **Non-Linear** — Players start where they want and move at their own pace. Rushing to the boss risks losing but offers larger token rewards for fast clears
+* Reduces decision anxiety and keeps pacing tight
+* Trade-off options emerge through encounter-type variety (combat vs. shop vs. event)
+* Seeds still work, since what augments a run is earned during it
+* Pick-next is boss-aware — it never offers a path that skips a boss floor
+
+*Considered and rejected: a branching Slay the Spire map (unnecessary strategic overhead at this pacing), linear-with-reward-sets (Monster Train), and non-linear free movement.*
 
 ### **Non-Combat Encounters**
 
 * **Shops** — Spend resources gathered during the run on items, stones, or capture supplies
-* **Rest Points** — Heal creatures or swap party members in and out of the active roster
+* **Rest Points** — Restore HP/MP, or teach a random ability to one creature
 * **Random Events** — Narrative encounters with risk/reward choices
 
 ### **Relics**
@@ -129,17 +153,6 @@ Run-based relics are earned during a run and provide stackable or conditional bo
 * **Mog** — Units that start battle at full health gain 1 Haste
 * **Bad Research** — Your Flora are also Fauna
 * **Oogy Boogy** — Kami share their passive with Spirits
-
-### **Point-Buy Starter System (Optional)**
-
-*Under consideration — not yet committed to the design.*
-
-Instead of freely choosing any three creatures, players are given a **budget** to spend on their starting party. Higher-star or stronger creatures cost more, creating a pre-run team composition puzzle:
-
-* Take one high-star creature and fill the remaining slots with weaker picks, or spread the budget across a balanced mid-tier team
-* Creates meaningful tension at the party select screen — the run starts before the tower does
-* Budget could scale with overall account progression, giving veteran players more flexibility without removing the constraint
-* Default starters are always available at zero cost to prevent soft-locks
 
 ---
 
@@ -206,11 +219,12 @@ Longevity has been **removed** from the design. Permanent essence progression is
 
 ### **Trait Inheritance**
 
+> ⚠️ **Trait progression is under active revision (as of 2026-07-26).** This section, the Traits System section below, `traits-system.md`, and `breeding-and-inheritance.md` describe **two incompatible unlock models** — trait slots bought at essence thresholds in town, versus slots unlocked by hitting a level cap and resolved in-run. Which one is correct is an open design question. **Do not implement trait unlock or trait resolution from these docs until it is settled.**
+
 * Each creature can hold up to four traits  
 * Traits are assigned randomly at creature creation (natural traits) or inherited through breeding  
 * When breeding, the number of available trait slots on the offspring is determined by star quality up to a max of four.  
-* Low quality monsters can only hold low quality traits. Once a breeding genealogy has reached a certain point higher level traits are unlocked  
-* Using a Breeding Stone or Relic can influence which traits fill those slots
+* Low quality monsters can only hold low quality traits. Once a breeding genealogy has reached a certain point higher level traits are unlocked
 
 ### **Mismatched Breeding**
 
@@ -245,6 +259,8 @@ Longevity has been **removed** from the design. Permanent essence progression is
 ---
 
 ## **Traits System**
+
+> ⚠️ **Under active revision (as of 2026-07-26)** — see the warning under Trait Inheritance above. The unlock model described here conflicts with `breeding-and-inheritance.md`. Do not implement traits from these docs yet.
 
 ### **What Traits Are**
 
@@ -324,30 +340,28 @@ Eight archetypes define a creature's general identity, combat role, and default 
 
 ## **Capture System**
 
-* \* Players capture creatures during runs by spending **Obols** as the capture resource  
-* \* Capture is an in-run Obol spend — it competes with hoarding Obols for conversion to permanent Essence (spend-vs-bank)  
-* \* Capture probability is based on two factors: Obols spent on the attempt and the target creature's current HP — more Obols and lower HP means a higher capture chance  
-* \* Captured creatures are held in the item inventory during the run, forcing resource constraints  
-* \* **A capture is cargo, not a reinforcement.** Captured creatures arrive at base level and cannot be fielded — not in the battle they were caught in, and not later in that run. They ride in the backpack until you leave the tower. This replaces the earlier mid-run substitution rule, which assumed captures arrived strong enough to fight; they arrive at level 1, so swapping one in to displace a creature you have invested Essence in was never a decision worth offering. Revisit only if captures are ever given a usable arrival level  
-* \* **The three creatures you entered the tower with can never be lost**, under any circumstance  
-* \* **Captured creatures held in ordinary inventory slots CAN be lost on a wipe.** They are protected only while occupying the **guaranteed inventory space**. A creature you caught and left in an unprotected slot is a candidate for the wipe's random loss like any other carried thing  
-* \* Upon successfully leaving the tower, captured creatures move to the Creature Box if space is available
+* Players capture creatures during runs by spending **Obols** as the capture resource
+* Capture is an in-run Obol spend — it competes with hoarding Obols for conversion to permanent Essence (spend-vs-bank)
+* Capture probability is based on two factors: Obols spent on the attempt and the target creature's current HP — more Obols and lower HP means a higher capture chance
+* Captured creatures are held in the item inventory during the run, forcing resource constraints
+* **A capture is cargo, not a reinforcement.** Captured creatures arrive at level 1 and cannot be fielded — not in the battle they were caught in, and not later in that run. They ride in the backpack until you leave the tower. This replaces the earlier mid-run substitution rule, which assumed captures arrived strong enough to fight; they arrive at level 1, so swapping one in to displace a creature you have invested Essence in was never a decision worth offering. Revisit only if captures are ever given a usable arrival level
+* **The three creatures you entered the tower with can never be lost**, under any circumstance
+* **Captured creatures held in ordinary inventory slots CAN be lost on a wipe.** They are protected only while occupying the **guaranteed inventory space**. A creature you caught and left in an unprotected slot is a candidate for the wipe's random loss like any other carried thing
+* Upon successfully leaving the tower, captured creatures move to the Creature Box if space is available
 
-## Run Failure
+Full capture design — threshold model, duplicate Essence grant, box capacity, pending-capture queue — is specified in `docs/superpowers/specs/2026-07-25-capture-system-design.md`. **Designed, not yet built.**
 
-\* A run ends when all three active creatures are knocked out
+---
 
-\* The player returns to town — active battle creatures are always safe and return to the Creature Box
+## **Run Failure**
 
-\* The three creatures you entered with always return to the Creature Box — they are never at risk
-
-\* **Obols on a wipe:** a full wipe loses **50%** of leftover Obols — the other 50% still converts to Essence. Winning or exiting deliberately converts **100%**. This keeps "push deeper vs. bank now" a real push-your-luck gamble without wiping out an entire run's gains. (Essence already spent is always safe.)
-
-\* **Losses on a wipe:** a full wipe costs **exactly one thing, chosen at random** from unprotected inventory — **never the entire inventory**. That one thing may be a consumable, an item, **or a captured creature**, since captured creatures ride in inventory slots like anything else.
-
-\* **What is safe:** the three creatures you entered the tower with, always. Anything occupying the **guaranteed inventory space**, always. Everything else in the backpack is eligible for the single random loss.
-
-\* This is what makes capture a live gamble rather than free value: catching something deep and having no guaranteed space left means carrying it home is a risk you chose. Losing the whole backpack would push players to descend empty rather than risk anything worth carrying; losing exactly one thing keeps the sting real without making the backpack a liability.
+* A run ends when all three active creatures are knocked out
+* The player returns to town — active battle creatures are always safe and return to the Creature Box
+* The three creatures you entered with always return to the Creature Box — they are never at risk
+* **Obols on a wipe:** a full wipe loses **50%** of leftover Obols — the other 50% still converts to Essence. Winning or exiting deliberately converts **100%**. This keeps "push deeper vs. bank now" a real push-your-luck gamble without wiping out an entire run's gains. (Essence already spent is always safe.)
+* **Losses on a wipe:** a full wipe costs **exactly one thing, chosen at random** from unprotected inventory — **never the entire inventory**. That one thing may be a consumable, an item, **or a captured creature**, since captured creatures ride in inventory slots like anything else.
+* **What is safe:** the three creatures you entered the tower with, always. Anything occupying the **guaranteed inventory space**, always. Everything else in the backpack is eligible for the single random loss.
+* This is what makes capture a live gamble rather than free value: catching something deep and having no guaranteed space left means carrying it home is a risk you chose. Losing the whole backpack would push players to descend empty rather than risk anything worth carrying; losing exactly one thing keeps the sting real without making the backpack a liability.
 
 ---
 
@@ -371,9 +385,10 @@ Town is a hub of "folks" who turn essence into permanent upgrades. The Enhancer 
 
 ### **Engine**
 
-* Browser-based using **Phaser** (canvas framework)  
-* Two primary scenes: Map Scene (floor navigation) and Combat Scene (turn-based battle)  
-* State is passed between scenes via Phaser's scene manager
+* Browser-based using **Phaser 3** (canvas framework), TypeScript, built with Vite
+* 960×640 logical resolution, `zoom: devicePixelRatio` for crisp HiDPI rendering
+* Scene registry as built: **Boot, Town, PartySelect, Run, Combat, Shop, Rest, Breeding, Leveler, Gatekeeper**
+* Shared state lives in the `GameState` singleton; per-scene data is passed via Phaser's scene manager
 
 ### **Data-Driven Design**
 
@@ -400,11 +415,15 @@ Town is a hub of "folks" who turn essence into permanent upgrades. The Enhancer 
 
 ### **Save System**
 
-* Player data is persisted via **Supabase** (hosted PostgreSQL + auth + realtime)
-* Save data includes: creature box contents, creature instances (stats, traits, marks, lineage), town upgrade levels, resource counts, bestiary progress, and breeding history
-* Saves are tied to authenticated accounts — players can resume on any browser
+**As built:** player data persists to **localStorage** (save v2, with migration from the pre-pivot format). This is what exists today.
+
+**Planned:** migrate to **Supabase** (hosted PostgreSQL + auth + realtime) so saves tie to authenticated accounts and players can resume on any browser. Not built.
+
+Under either backend:
+
+* Save data includes: creature box contents, creature instances (stats, traits, marks, lineage), permanent levels and essence invested, town upgrade levels, resource counts, bestiary progress, and breeding history
 * Game state syncs on key events: end of run, breeding, town upgrades, party changes
-* Species templates and ability/trait libraries are read-only client-side data loaded from exported JSON — not stored in Supabase
+* Species templates and ability/trait libraries are read-only client-side data loaded from exported JSON — never stored in the save
 
 ---
 
@@ -440,7 +459,26 @@ Town is a hub of "folks" who turn essence into permanent upgrades. The Enhancer 
 * Star 12 special unlock (traits doc lists candidates but no decision)
 * Bestiary / Monsterpedia design — referenced in combat (auto-combat needs it) and UI/UX but no dedicated doc
 * Ability count — currently 72, target range is 80–120. Flora-flavored damage abilities (thorns, spores, vine attacks) would fill the gap
-* Visual and thematic identity for each tower zone
+* **How trait slots unlock and resolve** — essence thresholds in town vs. level-cap unlocks in-run. See the warnings on the Trait Inheritance and Traits System sections
+
+---
+
+---
+
+## **Design Specs — Index**
+
+Specs in `docs/superpowers/specs/` record **how a decision was reached**, including rejected alternatives. They are historical records, not authorities: **this document is the source of truth.** Where a spec and the GDD disagree, that is a bug in the GDD to be fixed — not a ranking to apply.
+
+| Spec | What it decided | Built? |
+| ----- | ----- | ----- |
+| `2026-07-23-essence-progression-pivot-design.md` | The permanent-progression model itself — Obols→Essence, permanent level floors, 30-floor descent, essence-hub town | Yes (Phases 1–4a) |
+| `2026-07-24-auto-combat-tactics-design.md` | Tactic ladders, knowledge fog, persisted battle speed | Yes |
+| `2026-07-25-departure-flow-design.md` | Standing default party, pre-run departure screen | Yes |
+| `2026-07-25-capture-system-design.md` | Capture threshold model, duplicate Essence grant, box capacity, pending-capture queue | **Designed only** |
+| `2026-07-25-monsterpedia-design.md` | Bestiary UI over `gameState.seenSpecies` | **Designed only** |
+| `2026-07-26-doc-realignment-design.md` | This documentation pass — GDD re-promotion and contradiction sweep | — |
+
+> **Note:** the capture spec cites `docs/superpowers/research/capture-mechanics-research.md`, which is **not in this repo**. Treat that spec as self-contained.
 
 ---
 

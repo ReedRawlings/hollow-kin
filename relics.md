@@ -2,6 +2,12 @@
 
 *Balancing Document — Subject to Change*
 
+> **Owns:** the relic catalog, relic rules, and design guidelines for new relics.
+> **Defers to the GDD on:** the progression model.
+> **Last verified:** 2026-07-26. **Not yet built.**
+>
+> ⚠️ **Relics are run-only by design.** They are lost at the end of every run regardless of outcome. This is the roguelite element the game deliberately keeps — it is **not** an unconverted leftover from the pre-pivot design. Do not make relics persist.
+
 ---
 
 ## **Overview**

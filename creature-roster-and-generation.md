@@ -1,5 +1,9 @@
 # **Hollow Kin — Creature Roster & Generation**
 
+> **Owns:** roster targets and distribution, the species template and creature instance data objects, stat generation, the generation pipeline, starters, breed-only creatures.
+> **Defers to the GDD on:** currency, progression model, and what persists across runs. Star/level-cap rules live in `breeding-and-inheritance.md`.
+> **Last verified:** 2026-07-26. *Note: the Trait Pool Generation section's "when a wild creature earns a new star" is part of the open trait question — see `traits-system.md`.*
+
 ---
 
 ## **Overview**

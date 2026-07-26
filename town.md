@@ -1,5 +1,9 @@
 # **Hollow Kin — Town**
 
+> **Owns:** the town's stations, what each one sells, and which spend Essence.
+> **Defers to the GDD on:** currency, progression model, and what persists across runs. Cost curves live in `economy-balancing.md`.
+> **Last verified:** 2026-07-26.
+
 ---
 
 > **Updated 2026-07-23 (Essence Progression Pivot):** Town is now an **Essence Hub**. The Enhancer and Leathersmith are removed as standalone buildings; their jobs are absorbed by essence vendors below (the Quartermaster preserves the Leathersmith's backpack-capacity role). **Essence is the single permanent currency** — Plasm and Breeding Stones are gone. The old Creature Box passive-XP/level mechanic is retired; the Creature Box is now management-only.

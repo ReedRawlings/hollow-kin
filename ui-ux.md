@@ -2,6 +2,10 @@
 
 *Working Document — Subject to Change*
 
+> **Owns:** information architecture, screen layouts and contents, visual language, accessibility.
+> **Defers to the GDD on:** currency, progression model, and what persists across runs. The onboarding *sequence* lives in `onboarding.md`.
+> **Last verified:** 2026-07-26. Screens described here are design targets; several are not built.
+
 ---
 
 ## **Overview**
@@ -62,7 +66,7 @@ Header, Marks, Essence should be visible on initial scan. Selecting into a creat
   * Ability inheritance options (toggle parent abilities on/off)
   * Stat inheritance estimate (offspring base stats)
   * If this breed combination has been used before we show the known outcome otherwise leave it a question mark
-* Optional: Breeding Relic or Stone slot (one per breeding event)
+  * Essence carry-over: how much of the parents' invested essence seeds the offspring
 * Confirm button with a clear warning that both parents will be retired
 
 ### **Run Map / Encounter Select**
@@ -87,7 +91,7 @@ Header, Marks, Essence should be visible on initial scan. Selecting into a creat
 ### **Post-Encounter Screen**
 
 * Rewards summary: **Obols earned** (the in-run currency), items found, resources gathered
-* XP gained and level-up notifications
+* XP gained and level-up notifications — these are **temporary in-run levels** stacked on top of the creature's permanent essence-bought floor, and they vanish at run end. See "What Persists, What Resets" in the GDD
 * "Continue" to the next encounter selection
 
 ### **Run Results / Exit Screen**
@@ -130,7 +134,6 @@ See the onboarding doc for more information
 | Essence (permanent) | Glowing orb or spark | Amber / teal |
 | Breed-ready | Glowing heart or link icon | Pink / magenta |
 | Relics | Crystalline shard | Purple |
-| Stones | Rough gem shape | Blue |
 
 ---
 

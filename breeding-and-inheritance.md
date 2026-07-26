@@ -1,5 +1,15 @@
 # **Hollow Kin — Breeding & Inheritance System**
 
+> **Owns:** star ratings and level caps, breed-readiness, offspring star calculation, stat inheritance, parent retirement, and essence carry-over.
+> **Defers to the GDD on:** currency, progression model, and what persists across runs.
+> **Last verified:** 2026-07-26 — except the trait sections, see below.
+
+> ## ⚠️ The trait sections of this document are under active revision (as of 2026-07-26)
+>
+> The **Breed-Readiness** paragraph below (trait slot unlocked by hitting the level cap) and the four **Trait Resolution** cases (resolved in-run at the star's level cap) conflict with `traits-system.md`, which unlocks slots at **essence thresholds purchased in town**. These are two different systems, not a wording difference, and which is correct is an **open design question**.
+>
+> **Do not implement trait unlock or trait resolution from either document until this is settled.** Everything else here — stars, level caps, breed-readiness as a *breeding* gate, stat inheritance, retirement, essence carry-over — is current and accurate.
+
 ---
 
 ## **Stars and Level Caps**

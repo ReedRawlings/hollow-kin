@@ -2,6 +2,10 @@
 
 *Working Document — Subject to Change*
 
+> **Owns:** run length, depth bands, depth-jumps, encounter types, run shape, boss cadence and design, procedural generation rules.
+> **Defers to the GDD on:** currency, progression model, and what persists across runs.
+> **Last verified:** 2026-07-26.
+
 ---
 
 ## **Overview**
@@ -74,22 +78,18 @@ Each encounter on the run map is one of the following:
 
 ---
 
-## **Run Shape**
-
-How the player navigates between encounters. The leading options under consideration:
-
-### **Pick-Next (Current Lead)**
+## **Run Shape — Pick-Next (decided and built)**
 
 After each encounter, the player chooses between 2–3 offered next encounters. No map, just the immediate choice.
 
 * Reduces decision anxiety and keeps pacing tight
-* Trade-off options can emerge through encounter type variety (shop vs. combat vs. event)
+* Trade-off options emerge through encounter type variety (shop vs. combat vs. event)
+* Pick-next is **boss-aware** — it never offers a path that skips a boss floor
 * The next 2–3 encounters could be previewed during reward selection, letting the player plan one step ahead
-* This is also the moment where players could swap creatures in and out of the active party
 
-### **Alternatives Under Consideration**
+There is no party swapping mid-run. The player descends with the three creatures they entered with; captures are cargo and cannot be fielded.
 
-* **Branching Map (Slay the Spire style)** — See the whole act, pick a path. May add unnecessary strategic overhead.
+*Considered and rejected: a branching Slay the Spire map (unnecessary strategic overhead at this pacing), linear-with-reward-sets, and non-linear free movement.*
 
 ---
 

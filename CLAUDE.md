@@ -2,7 +2,9 @@
 
 ## What This Is
 
-Hollow Kin is a browser-based creature collector roguelite. The player descends a procedurally generated tower with a party of 3 bred creatures, gathering resources, capturing new creatures, and earning genealogy progress that persists across runs. Inspired by Dragon Quest Monsters (breeding), Azure Dreams (tower/run structure), and Slay the Spire (roguelite pacing).
+Hollow Kin is a browser-based **permanent-progression creature collector** built on a roguelite run structure. The player descends a procedurally generated tower with a party of 3 bred creatures, harvesting Obols from fights and converting what they carry out into Essence — the permanent currency behind levels, traits, marks, and deeper starting floors.
+
+**A run is a harvesting trip, not the unit of progress.** Creatures do not reset. Inspired by Dragon Quest Monsters (breeding), Azure Dreams (tower/run structure), and Slay the Spire (run pacing). The roguelite inheritance is the *shape of a descent* — procedural floors, push-your-luck depth, run-only relics — not the progression model.
 
 ## ⚠️ This Game Is In Alpha — Numbers Are Not Settled
 
@@ -27,39 +29,35 @@ What this means in practice:
 
 The project root contains the game design documentation.
 
-> ### ⚠️ The GDD is NOT the source of truth any more — read this before trusting it
+> ### How to read the docs
 >
-> `game-design-document.md` was written for a **roguelite creature collector**: runs as the unit of progress, creatures reset, power earned and lost within a descent. **That direction has been abandoned in favour of a permanent progression model** — creatures keep an essence-bought level floor, progress persists across runs, and a run is a harvesting trip rather than a self-contained arc.
+> **`game-design-document.md` is the design source of truth.** It was realigned to the permanent-progression model on 2026-07-26 and is current.
 >
-> The GDD has been patched in places to match, but its **framing, emphasis, and much of its unrevised detail still describe the old roguelite game.** Where it disagrees with the essence model, the essence model wins.
+> Each topic doc **owns its own subject** and carries a header saying what it owns, what it defers to the GDD on, and when it was last verified.
 >
-> **Current authorities, in order:**
-> 1. **This file** — for what is actually built and the design rules that bind.
-> 2. `docs/superpowers/specs/2026-07-23-essence-progression-pivot-design.md` — the progression model itself.
-> 3. Later specs in `docs/superpowers/specs/` — each supersedes the older docs on its own subject.
-> 4. The topic docs below — accurate on mechanics they own, stale wherever they lean on run-scoped progression.
+> Specs in `docs/superpowers/specs/` are **point-in-time records** of how a decision was reached, including rejected alternatives. They are *not* authorities. If a spec and the GDD disagree, that is a bug in the GDD to fix — not a ranking to apply. The GDD carries an index of all specs and what each decided.
 >
-> Treat a roguelite-flavoured claim in any older doc as suspect until checked against the above. **Do not "restore" run-reset behaviour because a doc implies it.**
+> **One open exception — traits.** `traits-system.md` and `breeding-and-inheritance.md` describe two incompatible trait-unlock models (essence thresholds bought in town vs. level-cap unlocks resolved in-run). Both docs and the GDD's trait sections carry a warning banner. **Do not implement trait unlock or trait resolution from any of them until this is settled.** Trait *effects* and *categories* are unaffected.
 
 Each section has a corresponding detailed doc:
 
 | File | Covers |
 |------|--------|
-| `game-design-document.md` | Primary GDD — overview of all systems |
-| `combat-system.md` | Turn-based combat, damage formula, buffs/debuffs, auto-combat |
+| `game-design-document.md` | **Source of truth** — all systems, what persists vs. resets, specs index |
+| `combat-system.md` | Turn-based combat, damage formula, buffs/debuffs, auto-combat tactics, enemy AI |
 | `creature-roster-and-generation.md` | Target 96 creatures (12×8 archetypes), data objects, generation pipeline |
-| `breeding-and-inheritance.md` | Star ratings, level caps (0-12), trait resolution cases 1-4 |
-| `breeding-stones.md` | Consumables for enhancer, 4 tiers |
-| `marks-system.md` | Run-earned bonuses, 1 slot per creature |
+| `breeding-and-inheritance.md` | Star ratings, level caps (0–12), stat inheritance, essence carry-over ⚠️ *trait sections under revision* |
+| `traits-system.md` | 4 trait slots, 4 levels, trait categories ⚠️ *unlock model under revision* |
+| `marks-system.md` | Run-earned bonuses, earn-then-lock permanence, 1 slot per creature |
 | `marks-catalog.md` | All mark entries with thresholds |
-| `traits-system.md` | 4 trait slots, 4 levels, star progression table |
-| `tower-structure.md` | 3 zones, 15 encounters each, procedural generation rules |
-| `town.md` | Creature Box, Leathersmith, Enhancer buildings |
-| `economy-balancing.md` | Resources, progression pacing, drop rates |
-| `relics.md` | Run-only temporary power-ups |
-| `onboarding.md` | Tutorial flow (Phase 1: combat/capture, Phase 2: breeding) |
+| `tower-structure.md` | One continuous 30-floor descent, depth bands, depth-jumps, boss cadence, procgen rules |
+| `town.md` | Essence hub — Creature Box, Leveler, Trait-keeper, Mark-binder, Gatekeeper, Quartermaster, Breeder |
+| `economy-balancing.md` | Obols→Essence, level cost curve, depth-jump prices, pacing targets (all placeholders) |
+| `relics.md` | Run-only temporary power-ups — *not built* |
+| `onboarding.md` | Tutorial sequence (Phase 1: combat/Obols/capture, Phase 2: marks/breeding) — *not built* |
 | `ui-ux.md` | Screen designs, visual language, accessibility |
 | `Abilities.csv` | 72 abilities with stats, types, archetypes |
+| `breeding-stones.md` | ⚠️ **RETIRED/CUT** — preserved for reference only; nothing depends on it |
 
 ## Current State — Essence Pivot Implemented (Phases 1–4a)
 

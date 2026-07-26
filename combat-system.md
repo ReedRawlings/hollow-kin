@@ -2,6 +2,10 @@
 
 *Working Document — Subject to Change*
 
+> **Owns:** turn order, actions, damage formula, accuracy/evasion, crits, buffs & debuffs, status effects, MP, knockout, auto-combat tactics, enemy AI.
+> **Defers to the GDD on:** currency, progression model, capture rules, and what persists across runs.
+> **Last verified:** 2026-07-26.
+
 ---
 
 ## **Overview**
@@ -25,9 +29,11 @@ Combat in Hollow Kin is turn-based and active by default. The player controls a 
 Each creature takes an action per turn:
 
 * **Ability** — Select from up to four equipped abilities. Costs MP.
+* **Basic Attack** — Free fallback, always available (notably when MP is exhausted).
 * **Defend** — Reduce incoming damage until the creature's next turn.
-* **Swap** — Replace the active creature with one from inventory (captured creatures mid-run). The swapped-in creature acts next round, not this one.
-* **Capture** - Creatures turn is used to try and capture an enemy creature
+* **Capture** — The creature's turn is used to attempt a capture on an enemy. *(Designed, not yet built.)*
+
+There is **no swap action.** A captured creature is cargo, not a reinforcement — it arrives at level 1 and cannot be fielded during the run that caught it. The party is the three creatures the player entered with, for the whole descent.
 
 ---
 
@@ -208,7 +214,7 @@ Inspired by Dragon Quest's tactics system. The player assigns a general behavior
 ### **Auto-Combat Limitations**
 
 * Auto does not use items from inventory
-* Auto does not swap party members
+* Auto does not use the Capture action — capture is always a manual decision
 * Auto does not know enemy resistances until they've been encountered before (first encounter is always blind). **Implemented:** `gameState.seenSpecies` records a species at *battle end* — recording it at encounter start would mean the AI already knew it during the very fight that introduced it, and the fog would never fog anything. A full Monsterpedia UI over this data is designed in `docs/superpowers/specs/2026-07-25-monsterpedia-design.md` but not yet built
 * The player can toggle off Auto during battle at any time. Doing so will switch them to manual
 * **Battle speed** is a persisted player preference (1×/2×/4×) scaling all combat pacing, with a 100 ms floor so animations and the message log cannot collapse into a single frame

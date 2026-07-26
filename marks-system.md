@@ -1,5 +1,9 @@
 # **Hollow Kin — Marks System**
 
+> **Owns:** how marks are earned, the earn-then-lock permanence model, mark types, and the marks/breeding interaction. Individual mark entries live in `marks-catalog.md`.
+> **Defers to the GDD on:** currency, progression model, and what persists across runs. **Unbound marks resetting at run end is deliberate** — see "What Persists, What Resets".
+> **Last verified:** 2026-07-26. *Note: the Overview's aside that traits "strengthen over stars" is part of the open trait question — see `traits-system.md`.*
+
 ---
 
 ## **Overview**

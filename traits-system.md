@@ -1,5 +1,20 @@
 # **Hollow Kin — Traits System**
 
+> **Owns:** trait effects, trait levels, trait categories, and the trait pool.
+> **Defers to the GDD on:** currency, progression model, and what persists across runs.
+> **Last verified:** 2026-07-26.
+
+> ## ⚠️ Trait progression is under active revision (as of 2026-07-26)
+>
+> This document and `breeding-and-inheritance.md` describe **two incompatible unlock models:**
+>
+> * **Here:** trait slots and levels unlock at **essence thresholds**, purchased from the Trait-keeper **in town**.
+> * **In `breeding-and-inheritance.md`:** a slot unlocks when a creature **hits its level cap**, and inherited traits resolve **during a run** at that moment.
+>
+> These are different systems with different resolution moments (town-at-purchase vs. in-run-at-cap), not a wording difference. Which is correct is an **open design question**.
+>
+> **Do not implement trait unlock or trait resolution from either document until this is settled.** Trait *effects* and *categories* below are unaffected and remain accurate.
+
 ---
 
 ## **Overview**

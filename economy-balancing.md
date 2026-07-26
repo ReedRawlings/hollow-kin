@@ -2,6 +2,12 @@
 
 *Working Document — Subject to Change*
 
+> **Owns:** Obol earn weights, the Obols→Essence conversion rate, the permanent level cost curve, depth-jump prices, capture economy, essence sinks, progression pacing targets, and the balancing levers.
+> **Defers to the GDD on:** the progression model itself and what persists across runs.
+> **Last verified:** 2026-07-26.
+>
+> **Every number in this document is a placeholder for playtest tuning.** Pin relationships between constants, not the values.
+
 ---
 
 ## **Overview**
