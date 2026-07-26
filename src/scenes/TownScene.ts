@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
 import { ARCHETYPE_COLORS } from '../types';
+import { resolvePartyStatus } from '../systems/PartyStatus';
 
 export class TownScene extends Phaser.Scene {
   constructor() {
@@ -29,12 +30,24 @@ export class TownScene extends Phaser.Scene {
     }
 
     // Creature Box display
-    this.add.text(20, 100, `Creature Box (${gameState.creatureBox.filter(c => !c.isRetired).length})`, {
+    const activeCreatures = gameState.creatureBox.filter(c => !c.isRetired);
+    this.add.text(20, 100, `Creature Box (${activeCreatures.length})`, {
       fontSize: '16px', color: '#88aacc', fontFamily: 'monospace',
     });
 
-    const activeCreatures = gameState.creatureBox.filter(c => !c.isRetired);
-    activeCreatures.forEach((creature, i) => {
+    // The list below lays out at `135 + floor(i / 6) * 75`. A 4th row starts at
+    // y=360, which collides with the party panel at y=330. Cap to 3 rows (18
+    // creatures) so the box can never grow into it; the header count above still
+    // shows the true total, and we note the overflow beside it.
+    const MAX_VISIBLE_BOX = 18;
+    const visibleBoxCreatures = activeCreatures.slice(0, MAX_VISIBLE_BOX);
+    if (activeCreatures.length > MAX_VISIBLE_BOX) {
+      this.add.text(230, 100, `(+${activeCreatures.length - MAX_VISIBLE_BOX} more not shown)`, {
+        fontSize: '11px', color: '#666688', fontFamily: 'monospace',
+      });
+    }
+
+    visibleBoxCreatures.forEach((creature, i) => {
       const template = getTemplate(creature.speciesId);
       const x = 40 + (i % 6) * 150;
       const y = 135 + Math.floor(i / 6) * 75;
@@ -53,6 +66,45 @@ export class TownScene extends Phaser.Scene {
       }
     });
 
+    // Party panel — the standing party, or why it cannot descend.
+    //
+    // NOTE ON PLACEMENT: the creature-box list above lays out at
+    // `135 + floor(i / 6) * 75`, so it reaches y=360 once the box holds 19+
+    // creatures and would collide with this panel. Checked: the box list is capped
+    // to MAX_VISIBLE_BOX (18, i.e. 3 rows) above, so the last box row ends at
+    // y=285 and never reaches this panel at y=330.
+    const status = resolvePartyStatus(gameState.defaultParty, gameState.creatureBox);
+    this.add.text(20, 330, 'Descent Party', {
+      fontSize: '15px', color: '#88ccff', fontFamily: 'monospace',
+    });
+
+    if (status.kind === 'ready') {
+      status.members.forEach((c, i) => {
+        const template = getTemplate(c.speciesId);
+        const x = 30 + i * 230;
+        this.add.rectangle(x + 16, 372, 30, 30, template.spriteColor);
+        this.add.text(x + 38, 362, c.nickname ?? template.name, {
+          fontSize: '12px', color: '#ffffff', fontFamily: 'monospace',
+        });
+        this.add.text(x + 38, 378, `Lv ${c.permanentLevel}`, {
+          fontSize: '10px', color: '#aaaaaa', fontFamily: 'monospace',
+        });
+      });
+    } else if (status.kind === 'incomplete') {
+      this.add.text(30, 365, `Choose ${3 - status.have} more — set your party in PARTY.`, {
+        fontSize: '13px', color: '#ffaa66', fontFamily: 'monospace',
+      });
+    } else {
+      // Name the creature that left. "Party invalid" would make the player open the
+      // editor just to work out what changed — breeding retires parents constantly.
+      this.add.text(30, 365, `${status.missingNames.join(' and ')} is no longer available.`, {
+        fontSize: '13px', color: '#ffaa66', fontFamily: 'monospace',
+      });
+      this.add.text(30, 383, 'Set a new party in PARTY.', {
+        fontSize: '12px', color: '#aaaaaa', fontFamily: 'monospace',
+      });
+    }
+
     // Vendors (row 1)
     const vendorY = 430;
     this.createButton(cx - 190, vendorY, 'LEVELER', '#4488aa', () => {
@@ -65,17 +117,21 @@ export class TownScene extends Phaser.Scene {
       this.scene.start('BestiaryScene');
     });
 
-    // Run / breed / new game (row 2)
+    // Run / party / breed / new game (row 2)
     const btnY = 500;
-    this.createButton(cx - 200, btnY, 'ENTER TOWER', '#44aa44', () => {
+    const canDescend = status.kind === 'ready';
+    this.createButton(cx - 285, btnY, 'ENTER TOWER', canDescend ? '#44aa44' : '#2a4a2a', () => {
+      if (canDescend) this.scene.start('DepartureScene');
+    });
+    this.createButton(cx - 95, btnY, 'PARTY', '#4488aa', () => {
       this.scene.start('PartySelectScene');
     });
-    this.createButton(cx, btnY, 'BREED', '#aa44aa', () => {
+    this.createButton(cx + 95, btnY, 'BREED', '#aa44aa', () => {
       if (activeCreatures.length >= 2) {
         this.scene.start('BreedingScene');
       }
     });
-    this.createButton(cx + 200, btnY, 'NEW GAME', '#aa4444', () => {
+    this.createButton(cx + 285, btnY, 'NEW GAME', '#aa4444', () => {
       localStorage.removeItem('hollow_kin_save');
       this.scene.start('BootScene');
     });

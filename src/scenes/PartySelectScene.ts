@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
 import { TACTIC_ORDER, TACTIC_LABELS } from '../types';
+import { PARTY_SIZE } from '../systems/PartyStatus';
 
 export class PartySelectScene extends Phaser.Scene {
   private selected: string[] = [];
@@ -18,15 +19,18 @@ export class PartySelectScene extends Phaser.Scene {
     this.cards = [];
     const cx = this.cameras.main.centerX;
 
-    this.add.text(cx, 30, 'SELECT YOUR PARTY (3)', {
+    this.add.text(cx, 30, 'YOUR PARTY (3)', {
       fontSize: '24px', color: '#e0d0a0', fontFamily: 'monospace',
     }).setOrigin(0.5);
 
-    this.add.text(cx, 60, 'Click creatures to select/deselect', {
+    this.add.text(cx, 60, 'Click to select. This party is used for every descent.', {
       fontSize: '14px', color: '#888888', fontFamily: 'monospace',
     }).setOrigin(0.5);
 
     const available = gameState.creatureBox.filter(c => !c.isRetired);
+    this.selected = gameState.defaultParty.filter(
+      id => available.some(c => c.instanceId === id),
+    );
 
     available.forEach((creature, i) => {
       const template = getTemplate(creature.speciesId);
@@ -37,6 +41,10 @@ export class PartySelectScene extends Phaser.Scene {
 
       const bg = this.add.rectangle(x, y + 30, 230, 120, 0x222244, 0.9)
         .setStrokeStyle(2, 0x444466).setInteractive({ useHandCursor: true });
+
+      if (this.selected.includes(creature.instanceId)) {
+        bg.setStrokeStyle(3, 0x44ff44);
+      }
 
       // Creature color square
       this.add.rectangle(x - 80, y + 20, 45, 45, template.spriteColor);
@@ -86,9 +94,10 @@ export class PartySelectScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.confirmBtn.on('pointerdown', () => {
-      if (this.selected.length === 3) {
-        gameState.setRunParty(this.selected);
-        this.scene.start('RunScene');
+      if (this.selected.length === PARTY_SIZE) {
+        gameState.setDefaultParty(this.selected);
+        gameState.saveToLocalStorage();
+        this.scene.start('TownScene');
       }
     });
 
@@ -98,6 +107,8 @@ export class PartySelectScene extends Phaser.Scene {
     }).setInteractive({ useHandCursor: true }).on('pointerdown', () => {
       this.scene.start('TownScene');
     });
+
+    this.updateConfirm();
   }
 
   private toggleSelect(instanceId: string, bg: Phaser.GameObjects.Rectangle): void {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { convertObolsToEssence, essenceCostForLevel, depthJumpCost, depthUnlockCost, depthRunFee, levelFromEssence } from './Economy';
+import { convertObolsToEssence, essenceCostForLevel, depthUnlockCost, depthRunFee, levelFromEssence } from './Economy';
 import { DEPTH_UNLOCK_COST_PER_FLOOR, DEPTH_RUN_FEE_PER_FLOOR } from '../types';
 
 // obolsForEncounter is unbranching arithmetic over two tunable constants, and the
@@ -38,17 +38,6 @@ describe('essenceCostForLevel', () => {
   it('rises with level', () => {
     expect(essenceCostForLevel(4)).toBe(80); // floor(10 * 4^1.5 = 80)
     expect(essenceCostForLevel(9)).toBe(270); // floor(10 * 9^1.5 = 270)
-  });
-});
-
-describe('depthJumpCost', () => {
-  it('is free to start at floor 1', () => {
-    expect(depthJumpCost(1)).toBe(0);
-  });
-  it('scales with the start floor', () => {
-    expect(depthJumpCost(6)).toBe(75);   // (6-1)*15
-    expect(depthJumpCost(11)).toBe(150); // (11-1)*15
-    expect(depthJumpCost(26)).toBe(375); // (26-1)*15
   });
 });
 
