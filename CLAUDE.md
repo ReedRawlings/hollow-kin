@@ -36,8 +36,6 @@ The project root contains the game design documentation.
 > Each topic doc **owns its own subject** and carries a header saying what it owns, what it defers to the GDD on, and when it was last verified.
 >
 > Specs in `docs/superpowers/specs/` are **point-in-time records** of how a decision was reached, including rejected alternatives. They are *not* authorities. If a spec and the GDD disagree, that is a bug in the GDD to fix — not a ranking to apply. The GDD carries an index of all specs and what each decided.
->
-> **One open exception — traits.** `traits-system.md` and `breeding-and-inheritance.md` describe two incompatible trait-unlock models (essence thresholds bought in town vs. level-cap unlocks resolved in-run). Both docs and the GDD's trait sections carry a warning banner. **Do not implement trait unlock or trait resolution from any of them until this is settled.** Trait *effects* and *categories* are unaffected.
 
 Each section has a corresponding detailed doc:
 
@@ -46,8 +44,8 @@ Each section has a corresponding detailed doc:
 | `game-design-document.md` | **Source of truth** — all systems, what persists vs. resets, specs index |
 | `combat-system.md` | Turn-based combat, damage formula, buffs/debuffs, auto-combat tactics, enemy AI |
 | `creature-roster-and-generation.md` | Target 96 creatures (12×8 archetypes), data objects, generation pipeline |
-| `breeding-and-inheritance.md` | Star ratings, level caps (0–12), stat inheritance, essence carry-over ⚠️ *trait sections under revision* |
-| `traits-system.md` | 4 trait slots, 4 levels, trait categories ⚠️ *unlock model under revision* |
+| `breeding-and-inheritance.md` | Star ratings, level caps (0–12), stat inheritance, essence carry-over, trait inheritance |
+| `traits-system.md` | 4 slots unlocked by permanent level, traits found & imbued, Trait-keeper, 4 trait levels — *not built* |
 | `marks-system.md` | Run-earned bonuses, earn-then-lock permanence, 1 slot per creature |
 | `marks-catalog.md` | All mark entries with thresholds |
 | `tower-structure.md` | One continuous 30-floor descent, depth bands, depth-jumps, boss cadence, procgen rules |
@@ -107,7 +105,7 @@ src/
 ### What's NOT Built Yet
 
 - **Capture system** — the "collect" pillar; Obols-based capture during combat is not implemented (only data hooks exist)
-- **Traits system** + Trait-keeper vendor (traits unlock at essence thresholds; enables the *Essence Distiller* conversion lever)
+- **Traits system** + Trait-keeper vendor (slots unlock by permanent level; traits found and imbued — enables the *Essence Distiller* conversion lever). Designed, see roadmap below
 - **Marks system** + Mark-binder vendor (earn-then-lock; Floor Marks on bosses)
 - **Inventory / Quartermaster** vendor (backpack capacity; pairs with capture) + Obols→Essence conversion-rate levers
 - Run relics (temporary power-ups)
@@ -133,7 +131,9 @@ src/
   - This is what keeps capture a real gamble: catching something deep with no guaranteed space left means carrying it home is a risk you chose.
 - Creatures keep a **permanent essence-driven level floor** between runs. Temporary in-run levels vanish at run end (Model A). Do NOT hard-code a level-1 reset.
 - **No archetype-level type chart.** Resistances/weaknesses are per-creature.
-- Stars are the **level ceiling** for now (essence fills toward it); breeding still raises stars. Do NOT hard-couple to stars — removing them entirely (essence owns the cap) is the favored future direction.
+- **Stars are staying, and coupling to them is fine** (decided 2026-07-26). Stars are the level ceiling, and via the ceiling they also gate **trait capacity** — slots unlock at permanent levels 5/10/20/30, so a 0★ creature reaches one slot until breeding raises its star. This reverses the old "backup C / do not hard-couple to stars" note. **Why:** stars are what stop players settling on one roster forever — the goal is that they keep breeding and finding new creatures rather than maxing three favourites.
+- **Trait slots unlock by `permanentLevel` only** — never by temporary in-run levels — and they unlock **empty**. There is no random trait roll. Traits are found (boss drops, events, puzzles later), bought from the Trait-keeper, or inherited, then imbued. Design: `docs/superpowers/specs/2026-07-26-traits-system-design.md`.
+- **Breed-readiness is derived, not stored:** `permanentLevel >= levelCap`. Do not reintroduce a stored `isBreedReady` flag set during a run.
 - Both parents are **retired** when breeding, but invested essence **carries over** to the offspring as a jump-start. Retired parents **stay in the creature box as tombstones** — do not delete them. Every box consumer filters `!isRetired`, and keeping them is what lets a stale default party name the creature that left instead of saying "a former party member".
 - **Breeding requires a minimum level investment, and this is load-bearing.** A creature is breed-ready only on hitting its star's level cap — **5 for a 0★ starter**, higher for higher stars. Stats pass down through generations, so breeding too early founds a weak line and the weakness compounds every generation after. Never relax this gate casually. A **captured creature arrives at level 1**, so it is far from breedable: capture yields a bloodline candidate, not a parent.
 - **Longevity is removed.** No run counter, no forced retirement.
@@ -155,7 +155,7 @@ src/
    **Two open issues capture work will collide with, both currently unreachable but not for long:**
    - **A soft-lock.** Breeding is net −1 creature (two parents in, one offspring out). From the 3-creature starting box that leaves 2 actives, and with no capture there is no way back to 3 — `CONFIRM` sticks at 2/3 and `ENTER TOWER` stays permanently dimmed. Capture is the fix, but decide whether breeding also needs a guard.
    - **`PartySelectScene` breaks past 12 creatures.** Cards lay out 3-per-row at 140px; creatures 10–12 overlap the CONFIRM button and 13+ render off-canvas, unselectable. The box only shrinks today, so it is unreachable — until capture makes it grow. Tighter than the town box's 18-row display cap.
-2. **Traits system** + Trait-keeper vendor + Essence Distiller conversion lever.
+2. **Traits system — DESIGNED, ready to plan.** Spec: `docs/superpowers/specs/2026-07-26-traits-system-design.md` (slots by permanent level, found-and-imbued traits, Trait-keeper, three-case inheritance). Also fixes two live bugs: `isBreedReady` is a stored flag set only by in-run levelling, so buying a creature to its cap locks it out of breeding forever, and `startRun()` wipes readiness before it can be used. Delete `BreedingSystem.ts:73–76` (star-based slot unlock — a third model matching neither doc). Needs `naturalTraitPool` authored per species (none exist) and the backpack for found traits. Also add the Essence Distiller conversion lever.
 3. **Marks system** + Mark-binder vendor + Floor Marks on bosses.
 4. **Inventory / Quartermaster** vendor (backpack) — pairs with capture.
 5. Content & polish: more creatures (36→96), more abilities (31→72), onboarding tutorial, auto-combat, sprites.

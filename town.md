@@ -24,7 +24,7 @@ Essence is earned in the tower and spent here. Every spend except the Creature B
 |---|---|---|
 | **Creature Box** | View available creatures, manage party | No — management only |
 | **Leveler** | Buy permanent levels | Yes |
-| **Trait-keeper** | Unlock trait slots / levels | Yes |
+| **Trait-keeper** | Sell traits, imbue them into slots, upgrade trait levels, buy duplicates | Yes |
 | **Mark-binder** | Make an earned mark permanent | Yes |
 | **Gatekeeper** | Unlock depth-jumps | Yes |
 | **Quartermaster** | Increase backpack capacity + buy Obols→Essence conversion-rate upgrades | Yes |
@@ -46,9 +46,14 @@ Buys permanent levels for a pet with essence.
 
 ### **Trait-keeper**
 
-Unlocks trait slots and trait levels with essence.
+Handles everything to do with trait *content*. Trait **slots** are not sold here — those unlock automatically as a creature's permanent level rises (5/10/20/30, capped by stars). The Trait-keeper fills them.
 
-* Trait slots and levels unlock at essence thresholds (not star thresholds)
+* **Sells** a small variety of baseline traits for essence — the reliable floor, so no player is locked out of traits by bad drops
+* **Imbues** a held trait into an open slot. Imbuing into an occupied slot replaces what was there, destroying the old trait — no refund, no un-imbue
+* **Upgrades** a trait from Level 1 toward Level 4 (placeholder: 240 / 540 / 960 essence — roughly one mid-game permanent level per trait level)
+* **Buys duplicates** back for a small amount, so a repeat drop is never dead loot
+
+Traits themselves are found on boss drops, from random events, and later from puzzles — see `traits-system.md`.
 
 ### **Mark-binder**
 

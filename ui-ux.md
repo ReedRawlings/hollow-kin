@@ -48,7 +48,7 @@ The most information-dense screen. Must be scannable.
 
 * **Header:** Name, archetype, star rating (visual stars), permanent level / level cap
 * **Stats block:** HP, MP, STR, DEF, WIS, SPD, INT — with base and current values
-* **Traits:** Up to four slots. Filled slots show trait name, level, and icon. Unfilled slots show the essence threshold required to unlock.
+* **Traits:** Up to four slots. Filled slots show trait name, level, and icon. **Open but empty** slots invite an imbue — the strongest hook telling the player what to go looking for. **Locked** slots show the permanent level needed to open them.
 * **Mark:** Active mark name and effect. Tap to see all earned marks and swap.
 * **Abilities:** Up to four slots with ability names and types.
 * **Essence:** Permanent level and essence invested in this pet, with the cost to buy the next level.

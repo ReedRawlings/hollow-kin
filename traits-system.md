@@ -1,47 +1,98 @@
 # **Hollow Kin — Traits System**
 
-> **Owns:** trait effects, trait levels, trait categories, and the trait pool.
-> **Defers to the GDD on:** currency, progression model, and what persists across runs.
-> **Last verified:** 2026-07-26.
-
-> ## ⚠️ Trait progression is under active revision (as of 2026-07-26)
->
-> This document and `breeding-and-inheritance.md` describe **two incompatible unlock models:**
->
-> * **Here:** trait slots and levels unlock at **essence thresholds**, purchased from the Trait-keeper **in town**.
-> * **In `breeding-and-inheritance.md`:** a slot unlocks when a creature **hits its level cap**, and inherited traits resolve **during a run** at that moment.
->
-> These are different systems with different resolution moments (town-at-purchase vs. in-run-at-cap), not a wording difference. Which is correct is an **open design question**.
->
-> **Do not implement trait unlock or trait resolution from either document until this is settled.** Trait *effects* and *categories* below are unaffected and remain accurate.
+> **Owns:** trait effects, trait levels, trait categories, how slots unlock, and how traits are acquired.
+> **Defers to the GDD on:** currency, progression model, and what persists across runs. Breeding inheritance lives in `breeding-and-inheritance.md`.
+> **Last verified:** 2026-07-26. **Not yet built** — design settled in `docs/superpowers/specs/2026-07-26-traits-system-design.md`.
 
 ---
 
 ## **Overview**
 
-Traits are passive or triggered effects attached to a creature's stat object. Each creature can hold up to four traits, one per trait slot. Slots are unlocked progressively by spending **essence** at the **Trait-keeper** in town — each slot (and each subsequent level upgrade) opens at a defined essence threshold. Traits have four strength levels — a trait at Level 1 is a minor effect, the same trait at Level 4 is substantially more powerful.
+Traits are passive or triggered effects attached to a creature's stat object. Each creature can hold up to four traits, one per trait slot. Traits have four strength levels — a trait at Level 1 is a minor effect, the same trait at Level 4 is substantially more powerful.
+
+The system splits cleanly three ways, with no overlap:
+
+| Source | Supplies |
+| ----- | ----- |
+| **Permanent level** | Slot **capacity** — how many traits a creature can hold |
+| **Adventuring and the Trait-keeper** | Slot **content** — the actual traits |
+| **Breeding** | Content **passed down** — inherited traits, placed at birth |
 
 Traits are stored on the creature as IDs. The ID references coded logic in the TraitLibrary. The creature object holds the trait ID and its current level — the library handles what that combination actually does in combat.
 
 ---
 
+## **Slots Unlock by Permanent Level**
+
+A trait slot unlocks when a creature's **permanent level** crosses a threshold:
+
+| Slot | Permanent level | First reachable at |
+| ----- | ----- | ----- |
+| 1 | 5 | 0★ |
+| 2 | 10 | 1★ |
+| 3 | 20 | 2★ |
+| 4 | 30 | 3★ |
+
+**Permanent level only.** Temporary in-run levels affect stats and nothing else — they never unlock a slot. An unlock therefore always happens in town, at the moment the player buys the level at the Leveler. Unlocks are predictable, a slot can never flicker open and closed across a run boundary, and there is no way to grind in-run XP into trait capacity without spending Essence.
+
+These thresholds are **pinned to the star level caps** (0★=5, 1★=10, 2★=20, 3★=30). Each star tier through 3★ buys exactly one more slot, and a creature's final reachable slot opens on the same beat it hits its cap and becomes breed-ready. If either table is retuned, they move together.
+
+From 4★ up (cap 40+) all four slots are already open — the rest of the climb funds trait **levels** instead.
+
+> **Stars gate trait capacity, deliberately.** A 0★ creature reaches one slot and no more, forever, until breeding raises its star. This is the point: stars exist so players keep breeding and finding new creatures rather than maxing three favourites and never changing them. Breeding is what buys trait capacity. (This reverses an earlier note that traits were decoupled from stars so stars could be removed later — **stars are staying.**)
+
+---
+
+## **Slots Unlock Empty — Traits Are Found, Not Rolled**
+
+A slot opening gives capacity, not content. **There is no random trait roll.** A newly opened slot sits empty until the player puts something in it.
+
+### **Where traits come from**
+
+| Source | Notes |
+| ----- | ----- |
+| **Trait-keeper stock** | A small variety of baseline traits, bought with Essence. This is the reliable floor — a player is never locked out of traits by bad luck |
+| **Boss drops** | Rarer traits, at a **small chance**, from mini and major bosses |
+| **Random events** | Rarer traits as a risk/reward outcome |
+| **Puzzles** | A later system — not yet designed |
+| **Breeding** | Inherited traits, already placed at birth (see `breeding-and-inheritance.md`) |
+
+Ordinary combat encounters do **not** drop traits, and traits are **not** sold in in-run shops for Obols.
+
+### **Found traits are inventory items**
+
+A found trait occupies a backpack slot for the rest of the descent and is **eligible for the wipe's single random loss** unless it sits in guaranteed inventory space — exactly like a consumable or a captured creature. Carrying a floor-20 boss trait deeper is a real gamble: push on and risk it, or leave and bank it.
+
+### **Species compatibility**
+
+A creature can only be imbued with traits its species accepts — its `naturalTraitPool`. This is a **compatibility rule, not a roll table**: no species has access to the entire trait library, and a strong trait you cannot use on the creature you wanted is a real (and intended) outcome.
+
+---
+
+## **The Trait-keeper**
+
+The town vendor that handles everything to do with trait content. All four services cost or return **Essence**:
+
+* **Sells** a small variety of baseline traits
+* **Imbues** a held trait into an open slot. Imbuing into an *occupied* slot replaces what was there, destroying the old trait — no refund, and there is no un-imbue
+* **Upgrades** a trait from Level 1 toward Level 4
+* **Buys duplicates** — a repeat of a trait a creature already holds sells back for a small amount, so a duplicate drop is never dead loot
+
+---
+
 ## **Persistence Between Runs**
 
-Trait unlocks are permanent. Once a creature earns a trait slot by spending essence at the Trait-keeper, that trait is active at the start of every subsequent run at whatever level it currently holds. Essence spent on a slot is permanent and locked to that creature — unlocked traits represent the persistent progress that makes each generation meaningfully stronger over time.
+Everything about traits is permanent. An unlocked slot stays unlocked, an imbued trait stays imbued at whatever level it holds, and both are active from the start of every subsequent run.
 
-This is the primary answer to the Azure Dreams problem of retained levels. Traits, like permanent essence levels, are the progress a creature carries between runs.
+This is the primary answer to the Azure Dreams problem of retained levels. Traits, like permanent essence levels, are progress a creature carries between runs.
 
-**Wild creatures** unlock traits by spending accumulated essence at the Trait-keeper. When a slot is unlocked its trait is randomly assigned from the shared pool at that moment and permanently active from the next run onward. Each further essence threshold either upgrades an existing slot or unlocks a new one.
-
-**Bred creatures** are born with their inherited traits already active — there is no unlock moment because slots were resolved at creation (subject to any essence carry-over from the parents). Their runs are spent earning essence to strengthen traits they already have rather than unlocking new ones from scratch.
-
-This means a bred creature is stronger than a wild creature from run one and gets progressively stronger as essence is invested. Wild creatures start weaker but still accumulate permanent progress each time essence is spent on them.
+**Bred creatures** are born with their inherited traits already placed, so they are stronger than wild creatures from run one. **Wild creatures** start with empty slots and are equipped over time from drops and the Trait-keeper's stock — slower, but fully under the player's control, which inheritance is not.
 
 ---
 
 ## **Trait Levels**
 
-Every trait exists at four levels of strength. Creatures earn stronger versions of their traits by spending essence at the Trait-keeper — either at slot unlock or through subsequent level-upgrade thresholds.
+Every trait exists at four levels of strength.
 
 | Trait Level | Description |
 | ----- | ----- |
@@ -52,37 +103,27 @@ Every trait exists at four levels of strength. Creatures earn stronger versions 
 
 The specific stat values or effect magnitudes for each level are defined per trait in the TraitLibrary and tuned during balancing.
 
----
+### **Raising a trait's level**
 
-## **Trait Slot Progression by Essence Threshold**
+Traits are found at **Level 1** and raised with Essence at the Trait-keeper.
 
-Slots and level upgrades unlock by spending **essence** at the **Trait-keeper** in town. Each threshold is a cumulative essence investment on that creature. Slots unlock one at a time; each new slot opens at a higher base trait level than the previous — later slots start strong but earlier slots can be refined all the way to max over time. Later thresholds strengthen existing slots rather than adding new ones.
-
-> **Essence values below are placeholders for playtest tuning.** They are cumulative essence invested in a creature's traits, not per-step costs. Slot count (4) and trait level count (4) are fixed; only the numbers move.
-
-| Essence Threshold (placeholder) | Effect |
+| Upgrade | Essence (placeholder) |
 | ----- | ----- |
-| 0 | No traits |
-| 50 | Slot 1 unlocked at Trait Level 1 |
-| 120 | Slot 2 unlocked at Trait Level 2 |
-| 220 | Slot 3 unlocked at Trait Level 3 |
-| 350 | Slot 4 unlocked at Trait Level 4 (max) |
-| 450 | Slot 1 upgraded to Trait Level 2 |
-| 570 | Slot 1 upgraded to Trait Level 3 |
-| 710 | Slot 1 upgraded to Trait Level 4 (max) |
-| 870 | Slot 2 upgraded to Trait Level 3 |
-| 1050 | Slot 2 upgraded to Trait Level 4 (max) |
-| 1250 | Slot 3 upgraded to Trait Level 4 (max) |
+| L1 → L2 | 240 |
+| L2 → L3 | 540 |
+| L3 → L4 | 960 |
 
-A fully invested creature has all four slots at Trait Level 4. Slot 4 is the only slot that opens already at max and is never upgraded further — it is a reward for reaching the top slot-unlock threshold that remains constant as other slots catch up.
+> **The relationship to preserve:** a trait upgrade costs roughly **one mid-game permanent level**. The level curve is `10·L^1.5`, so level 10→11 costs ~365 and 20→21 ~962. If the level curve is retuned, retune these alongside it. The point is that raising a trait is a comparable investment to raising a level — not a rounding error against it.
 
-This progression is deliberately decoupled from star rating. Stars currently still gate a creature's level ceiling, but trait unlocks no longer depend on them — so if stars are removed later, this table needs no restructuring.
+**Higher-level drops, later in the game.** Deep in the tower, traits can drop already at Level 2–4, skipping some or all of the Essence cost. This makes depth a direct trait-power lever and turns a deep high-level drop into a genuine windfall. The depth-to-drop-level mapping is a tuning question, not yet fixed.
+
+**Duplicates do not merge.** A second copy of a trait a creature already holds is sold back to the Trait-keeper for a small amount of Essence — a consolation, not an income stream.
 
 ---
 
 ## **Trait Categories**
 
-Traits are assigned from a shared pool. Wild creatures receive random traits. Bred creatures may have traits chosen or inherited depending on the breeding resolution rules — see the Breeding and Inheritance document.
+Each species accepts a curated subset of the trait library — its `naturalTraitPool` — which determines what it can be imbued with. Bred creatures may also arrive with inherited traits already placed; see the Breeding and Inheritance document.
 
 ### **Stat Increase Traits**
 
@@ -147,20 +188,21 @@ Affect the run's currency rather than combat directly. Scale with trait level.
 
 ## **Trait Inheritance at Breeding**
 
-See the Breeding and Inheritance document for the full resolution rules. In summary:
+See the Breeding and Inheritance document for the full rules. In summary — three cases, because with slots unlocking empty there is no random pool to arbitrate against:
 
-* Both parents with a slot filled at the same star → player chooses at birth
-* One parent contributing, one not → 50/50 at run time between parent trait and random pool
-* Both parents with above-star traits → player chooses at run time, no random pool
-* Neither parent contributing → random pool draw at run time
+* **Both parents had a trait in that slot** → player chooses one, at breeding
+* **One parent had a trait in that slot** → that trait passes
+* **Neither did** → the slot stays empty; go find something for it
 
-When a trait is inherited its **trait level resets to whatever level that slot starts at for the offspring's current essence investment** (subject to any essence carry-over granted by the parents — see Breeding and Inheritance). A Trait Level 4 trait inherited into a freshly unlocked Slot 1 starts at Level 1 and upgrades as more essence is spent at the Trait-keeper. The identity of the trait is preserved, the strength is not. This is intentional — the bloodline carries the memory of the trait, the creature has to earn its full power back with essence. A slot that opens already at a higher base level (Slot 2, 3, or 4) starts its inherited trait at that slot's base level.
+**Escrow.** Inheritance is resolved for all four slots at breeding, but a newborn's carried-over permanent level may only open slot 1 or 2. A trait inherited into a not-yet-open slot waits in the bloodline and lands the instant permanent level opens that slot. Nothing is lost — it arrives late.
+
+**Inherited traits arrive at Level 1.** A Trait Level 4 trait inherited by an offspring starts at Level 1 and must be re-upgraded with Essence at the Trait-keeper. The identity of the trait is preserved, the strength is not. This is intentional — the bloodline carries the memory of the trait; the creature has to earn its full power back.
 
 ---
 
 ## **Endgame Trait Unlock**
 
-An endgame trait reward sits above the standard four-slot progression, gated behind a top-tier essence threshold (previously pegged to Star 12; re-home the exact gate during tuning). Not yet defined. Candidates to consider:
+An endgame trait reward sits above the standard four-slot progression, gated behind a top-tier permanent level (previously pegged to Star 12; re-home the exact gate during tuning). Not yet defined. Candidates to consider:
 
 * A fifth trait slot that breaks the four-slot rule as a true endgame reward
 * A passive that upgrades all traits by one additional level beyond their cap

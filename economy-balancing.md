@@ -89,7 +89,26 @@ base = 10, exponent = 1.5
 
 **Target pace:** a strong early run (clearing to ~floor 10) should net roughly **2–3 permanent levels** — enough that a run feels rewarding and enemies have something to scale against, without trivializing long-term progression. Note the essence for these levels no longer comes straight from fights: it is *converted from leftover Obols on exit*. So this target depends on **three** knobs together — the Obol earn weights, how much the player banks rather than spends, and the **conversion rate** — not just the `base`/`exponent` of the curve.
 
-A pet's level is still ceilinged by its **star rating** (the existing sigmoid cap). Essence fills *toward* that cap but cannot exceed it; breeding still raises stars. (Longer-term the design may remove stars and let essence own the cap directly — nothing should hard-couple to stars.)
+A pet's level is ceilinged by its **star rating** (the existing sigmoid cap). Essence fills *toward* that cap but cannot exceed it; breeding still raises stars. Stars are staying, and because trait slots unlock at permanent levels 5/10/20/30, the star cap also decides how many traits a pet can ever hold — which makes the level curve a **trait**-pacing lever as well as a stat one.
+
+---
+
+## **Trait Costs**
+
+Trait **slots** cost nothing directly — they unlock as permanent level rises (5/10/20/30), so they are already paid for through the level cost curve above. Essence at the Trait-keeper buys trait **content and strength**.
+
+| Spend | Essence (placeholder) |
+| ----- | ----- |
+| Buy a baseline trait from stock | TBD |
+| Imbue a held trait into a slot | TBD |
+| Trait Level 1 → 2 | 240 |
+| Trait Level 2 → 3 | 540 |
+| Trait Level 3 → 4 | 960 |
+| Sell back a duplicate | Small — a consolation, not income |
+
+> **Relationship to preserve:** a trait upgrade costs roughly **one mid-game permanent level**. With `essence_cost(level) = 10 · level^1.5`, level 10→11 is ~365 and 20→21 is ~962. If the level curve is retuned, retune the trait upgrades alongside it — the point is that raising a trait is a comparable investment to raising a level, not a rounding error against it.
+
+Deeper in the tower, traits can drop already at Level 2–4, skipping some or all of the upgrade cost. This makes depth a direct trait-power lever; the depth-to-drop-level mapping is not yet fixed.
 
 ---
 
@@ -176,7 +195,7 @@ Town is an **essence hub**: a set of "folks" who turn banked essence into perman
 | ----- | ----- | ----- | ----- |
 | Creature Box | View creatures, manage party | No | — (management only) |
 | Leveler | Buy permanent levels | Yes | Classical rising curve (above) |
-| Trait-keeper | Unlock trait slots / levels | Yes | Rising per unlock |
+| Trait-keeper | Sell traits, imbue, upgrade trait levels, buy duplicates | Yes | Rising per trait level |
 | Mark-binder | Make an earned mark permanent | Yes | Flat-ish per mark |
 | Gatekeeper | Unlock depth-jumps | Yes | Rising with depth (above) |
 | Quartermaster | Increase backpack capacity for descent items **+ raise Obols→Essence conversion rate** | Yes | Linear early, steeper late |
@@ -209,7 +228,9 @@ Key variables that can be tuned during playtesting:
 * **Level cost curve steepness** (`base`, `exponent`) — controls how fast permanent leveling decelerates and whether a strong run hits the 2–3-level target
 * **Depth-jump prices per 5-floor break** — controls how eagerly players skip early floors
 * **Capture threshold per depth** — controls capture difficulty scaling
-* **Level cap per star** — controls how high essence can raise a pet before breeding is needed (until/unless stars are removed)
+* **Level cap per star** — controls how high essence can raise a pet before breeding is needed, and therefore how many trait slots it can ever open
+* **Trait upgrade costs** — controls how expensive it is to max a trait vs. hunting a pre-levelled drop
+* **Trait drop rates and depth-to-drop-level mapping** — controls how much of trait power comes from luck and depth vs. essence
 * **Backpack capacity curve** — controls descent-item flexibility
 * **Revival HP percentage** — controls encounter-to-encounter attrition
 * **Wipe penalty** — the % of leftover Obols lost on a wipe (placeholder 50%); the main push-your-luck dial
@@ -224,7 +245,7 @@ Key variables that can be tuned during playtesting:
 * How large the **guaranteed inventory space** is at baseline, and how much Quartermaster capacity adds — this is the dial that sets how safe capturing feels
 * Whether a captured creature should be weighted differently from an item when the random loss is rolled, or treated as just another slot
 * Whether in-run temporary leveling (Model A) survives, or we fall back to permanent-only levels (Model B)
-* Whether stars survive as the level cap (Model A) or get removed so essence owns the cap directly (Model C)
+* Trait stock and imbue prices, duplicate sell-back value, and trait drop rates on bosses and events
 * How much invested essence/levels carry over to offspring on breeding
 * How the economy adjusts for players who consistently fail runs — is there a pity system or catch-up mechanic?
 * Whether town stations should have prerequisite chains or be freely purchasable in any order

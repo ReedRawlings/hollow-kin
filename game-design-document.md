@@ -41,7 +41,7 @@ Everything else persists: Essence, permanent levels, stars, bloodline, bound mar
 
 ### **The one asymmetric case**
 
-**A wipe costs exactly one thing, chosen at random from unprotected inventory — never the whole inventory.** That one thing may be a consumable, an item, or a **captured creature**, since captures ride in inventory slots like anything else. Only the **guaranteed inventory space** protects against it.
+**A wipe costs exactly one thing, chosen at random from unprotected inventory — never the whole inventory.** That one thing may be a consumable, an item, a **found trait**, or a **captured creature** — all of them ride in inventory slots. Only the **guaranteed inventory space** protects against it.
 
 **The three creatures the player entered the tower with can never be lost, under any circumstance.** That is absolute and separate from inventory entirely.
 
@@ -190,7 +190,11 @@ Run-based relics are earned during a run and provide stackable or conditional bo
 * Stars are a breeding output — a creature's star rating only increases through breeding, never during a run
 * Two same-star parents produce an offspring one star higher (e.g., two Star 1s produce a Star 2)
 * A visible indicator signals breed-readiness to the player
-* **Future direction (backup C, strongly favored):** remove stars entirely and let essence own the level cap directly. Nothing should be built that hard-couples to stars.
+* **Stars also gate trait capacity**, via the level cap — trait slots unlock at permanent levels 5/10/20/30, so a 0★ creature reaches one slot and no more until breeding raises its star
+
+> **Stars are staying (decided 2026-07-26).** An earlier note listed removing stars entirely — "backup C" — as the strongly favored direction. That is **off the table**, and code may now couple to stars.
+>
+> **Why:** stars exist to stop players settling on one roster permanently. The design goal is that players keep breeding and finding new creatures rather than maxing three favourites and never changing them. A capacity ceiling that only breeding can raise is the mechanism that produces that behaviour — remove stars and the pressure goes with them.
 
 ### **Longevity — Removed**
 
@@ -219,12 +223,12 @@ Longevity has been **removed** from the design. Permanent essence progression is
 
 ### **Trait Inheritance**
 
-> ⚠️ **Trait progression is under active revision (as of 2026-07-26).** This section, the Traits System section below, `traits-system.md`, and `breeding-and-inheritance.md` describe **two incompatible unlock models** — trait slots bought at essence thresholds in town, versus slots unlocked by hitting a level cap and resolved in-run. Which one is correct is an open design question. **Do not implement trait unlock or trait resolution from these docs until it is settled.**
-
-* Each creature can hold up to four traits  
-* Traits are assigned randomly at creature creation (natural traits) or inherited through breeding  
-* When breeding, the number of available trait slots on the offspring is determined by star quality up to a max of four.  
-* Low quality monsters can only hold low quality traits. Once a breeding genealogy has reached a certain point higher level traits are unlocked
+* Each creature can hold up to four traits, and how many slots it can ever open is set by its **permanent level**, which stars cap
+* Inheritance resolves **entirely at breeding**, in three cases: both parents had a trait in that slot → player chooses one; one did → it passes; neither did → the slot stays empty
+* A trait inherited into a slot the newborn's level hasn't opened yet **waits in escrow** and lands when that slot opens
+* Inherited traits arrive at **Level 1** — the bloodline carries the trait's identity, not its strength
+* Slots the parents didn't fill stay **empty**; the player supplies them from drops or the Trait-keeper
+* See `breeding-and-inheritance.md` for the full rules
 
 ### **Mismatched Breeding**
 
@@ -260,12 +264,10 @@ Longevity has been **removed** from the design. Permanent essence progression is
 
 ## **Traits System**
 
-> ⚠️ **Under active revision (as of 2026-07-26)** — see the warning under Trait Inheritance above. The unlock model described here conflicts with `breeding-and-inheritance.md`. Do not implement traits from these docs yet.
-
 ### **What Traits Are**
 
-* Passive or triggered effects that modify the creature object  
-* Assigned randomly at creature creation or inherited through breeding  
+* Passive or triggered effects that modify the creature object
+* **Found in the tower or bought from the Trait-keeper**, then imbued into an open slot — or inherited through breeding. They are never randomly assigned
 * Stored as IDs on the creature — the ID references coded logic, not data
 
 ### **Trait Categories**
@@ -277,12 +279,17 @@ Longevity has been **removed** from the design. Permanent essence progression is
 * Evasion increases  
 * Other conditional effects
 
-### **Traits and Essence**
+### **How Traits Are Acquired**
 
-* Creatures can hold **up to four traits**, one per slot
-* Trait slots and trait levels now unlock at **essence thresholds** (spent at the Trait-keeper), not star thresholds
-* The old star-based trait table is retired — see the Traits System doc for the essence-threshold progression table
-* This is intentionally forward-compatible with removing stars entirely (see Star Rating, backup C)
+The system splits three ways with no overlap: **permanent level buys capacity, adventuring supplies content, breeding passes content down.**
+
+* **Slots unlock by permanent level** at 5 / 10 / 20 / 30 — pinned to the star level caps, so each star tier through 3★ buys exactly one more slot. Temporary in-run levels never unlock a slot
+* **Slots unlock empty.** There is no random trait roll
+* **Traits come from** Trait-keeper stock (Essence), boss drops at a small chance, random events, puzzles (a later system), and inheritance. Not from ordinary combat drops or Obol shops
+* **Found traits ride in the backpack** and are eligible for the wipe's single random loss unless in guaranteed inventory space
+* **The Trait-keeper** sells stock, imbues traits into open slots, upgrades them L1→L4 with Essence, and buys duplicates back for a small amount
+* **Species compatibility:** a creature can only take traits its species accepts — no species reaches the whole library
+* Deeper in the tower, traits can drop already at Level 2–4, skipping some of the upgrade cost
 
 ---
 
@@ -450,7 +457,6 @@ Under either backend:
 
 * Essence tuning — earn weights (normal/mini/major), level cost-curve steepness, depth-jump prices (all placeholders pending playtest)
 * Whether Model A (temporary in-run leveling) survives or we fall back to Model B (essence-only levels)
-* Whether stars survive (Model A) or are removed entirely (Model C, favored)
 * Single vs. split essence pool for in-run vs. permanent spends
 * Catch-up / pity mechanics for players who consistently fail runs
 
@@ -459,7 +465,7 @@ Under either backend:
 * Star 12 special unlock (traits doc lists candidates but no decision)
 * Bestiary / Monsterpedia design — referenced in combat (auto-combat needs it) and UI/UX but no dedicated doc
 * Ability count — currently 72, target range is 80–120. Flora-flavored damage abilities (thorns, spores, vine attacks) would fill the gap
-* **How trait slots unlock and resolve** — essence thresholds in town vs. level-cap unlocks in-run. See the warnings on the Trait Inheritance and Traits System sections
+* Trait drop rates for bosses and events; how large the Trait-keeper's stock is and whether it rotates; the depth-to-drop-level mapping for pre-levelled trait drops
 
 ---
 
@@ -476,7 +482,8 @@ Specs in `docs/superpowers/specs/` record **how a decision was reached**, includ
 | `2026-07-25-departure-flow-design.md` | Standing default party, pre-run departure screen | Yes |
 | `2026-07-25-capture-system-design.md` | Capture threshold model, duplicate Essence grant, box capacity, pending-capture queue | **Designed only** |
 | `2026-07-25-monsterpedia-design.md` | Bestiary UI over `gameState.seenSpecies` | **Designed only** |
-| `2026-07-26-doc-realignment-design.md` | This documentation pass — GDD re-promotion and contradiction sweep | — |
+| `2026-07-26-doc-realignment-design.md` | Documentation pass — GDD re-promotion and contradiction sweep | — |
+| `2026-07-26-traits-system-design.md` | Trait slots by permanent level, traits found-and-imbued, Trait-keeper's role, stars kept | **Designed only** |
 
 > **Note:** the capture spec cites `docs/superpowers/research/capture-mechanics-research.md`, which is **not in this repo**. Treat that spec as self-contained.
 

@@ -1,8 +1,8 @@
 # **Hollow Kin — Creature Roster & Generation**
 
 > **Owns:** roster targets and distribution, the species template and creature instance data objects, stat generation, the generation pipeline, starters, breed-only creatures.
-> **Defers to the GDD on:** currency, progression model, and what persists across runs. Star/level-cap rules live in `breeding-and-inheritance.md`.
-> **Last verified:** 2026-07-26. *Note: the Trait Pool Generation section's "when a wild creature earns a new star" is part of the open trait question — see `traits-system.md`.*
+> **Defers to the GDD on:** currency, progression model, and what persists across runs. Star/level-cap rules live in `breeding-and-inheritance.md`; trait acquisition in `traits-system.md`.
+> **Last verified:** 2026-07-26.
 
 ---
 
@@ -154,11 +154,15 @@ Each archetype has a stat bias applied during generation to ensure the species f
 
 ## **Trait Pool Generation**
 
-Each species has a `naturalTraitPool` — a subset of traits that can randomly roll when a wild creature earns a new star. This pool is authored per species in the spreadsheet as a list of trait IDs.
+Each species has a `naturalTraitPool` — a curated subset of the trait library authored per species as a list of trait IDs.
 
-The pool is curated to feel appropriate for the species. A Mecha creature's pool contains fire resistance, speed traits, and electricity-related bonuses. A Flora creature's pool contains healing amplifiers and buff-related traits. No species has access to the entire trait library through natural rolls — the pool is always a curated subset.
+**This is a compatibility rule, not a roll table.** Traits are never randomly assigned. The pool defines which traits a species *can be imbued with* at the Trait-keeper: a creature cannot take a trait outside its pool. A strong trait you cannot use on the creature you wanted is a real and intended outcome — it makes trait loot a light puzzle rather than pure upgrade.
 
-Bred creatures do not draw from the pool for inherited slots — those are resolved through the breeding system. The pool only applies to unfilled slots that neither parent contributed to.
+The pool is curated to feel appropriate for the species. A Mecha creature's pool contains fire resistance, speed traits, and electricity-related bonuses. A Flora creature's pool contains healing amplifiers and buff-related traits. No species has access to the entire trait library.
+
+Inherited traits come through the breeding system rather than the pool — see `breeding-and-inheritance.md`.
+
+> **Not yet authored:** no creature in `src/data/creatures.ts` currently defines a `naturalTraitPool`. These must be written before traits can be built.
 
 ---
 

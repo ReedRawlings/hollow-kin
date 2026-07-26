@@ -2,13 +2,13 @@
 
 > **Owns:** how marks are earned, the earn-then-lock permanence model, mark types, and the marks/breeding interaction. Individual mark entries live in `marks-catalog.md`.
 > **Defers to the GDD on:** currency, progression model, and what persists across runs. **Unbound marks resetting at run end is deliberate** — see "What Persists, What Resets".
-> **Last verified:** 2026-07-26. *Note: the Overview's aside that traits "strengthen over stars" is part of the open trait question — see `traits-system.md`.*
+> **Last verified:** 2026-07-26.
 
 ---
 
 ## **Overview**
 
-Marks are run-earned bonuses that occupy a single slot on each creature. They are distinct from traits — traits are inherited through bloodlines and strengthen over stars, while marks are earned through specific in-run accomplishments and reflect what a creature has done rather than what it was born with.
+Marks are run-earned bonuses that occupy a single slot on each creature. They are distinct from traits — traits are found, bought, or inherited, and strengthen with Essence, while marks are earned through specific in-run accomplishments and reflect what a creature has *done* rather than what it carries.
 
 A creature can earn multiple marks over its lifetime across different runs. Only one mark is active at a time. The player chooses which mark is slotted and can swap freely between earned marks at any time outside of a run. Equipping a new mark replaces the active one but does not delete the previous mark — the full collection of earned marks is always available to choose from.
 

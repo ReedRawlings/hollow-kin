@@ -1,14 +1,8 @@
 # **Hollow Kin — Breeding & Inheritance System**
 
-> **Owns:** star ratings and level caps, breed-readiness, offspring star calculation, stat inheritance, parent retirement, and essence carry-over.
-> **Defers to the GDD on:** currency, progression model, and what persists across runs.
-> **Last verified:** 2026-07-26 — except the trait sections, see below.
-
-> ## ⚠️ The trait sections of this document are under active revision (as of 2026-07-26)
->
-> The **Breed-Readiness** paragraph below (trait slot unlocked by hitting the level cap) and the four **Trait Resolution** cases (resolved in-run at the star's level cap) conflict with `traits-system.md`, which unlocks slots at **essence thresholds purchased in town**. These are two different systems, not a wording difference, and which is correct is an **open design question**.
->
-> **Do not implement trait unlock or trait resolution from either document until this is settled.** Everything else here — stars, level caps, breed-readiness as a *breeding* gate, stat inheritance, retirement, essence carry-over — is current and accurate.
+> **Owns:** star ratings and level caps, breed-readiness, offspring star calculation, stat inheritance, parent retirement, essence carry-over, and trait inheritance.
+> **Defers to the GDD on:** currency, progression model, and what persists across runs. How trait slots unlock and how traits are acquired lives in `traits-system.md`.
+> **Last verified:** 2026-07-26.
 
 ---
 
@@ -18,7 +12,9 @@ Each star rating represents a creature's genealogy depth and determines its maxi
 
 **Stars set the ceiling; essence fills toward it.** Invested essence raises a creature's permanent level *toward* this cap but can never exceed it. Breeding is still what raises stars, and thus what unlocks a higher potential ceiling.
 
-> **Future direction (strongly favored):** the likely long-term move is to remove stars entirely and let essence own the level cap directly (slow essence gain takes over the role stars played). Because of this, **nothing should hard-couple to stars** — treat the star/cap relationship as a swappable layer.
+> **Stars are staying (decided 2026-07-26).** An earlier note listed removing stars as the favored long-term direction. That is **off the table.** Stars now also gate **trait capacity** — slots unlock at permanent levels 5/10/20/30, so a creature's star cap decides how many traits it can ever hold.
+>
+> **Why:** stars exist to stop players settling on one roster permanently. The goal is that players keep breeding and finding new creatures rather than maxing three favourites and never changing them. A capacity ceiling only breeding can raise is the mechanism that produces that behaviour.
 
 | Star | Level Cap |
 | ----- | ----- |
@@ -42,11 +38,11 @@ Each star rating represents a creature's genealogy depth and determines its maxi
 
 > **Why there is a level gate at all.** Stats pass down through generations, so a creature bred too early founds a weak line — and the weakness compounds with every generation after it. The gate forces a minimum investment before a creature can become a parent. **A 0★ creature caps at level 5, so level 5 is the floor for the starters every player begins with**; higher stars must reach their own, higher cap. A freshly captured creature arrives at **level 1** and is therefore a long way from breedable — capture gives you a bloodline candidate, not a parent.
 
-A creature becomes **breed-ready** when it hits its level cap during a run. Hitting the cap also permanently unlocks a new trait slot, which carries forward into all future runs. Creatures have a maximum of four trait slots. However, **hitting the level cap does not increase a creature's star rating** — stars only increase through breeding.
+A creature is **breed-ready** when its **permanent level** reaches its level cap. This is a derived state, not something earned and stored — a creature at its cap is breed-ready, always, and one below it is not. Temporary in-run levels do not count; only the permanent essence-bought floor does.
 
-When two breed-ready creatures are bred together, the offspring's star rating is calculated from the parents' stars (see Offspring Star Rating below). This is the only way stars increase. The creature that hit its cap is now eligible for breeding but remains at its current star until a breeding event occurs.
+**Hitting the cap does not increase a creature's star rating** — stars only increase through breeding. When two breed-ready creatures are bred, the offspring's star is calculated from the parents' stars (see Offspring Star Rating below). That is the only way stars increase.
 
-Wild-caught creatures receive a random trait when they first hit their level cap and unlock their first trait slot. Bred creatures may have traits chosen or inherited depending on the breeding outcome — see Trait Resolution below.
+Reaching the cap also opens the creature's **last reachable trait slot**, since slot thresholds (5/10/20/30) are pinned to the star level caps. So a creature arrives at one combined beat: fully grown, final slot open, ready to breed. Slots open **empty** — see `traits-system.md` for how traits are acquired.
 
 ---
 
@@ -56,7 +52,7 @@ Wild-caught creatures receive a random trait when they first hit their level cap
 
 Offspring star is calculated as: **(Parent A star \+ Parent B star) / 2, rounded down.**
 
-**Breed-ready bonus:** If both parents are breed-ready (have hit their level cap during a run) and are the **same star rating**, the offspring receives **+1 star** on top of the formula result. This is the primary incentive to equalize parents before breeding.
+**Breed-ready bonus:** If both parents are breed-ready (permanent level at their cap) and are the **same star rating**, the offspring receives **+1 star** on top of the formula result. This is the primary incentive to equalize parents before breeding.
 
 Examples:
 
@@ -85,31 +81,31 @@ Players choose at creation time whether to include parent abilities in the offsp
 
 ## **Trait Resolution**
 
-Trait slots on the offspring are resolved in one of four ways depending on what both parents contributed. Resolution happens at different times depending on the case.
+All four slots are resolved **at breeding**. There are three cases — with slots unlocking empty, there is no random pool to arbitrate against, so the old four-case model is gone.
 
-### **Case 1 — Both Parents Had the Slot Filled at the Same Star**
+| What the parents had in that slot | Resolution |
+| ----- | ----- |
+| **Both** had a trait | Player **chooses one** of the two |
+| **One** had a trait | That trait **passes** |
+| **Neither** did | Slot stays **empty** — the player must find or buy a trait for it later |
 
-**When:** Breeding time. **Resolution:** Player chooses one trait from the two parent traits. Trait is applied at birth and active from the first run.
+### **Escrow**
 
-### **Case 2 — One Parent Had the Slot Filled, the Other Did Not**
+Resolution covers all four slots, but a newborn's carried-over permanent level may only open slot 1 or 2. A trait inherited into a **not-yet-open** slot waits in the bloodline and lands the instant permanent level opens that slot. Nothing is lost — it just arrives late.
 
-**When:** Run time, when the creature hits that star's level cap. **Resolution:** 50/50 roll between the contributing parent's trait and a random pool draw. Player sees the result at that moment. Result is permanent.
+### **Inherited traits arrive at Level 1**
 
-### **Case 3 — Both Parents Had Above-Star Traits for That Slot**
-
-**When:** Run time, when the creature hits that star's level cap. **Resolution:** Player chooses between the two parent traits. Random pool is excluded entirely as a reward for having two high-star parents.
-
-### **Case 4 — Neither Parent Had Anything for That Slot**
-
-**When:** Run time, when the creature hits that star's level cap. **Resolution:** Random pool draw. No parental influence.
+A Trait Level 4 trait inherited by an offspring starts at **Level 1** and must be re-upgraded with Essence at the Trait-keeper. The identity of the trait carries; the strength does not. The bloodline remembers the trait — the creature has to earn its power back.
 
 ---
 
 ## **Guarantee and Risk**
 
-Players who max out both parents before breeding guarantee chosen traits at birth for every filled slot. Players who breed mismatched or unmaxed creatures introduce randomness into slots that weren't covered, which resolves during runs rather than at creation. The more investment put into parents, the more control the player has over the offspring's final trait composition.
+Because inheritance resolves entirely at breeding, the player knows exactly what an offspring will carry before confirming the pairing. The risk is not randomness — it is **opportunity cost**. Where both parents contributed to a slot, one of the two traits is lost forever; where neither did, the offspring starts that slot empty and the player must supply it from drops or the Trait-keeper.
 
-Cross-star breeding is a valid strategy when a high-star parent carries a desirable above-star trait. That trait has a 50% chance of propagating to the lower-star offspring when it earns that slot during a run, making high-star creatures useful as trait donors even in downward breedings. If both parents contributed above-star traits, the player chooses between them at run time with no random pool involvement.
+Cross-star breeding remains a valid strategy when a high-star parent carries a desirable trait: that trait passes cleanly to a lower-star offspring, making developed creatures useful as trait donors even in downward pairings. The trade is that the offspring's star — and therefore how many slots it can ever open — comes from the star formula, not from the donor's quality.
+
+**Marks are never inherited.** They are personal to the creature that earned them.
 
 ---
 
