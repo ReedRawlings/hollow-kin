@@ -4,6 +4,17 @@
 
 Hollow Kin is a browser-based creature collector roguelite. The player descends a procedurally generated tower with a party of 3 bred creatures, gathering resources, capturing new creatures, and earning genealogy progress that persists across runs. Inspired by Dragon Quest Monsters (breeding), Azure Dreams (tower/run structure), and Slay the Spire (roguelite pacing).
 
+## ⚠️ This Game Is In Alpha — Numbers Are Not Settled
+
+**Assume every gameplay number in this project is a placeholder until proven otherwise.** Costs, rewards, drop rates, stat curves, scaling exponents, thresholds, and timings are all set by feel and are expected to move repeatedly as the game is played. They are testing values, not balance decisions.
+
+What this means in practice:
+
+- **Do not treat a number as a requirement.** If a number makes a system behave badly, say so — proposing a different value is useful, not out of scope.
+- **Do not write tests that pin a specific magic number** unless the exact value is the point. Test the *shape* — that cost rises with level, that a fee is free at floor 1, that rewards scale with depth — so retuning doesn't turn the suite red for no reason. Tests that assert `=== 75` make numbers expensive to change, which is exactly backwards during alpha.
+- **Do pin relationships between numbers.** Where two constants must move together (e.g. `OBOL_REWARD_EXPONENT` is derived from `LEVEL_COST_EXPONENT`), that invariant is real design and worth enforcing even though the values themselves are not.
+- **Structure and rules are firmer than values.** The design rules below are decisions; the numbers scattered through the docs mostly are not.
+
 ## Tech Stack
 
 - **Engine:** Phaser 3 (v3.80+)
@@ -94,7 +105,7 @@ src/
 
 **Resolved (2026-07-25):** the combat "freeze after one action" is **not** a bug and **not** an HMR artifact. Chrome throttles `requestAnimationFrame` to zero in a backgrounded or unfocused tab, so Phaser's game loop stops stepping and the Scene Clock never advances — every `this.time.delayedCall` in `CombatScene` (which is how turns advance) simply never fires. Measured directly: `document.hidden === true`, `game.loop.frame` advancing 0 frames per second, `scene.time.now` frozen. The canvas still *appears* to update because DOM input events keep dispatching and a screenshot forces a paint, which is exactly what makes it look like a logic hang. **Keep the tab focused and visible when playtesting combat.** Verify before assuming it's a real turn-loop bug.
 
-**Placeholder numbers to tune (playtest):** Obol rewards 5/25/75, conversion rate 0.5, wipe penalty 50%, level cost `10·L^1.5`, depth-jump `(floor-1)×15`, breeding carry-over 50%, enemy/XP scaling by floor/depth band.
+**Placeholder numbers to tune (playtest)** — a non-exhaustive list; see the alpha note at the top of this file. Obol base rewards 5/25/75 now scaled by depth as `base × SCALAR × floor^EXPONENT` (`OBOL_REWARD_EXPONENT` is derived from `LEVEL_COST_EXPONENT` — retune the pair together, never separately), conversion rate 0.5, wipe penalty 50%, level cost `10·L^1.5`, depth-jump `(floor-1)×15`, breeding carry-over 50%, MP costs across all 31 abilities, the tactic ladder thresholds (Fight Wisely's half-current-MP budget, Conserve MP's ⅓-max-MP ceiling and 50% party-danger gate, Heal First's 60%/2×-cheapest-heal reserve), battle speed steps, and enemy/XP scaling by floor/depth band.
 
 ## Key Design Rules (Don't Violate These)
 
