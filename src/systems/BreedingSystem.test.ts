@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { breed, carryoverForParents, calculateOffspringStar } from './BreedingSystem';
-import { CreatureInstance } from '../types';
+import { breed, carryoverForParents, calculateOffspringStar, resolveInheritedTraitSlots } from './BreedingSystem';
+import { CreatureInstance, TraitSlot } from '../types';
+import { unlockedSlotCount, MAX_TRAIT_SLOTS, TRAIT_SLOT_LEVELS } from './Traits';
 
 // Minimal creature-instance factory for tests (only fields breeding reads).
 function makeParent(overrides: Partial<CreatureInstance>): CreatureInstance {
@@ -14,6 +15,19 @@ function makeParent(overrides: Partial<CreatureInstance>): CreatureInstance {
     tactic: 'fight_wisely',
     ...overrides,
   };
+}
+
+// Empty trait slots, useful as a base for overriding specific indices in tests.
+function emptySlots(): TraitSlot[] {
+  return Array.from({ length: MAX_TRAIT_SLOTS }, () => ({ traitId: null, traitLevel: 0, unlocked: false }));
+}
+
+function slotsWith(overrides: Record<number, Partial<TraitSlot>>): TraitSlot[] {
+  const slots = emptySlots();
+  for (const [i, o] of Object.entries(overrides)) {
+    slots[Number(i)] = { ...slots[Number(i)], ...o };
+  }
+  return slots;
 }
 
 describe('calculateOffspringStar breed-ready bonus', () => {
@@ -87,5 +101,114 @@ describe('breed applies carry-over to the offspring', () => {
     });
     expect(child.currentStats).toEqual(child.statBaseline);
     expect(child.currentStats).not.toBe(child.statBaseline);
+  });
+});
+
+describe('resolveInheritedTraitSlots', () => {
+  it('leaves a slot empty when neither parent has a trait there', () => {
+    const a = makeParent({ instanceId: 'a', traitSlots: emptySlots() });
+    const b = makeParent({ instanceId: 'b', traitSlots: emptySlots() });
+    const slots = resolveInheritedTraitSlots(a, b, 999);
+    expect(slots[0].traitId).toBeNull();
+    expect(slots[0].traitLevel).toBe(0);
+  });
+
+  it('passes down the trait when only one parent has it in that slot', () => {
+    const a = makeParent({ instanceId: 'a', traitSlots: slotsWith({ 0: { traitId: 'sturdy', traitLevel: 3, unlocked: true } }) });
+    const b = makeParent({ instanceId: 'b', traitSlots: emptySlots() });
+    const slots = resolveInheritedTraitSlots(a, b, 999);
+    expect(slots[0].traitId).toBe('sturdy');
+  });
+
+  it('passes down parent B\'s trait when only B has one in that slot', () => {
+    const a = makeParent({ instanceId: 'a', traitSlots: emptySlots() });
+    const b = makeParent({ instanceId: 'b', traitSlots: slotsWith({ 0: { traitId: 'swift', traitLevel: 2, unlocked: true } }) });
+    const slots = resolveInheritedTraitSlots(a, b, 999);
+    expect(slots[0].traitId).toBe('swift');
+  });
+
+  it('defaults to parent A\'s trait when both parents have one in the same slot and no choice is supplied', () => {
+    const a = makeParent({ instanceId: 'a', traitSlots: slotsWith({ 0: { traitId: 'sturdy', traitLevel: 3, unlocked: true } }) });
+    const b = makeParent({ instanceId: 'b', traitSlots: slotsWith({ 0: { traitId: 'swift', traitLevel: 2, unlocked: true } }) });
+    const slots = resolveInheritedTraitSlots(a, b, 999);
+    expect(slots[0].traitId).toBe('sturdy');
+  });
+
+  it('honors an explicit choice for parent B when both parents contest a slot', () => {
+    const a = makeParent({ instanceId: 'a', traitSlots: slotsWith({ 0: { traitId: 'sturdy', traitLevel: 3, unlocked: true } }) });
+    const b = makeParent({ instanceId: 'b', traitSlots: slotsWith({ 0: { traitId: 'swift', traitLevel: 2, unlocked: true } }) });
+    const slots = resolveInheritedTraitSlots(a, b, 999, ['B']);
+    expect(slots[0].traitId).toBe('swift');
+  });
+
+  it('always sets inherited traitLevel to 1, regardless of the parent\'s trait level', () => {
+    const a = makeParent({ instanceId: 'a', traitSlots: slotsWith({ 0: { traitId: 'sturdy', traitLevel: 3, unlocked: true } }) });
+    const b = makeParent({ instanceId: 'b', traitSlots: emptySlots() });
+    const slots = resolveInheritedTraitSlots(a, b, 999);
+    expect(slots[0].traitLevel).toBe(1);
+  });
+
+  it('resolves all four slot indices even when the offspring level opens fewer of them', () => {
+    const a = makeParent({
+      instanceId: 'a',
+      traitSlots: slotsWith({
+        0: { traitId: 't0', traitLevel: 1, unlocked: true },
+        1: { traitId: 't1', traitLevel: 1, unlocked: true },
+        2: { traitId: 't2', traitLevel: 1, unlocked: true },
+        3: { traitId: 't3', traitLevel: 1, unlocked: true },
+      }),
+    });
+    const b = makeParent({ instanceId: 'b', traitSlots: emptySlots() });
+    // permanentLevel 1 opens zero slots (thresholds are 5/10/20/30), yet every
+    // parent slot had a trait to escrow.
+    const slots = resolveInheritedTraitSlots(a, b, 1);
+    expect(slots.map((s) => s.traitId)).toEqual(['t0', 't1', 't2', 't3']);
+  });
+
+  it('escrows a trait inherited into a not-yet-open slot: retained, unlocked:false', () => {
+    const a = makeParent({ instanceId: 'a', traitSlots: slotsWith({ 3: { traitId: 'deep-trait', traitLevel: 1, unlocked: true } }) });
+    const b = makeParent({ instanceId: 'b', traitSlots: emptySlots() });
+    // permanentLevel 20 opens 3 slots (5/10/20), slot index 3 (threshold 30) stays locked.
+    const slots = resolveInheritedTraitSlots(a, b, 20);
+    expect(unlockedSlotCount(20)).toBe(3);
+    expect(slots[3].traitId).toBe('deep-trait'); // nothing dropped
+    expect(slots[3].unlocked).toBe(false);
+  });
+
+  it('marks slots unlocked purely by offspring permanentLevel, matching unlockedSlotCount', () => {
+    const a = makeParent({ instanceId: 'a', traitSlots: emptySlots() });
+    const b = makeParent({ instanceId: 'b', traitSlots: emptySlots() });
+    const level = TRAIT_SLOT_LEVELS[1]; // opens exactly 2 slots
+    const slots = resolveInheritedTraitSlots(a, b, level);
+    expect(slots.filter((s) => s.unlocked).length).toBe(unlockedSlotCount(level));
+    expect(slots[0].unlocked).toBe(true);
+    expect(slots[1].unlocked).toBe(true);
+    expect(slots[2].unlocked).toBe(false);
+    expect(slots[3].unlocked).toBe(false);
+  });
+});
+
+describe('breed() trait slot wiring (no star-based unlocking)', () => {
+  it('derives unlocked slot count from the offspring\'s carried-over permanentLevel, not its star rating', () => {
+    // High star rating, but zero essence invested by either parent -> offspring
+    // carries over to permanentLevel 1, which opens zero trait slots. A star-based
+    // model (unlocked: starRating >= 2/3/4/5) would have unlocked slots here; the
+    // permanentLevel-driven model must not.
+    const a = makeParent({ instanceId: 'a', starRating: 5, permanentLevel: 50, levelCap: 50, essenceInvested: 0 });
+    const b = makeParent({ instanceId: 'b', starRating: 5, permanentLevel: 50, levelCap: 50, essenceInvested: 0 });
+    const child = breed(a, b, 'ironjaw', []);
+    expect(child.permanentLevel).toBe(1);
+    expect(child.traitSlots.every((s) => s.unlocked === false)).toBe(true);
+  });
+
+  it('inherits a parent trait into the offspring\'s traitSlots end to end', () => {
+    const a = makeParent({
+      instanceId: 'a',
+      traitSlots: slotsWith({ 0: { traitId: 'sturdy', traitLevel: 4, unlocked: true } }),
+    });
+    const b = makeParent({ instanceId: 'b', traitSlots: emptySlots() });
+    const child = breed(a, b, 'ironjaw', []);
+    expect(child.traitSlots[0].traitId).toBe('sturdy');
+    expect(child.traitSlots[0].traitLevel).toBe(1);
   });
 });

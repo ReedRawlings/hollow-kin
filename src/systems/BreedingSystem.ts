@@ -1,7 +1,10 @@
-import { CreatureInstance, STAR_LEVEL_CAPS, generateId, BaseStats, BREED_CARRYOVER_FRACTION } from '../types';
+import { CreatureInstance, STAR_LEVEL_CAPS, TraitSlot, generateId, BaseStats, BREED_CARRYOVER_FRACTION } from '../types';
 import { getTemplate } from '../data/creatures';
 import { levelFromEssence } from './Economy';
-import { isCreatureBreedReady } from './Traits';
+import { isCreatureBreedReady, unlockedSlotCount, MAX_TRAIT_SLOTS } from './Traits';
+
+/** Which parent's trait wins a contested slot (both parents hold a trait there). */
+export type ParentChoice = 'A' | 'B';
 
 export function calculateOffspringStar(parentA: CreatureInstance, parentB: CreatureInstance): number {
   const avgStar = Math.floor((parentA.starRating + parentB.starRating) / 2);
@@ -42,11 +45,57 @@ export function carryoverForParents(
   return levelFromEssence(pool, levelCap);
 }
 
+/**
+ * Resolve the offspring's trait slots from both parents, per slot index:
+ * - both parents hold a trait there -> the chosen parent's trait passes (defaults
+ *   to parent A when no choice is supplied for that index, so this is testable
+ *   without UI)
+ * - one parent holds a trait there -> that trait passes
+ * - neither does -> the slot stays empty (`traitId: null`)
+ *
+ * Inherited traits always arrive at `traitLevel: 1` regardless of the parent's
+ * level — identity carries, strength does not.
+ *
+ * All `MAX_TRAIT_SLOTS` indices are resolved even when `offspringPermanentLevel`
+ * opens fewer of them (escrow): a trait inherited into a not-yet-open slot is
+ * still stored, with `unlocked: false`, and becomes active once level opens that
+ * slot. Nothing is dropped. Which slots are open is derived solely from
+ * `offspringPermanentLevel` via `unlockedSlotCount` — never from star rating.
+ */
+export function resolveInheritedTraitSlots(
+  parentA: CreatureInstance,
+  parentB: CreatureInstance,
+  offspringPermanentLevel: number,
+  choices: (ParentChoice | undefined)[] = [],
+): TraitSlot[] {
+  const openCount = unlockedSlotCount(offspringPermanentLevel);
+  const slots: TraitSlot[] = [];
+  for (let i = 0; i < MAX_TRAIT_SLOTS; i++) {
+    const traitA = parentA.traitSlots[i]?.traitId ?? null;
+    const traitB = parentB.traitSlots[i]?.traitId ?? null;
+
+    let inheritedTraitId: string | null;
+    if (traitA && traitB) {
+      inheritedTraitId = (choices[i] ?? 'A') === 'B' ? traitB : traitA;
+    } else {
+      inheritedTraitId = traitA ?? traitB;
+    }
+
+    slots.push({
+      traitId: inheritedTraitId,
+      traitLevel: inheritedTraitId ? 1 : 0,
+      unlocked: i < openCount,
+    });
+  }
+  return slots;
+}
+
 export function breed(
   parentA: CreatureInstance,
   parentB: CreatureInstance,
   offspringSpeciesId: string,
   chosenAbilities: string[],
+  traitChoices: (ParentChoice | undefined)[] = [],
 ): CreatureInstance {
   const template = getTemplate(offspringSpeciesId);
   const starRating = calculateOffspringStar(parentA, parentB);
@@ -72,12 +121,7 @@ export function breed(
     permanentLevel: carry.level,
     essenceInvested: carry.invested,
     abilities: abilities.slice(0, 4),
-    traitSlots: [
-      { traitId: null, traitLevel: 0, unlocked: starRating >= 2 },
-      { traitId: null, traitLevel: 0, unlocked: starRating >= 3 },
-      { traitId: null, traitLevel: 0, unlocked: starRating >= 4 },
-      { traitId: null, traitLevel: 0, unlocked: starRating >= 5 },
-    ],
+    traitSlots: resolveInheritedTraitSlots(parentA, parentB, carry.level, traitChoices),
     lineage: { parentA: parentA.instanceId, parentB: parentB.instanceId },
     // Unlike an ordinary creature's species baseline, this survives every later
     // run reset and level recalculation.
