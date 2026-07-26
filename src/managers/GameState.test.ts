@@ -51,7 +51,7 @@ describe('startRun', () => {
     parentA.currentStats = { ...strongStats };
     parentB.currentStats = { ...strongStats };
     const child = breed(parentA, parentB, 'ironjaw', []);
-    const inheritedHp = child.statBaseline.hp;
+    const inheritedHp = child.statBaseline!.hp;
 
     gameState.creatureBox = [child];
     gameState.setRunParty([child.instanceId]);
@@ -60,7 +60,7 @@ describe('startRun', () => {
     expect(inheritedHp).toBe(100);
     expect(child.currentStats.hp).toBe(130);
     expect(child.currentStats.hp).toBeGreaterThan(52); // legacy template-derived Lv1 HP
-    expect(child.statBaseline.hp).toBe(inheritedHp);
+    expect(child.statBaseline!.hp).toBe(inheritedHp);
   });
 });
 
@@ -135,7 +135,7 @@ describe('spendEssenceOnLevel', () => {
 
 describe('save/load migration', () => {
   it('round-trips the new save shape', () => {
-    gameState.creatureBox[0].statBaseline.hp = 77;
+    gameState.creatureBox[0].statBaseline!.hp = 77;
     gameState.essence = 42;
     gameState.hasCompletedFirstRun = true;
     gameState.saveToLocalStorage();
@@ -144,7 +144,7 @@ describe('save/load migration', () => {
     expect(gameState.loadFromLocalStorage()).toBe(true);
     expect(gameState.essence).toBe(42);
     expect(gameState.hasCompletedFirstRun).toBe(true);
-    expect(gameState.creatureBox[0].statBaseline.hp).toBe(77);
+    expect(gameState.creatureBox[0].statBaseline!.hp).toBe(77);
   });
 
   it('migrates an old save (townResources->essence, backfills fields, drops longevity)', () => {
@@ -168,7 +168,7 @@ describe('save/load migration', () => {
     const c = gameState.creatureBox[0];
     expect(c.permanentLevel).toBe(1);              // backfilled
     expect(c.essenceInvested).toBe(0);             // backfilled
-    expect(c.statBaseline.hp).toBe(40);             // species baseline backfilled
+    expect(c.statBaseline!.hp).toBe(40);             // species baseline backfilled
     expect('longevity' in c).toBe(false);          // dropped
   });
 
