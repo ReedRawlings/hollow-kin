@@ -30,6 +30,8 @@ Each star rating represents a creature's genealogy depth and determines its maxi
 
 ## **Breed-Readiness and Star Increases**
 
+> **Why there is a level gate at all.** Stats pass down through generations, so a creature bred too early founds a weak line — and the weakness compounds with every generation after it. The gate forces a minimum investment before a creature can become a parent. **A 0★ creature caps at level 5, so level 5 is the floor for the starters every player begins with**; higher stars must reach their own, higher cap. A freshly captured creature arrives at **level 1** and is therefore a long way from breedable — capture gives you a bloodline candidate, not a parent.
+
 A creature becomes **breed-ready** when it hits its level cap during a run. Hitting the cap also permanently unlocks a new trait slot, which carries forward into all future runs. Creatures have a maximum of four trait slots. However, **hitting the level cap does not increase a creature's star rating** — stars only increase through breeding.
 
 When two breed-ready creatures are bred together, the offspring's star rating is calculated from the parents' stars (see Offspring Star Rating below). This is the only way stars increase. The creature that hit its cap is now eligible for breeding but remains at its current star until a breeding event occurs.

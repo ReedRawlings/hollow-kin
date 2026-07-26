@@ -328,7 +328,7 @@ Eight archetypes define a creature's general identity, combat role, and default 
 * \* Capture is an in-run Obol spend — it competes with hoarding Obols for conversion to permanent Essence (spend-vs-bank)  
 * \* Capture probability is based on two factors: Obols spent on the attempt and the target creature's current HP — more Obols and lower HP means a higher capture chance  
 * \* Captured creatures are held in the item inventory during the run, forcing resource constraints  
-* \* Captured creatures can substitute into the active battle party mid-run — when subbed in, the replaced creature moves to inventory and becomes eligible for wipe loss unless it occupies guaranteed space  
+* \* **A capture is cargo, not a reinforcement.** Captured creatures arrive at base level and cannot be fielded — not in the battle they were caught in, and not later in that run. They ride in the backpack until you leave the tower. This replaces the earlier mid-run substitution rule, which assumed captures arrived strong enough to fight; they arrive at level 1, so swapping one in to displace a creature you have invested Essence in was never a decision worth offering. Revisit only if captures are ever given a usable arrival level  
 * \* **The three creatures you entered the tower with can never be lost**, under any circumstance  
 * \* **Captured creatures held in ordinary inventory slots CAN be lost on a wipe.** They are protected only while occupying the **guaranteed inventory space**. A creature you caught and left in an unprotected slot is a candidate for the wipe's random loss like any other carried thing  
 * \* Upon successfully leaving the tower, captured creatures move to the Creature Box if space is available

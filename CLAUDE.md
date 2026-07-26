@@ -120,7 +120,8 @@ src/
 - Creatures keep a **permanent essence-driven level floor** between runs. Temporary in-run levels vanish at run end (Model A). Do NOT hard-code a level-1 reset.
 - **No archetype-level type chart.** Resistances/weaknesses are per-creature.
 - Stars are the **level ceiling** for now (essence fills toward it); breeding still raises stars. Do NOT hard-couple to stars — removing them entirely (essence owns the cap) is the favored future direction.
-- Both parents are **retired** when breeding, but invested essence **carries over** to the offspring as a jump-start.
+- Both parents are **retired** when breeding, but invested essence **carries over** to the offspring as a jump-start. Retired parents **stay in the creature box as tombstones** — do not delete them. Every box consumer filters `!isRetired`, and keeping them is what lets a stale default party name the creature that left instead of saying "a former party member".
+- **Breeding requires a minimum level investment, and this is load-bearing.** A creature is breed-ready only on hitting its star's level cap — **5 for a 0★ starter**, higher for higher stars. Stats pass down through generations, so breeding too early founds a weak line and the weakness compounds every generation after. Never relax this gate casually. A **captured creature arrives at level 1**, so it is far from breedable: capture yields a bloodline candidate, not a parent.
 - **Longevity is removed.** No run counter, no forced retirement.
 - Tower is **one continuous 30-floor descent** — no zones. Mini-boss every 5 floors, major every 10. Depth-jumps buyable at cleared 5-floor breaks (buy 5 → start 6).
 - First floor (and any post-jump floor) is **combat**. Rests are **occasional random filler** — never guaranteed before a boss.
@@ -133,7 +134,13 @@ src/
 **Done:** essence pivot Phases 1–4a (currency, permanent levels, 30-floor descent, Leveler + Gatekeeper vendors, breeding carry-over) + playtest tuning.
 
 **Next, in rough priority:**
-1. **Capture system** — Obols-based capture in combat; completes the "collect" pillar (most important missing gameplay). Design first, then build.
+1. **Capture system — DESIGNED, ready to plan.** Spec: `docs/superpowers/specs/2026-07-25-capture-system-design.md` (threshold model, duplicate Essence grant, box capacity + pending-capture queue, combat-turn interaction). Next step is an implementation plan, not another design pass. Note the spec cites `docs/superpowers/research/capture-mechanics-research.md`, which is **not in the repo** — the survey it draws on either lives outside version control or was never committed, so treat the spec as self-contained.
+
+   Two rules from elsewhere in this file that constrain it: a capture **arrives at level 1** and is cargo, not a reinforcement — it cannot be fielded during the run that caught it; and it is **eligible for the single random wipe loss** unless it occupies guaranteed inventory space.
+
+   **Two open issues capture work will collide with, both currently unreachable but not for long:**
+   - **A soft-lock.** Breeding is net −1 creature (two parents in, one offspring out). From the 3-creature starting box that leaves 2 actives, and with no capture there is no way back to 3 — `CONFIRM` sticks at 2/3 and `ENTER TOWER` stays permanently dimmed. Capture is the fix, but decide whether breeding also needs a guard.
+   - **`PartySelectScene` breaks past 12 creatures.** Cards lay out 3-per-row at 140px; creatures 10–12 overlap the CONFIRM button and 13+ render off-canvas, unselectable. The box only shrinks today, so it is unreachable — until capture makes it grow. Tighter than the town box's 18-row display cap.
 2. **Traits system** + Trait-keeper vendor + Essence Distiller conversion lever.
 3. **Marks system** + Mark-binder vendor + Floor Marks on bosses.
 4. **Inventory / Quartermaster** vendor (backpack) — pairs with capture.
