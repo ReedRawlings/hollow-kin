@@ -5,6 +5,7 @@ import {
 } from '../types';
 import { getTemplate } from '../data/creatures';
 import { convertObolsToEssence, essenceCostForLevel, depthUnlockCost, depthRunFee } from '../systems/Economy';
+import { unlockedSlotCount } from '../systems/Traits';
 
 class GameStateManager {
   creatureBox: CreatureInstance[] = [];
@@ -41,6 +42,7 @@ class GameStateManager {
         { traitId: null, traitLevel: 0, unlocked: false },
       ],
       lineage: { parentA: null, parentB: null },
+      statBaseline: { ...template.baseStats },
       currentStats: { ...template.baseStats },
       resistances: [...template.resistances],
       weaknesses: [...template.weaknesses],
@@ -53,7 +55,9 @@ class GameStateManager {
 
   calculateStatsForLevel(instance: CreatureInstance): BaseStats {
     const template = getTemplate(instance.speciesId);
-    const base = template.baseStats;
+    // Protect runtime callers holding a pre-v5 object. Save migration backfills
+    // the field before persisted creatures reach this path.
+    const base = instance.statBaseline ?? template.baseStats;
     const level = instance.currentLevel;
     const cap = instance.levelCap;
     const statNames: (keyof BaseStats)[] = ['hp', 'mp', 'str', 'def', 'wis', 'spd', 'int'];
@@ -76,9 +80,8 @@ class GameStateManager {
       instance.xp -= needed;
       instance.currentLevel++;
       instance.currentStats = this.calculateStatsForLevel(instance);
-      if (instance.currentLevel >= instance.levelCap) {
-        instance.isBreedReady = true;
-      }
+      // Breed-readiness is derived from permanentLevel (see isCreatureBreedReady in
+      // systems/Traits.ts) — in-run levelling must never confer it.
       return true;
     }
     return false;
@@ -94,7 +97,22 @@ class GameStateManager {
     instance.permanentLevel++;
     instance.currentLevel = instance.permanentLevel;
     instance.currentStats = this.calculateStatsForLevel(instance);
+    this.unlockEarnedTraitSlots(instance);
     return true;
+  }
+
+  /**
+   * Unlock any trait slots whose permanentLevel threshold is now met. Slots unlock
+   * EMPTY (unlocked: true, traitId stays null — no random roll anywhere in this
+   * codebase) and unlocking is monotonic: this only ever sets `unlocked` to true,
+   * never back to false, so an already-unlocked slot is never re-locked.
+   */
+  private unlockEarnedTraitSlots(instance: CreatureInstance): void {
+    const earned = unlockedSlotCount(instance.permanentLevel);
+    for (let i = 0; i < earned; i++) {
+      const slot = instance.traitSlots[i];
+      if (slot) slot.unlocked = true;
+    }
   }
 
   /** Record clearing a boss on `floor`. Only boss floors count; keeps the running max. */
@@ -226,7 +244,6 @@ class GameStateManager {
       // Start each run at the permanent essence-bought floor, not level 1
       c.currentLevel = c.permanentLevel;
       c.xp = 0;
-      c.isBreedReady = false;
       c.currentStats = this.calculateStatsForLevel(c);
     }
   }
@@ -265,7 +282,7 @@ class GameStateManager {
 
   saveToLocalStorage(): void {
     const data = {
-      version: 4,
+      version: 5,
       creatureBox: this.creatureBox,
       essence: this.essence,
       deepestBreakCleared: this.deepestBreakCleared,
@@ -320,17 +337,39 @@ class GameStateManager {
       }
       this.creatureBox = (data.creatureBox ?? []).map((c: any) => {
         const { longevity, ...rest } = c; // drop longevity if present
+        const template = getTemplate(c.speciesId);
         return {
           ...rest,
           permanentLevel: c.permanentLevel ?? 1,
           essenceInvested: c.essenceInvested ?? 0,
           tactic: (c.tactic ?? 'fight_wisely') as TacticId,
+          // v5: old, freshly-bred creatures still hold their unscaled inherited
+          // stats in currentStats. Preserve those when possible; if an earlier run
+          // already replaced them with template-scaled stats, the species baseline
+          // is the only trustworthy fallback.
+          statBaseline: c.statBaseline
+            ? { ...c.statBaseline }
+            : c.lineage?.parentA && c.currentLevel === (c.permanentLevel ?? 1)
+              && !this.matchesLegacyTemplateScale(c)
+              ? { ...c.currentStats }
+              : { ...template.baseStats },
         } as CreatureInstance;
       });
       return true;
     } catch {
       return false;
     }
+  }
+
+  private matchesLegacyTemplateScale(creature: any): boolean {
+    const base = getTemplate(creature.speciesId).baseStats;
+    const level = creature.currentLevel ?? 1;
+    const cap = creature.levelCap ?? 5;
+    const statNames: (keyof BaseStats)[] = ['hp', 'mp', 'str', 'def', 'wis', 'spd', 'int'];
+    return statNames.every(stat => {
+      const expected = Math.floor(base[stat] + (base[stat] * 2.5 - base[stat]) * (level / cap));
+      return creature.currentStats?.[stat] === expected;
+    });
   }
 }
 

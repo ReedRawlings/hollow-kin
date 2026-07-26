@@ -17,6 +17,9 @@ import { estimateDamage, NO_KNOWLEDGE } from '../systems/TacticsAI';
 import { makeTestCreature } from '../systems/testFixtures';
 import { getAbility } from '../data/abilities';
 import { depthUnlockCost, depthRunFee } from '../systems/Economy';
+import { breed } from '../systems/BreedingSystem';
+import { isCreatureBreedReady, TRAIT_SLOT_LEVELS } from '../systems/Traits';
+import { STAR_LEVEL_CAPS } from '../types';
 
 beforeEach(() => {
   gameState.initializeNewGame(['ironjaw', 'stoneguard', 'voltarc']);
@@ -39,6 +42,25 @@ describe('startRun', () => {
     gameState.setRunParty([c.instanceId]);
     gameState.startRun();
     expect(gameState.runParty[0].currentLevel).toBe(8);
+  });
+
+  it('scales a real offspring from its inherited baseline instead of its species template', () => {
+    const parentA = gameState.createCreatureInstance('ironjaw');
+    const parentB = gameState.createCreatureInstance('ironjaw');
+    const strongStats = { hp: 300, mp: 300, str: 300, def: 300, wis: 300, spd: 300, int: 300 };
+    parentA.currentStats = { ...strongStats };
+    parentB.currentStats = { ...strongStats };
+    const child = breed(parentA, parentB, 'ironjaw', []);
+    const inheritedHp = child.statBaseline.hp;
+
+    gameState.creatureBox = [child];
+    gameState.setRunParty([child.instanceId]);
+    gameState.startRun();
+
+    expect(inheritedHp).toBe(100);
+    expect(child.currentStats.hp).toBe(130);
+    expect(child.currentStats.hp).toBeGreaterThan(52); // legacy template-derived Lv1 HP
+    expect(child.statBaseline.hp).toBe(inheritedHp);
   });
 });
 
@@ -99,10 +121,21 @@ describe('spendEssenceOnLevel', () => {
     expect(c.permanentLevel).toBe(2);
     expect(gameState.essence).toBe(0);
   });
+
+  it('keeps using an offspring-specific baseline after a permanent level purchase', () => {
+    const c = gameState.creatureBox[0];
+    c.statBaseline = { hp: 100, mp: 50, str: 40, def: 30, wis: 25, spd: 20, int: 15 };
+    gameState.essence = 10;
+
+    expect(gameState.spendEssenceOnLevel(c)).toBe(true);
+    expect(c.currentStats.hp).toBe(160);
+    expect(c.statBaseline.hp).toBe(100);
+  });
 });
 
 describe('save/load migration', () => {
   it('round-trips the new save shape', () => {
+    gameState.creatureBox[0].statBaseline.hp = 77;
     gameState.essence = 42;
     gameState.hasCompletedFirstRun = true;
     gameState.saveToLocalStorage();
@@ -111,6 +144,7 @@ describe('save/load migration', () => {
     expect(gameState.loadFromLocalStorage()).toBe(true);
     expect(gameState.essence).toBe(42);
     expect(gameState.hasCompletedFirstRun).toBe(true);
+    expect(gameState.creatureBox[0].statBaseline.hp).toBe(77);
   });
 
   it('migrates an old save (townResources->essence, backfills fields, drops longevity)', () => {
@@ -134,7 +168,25 @@ describe('save/load migration', () => {
     const c = gameState.creatureBox[0];
     expect(c.permanentLevel).toBe(1);              // backfilled
     expect(c.essenceInvested).toBe(0);             // backfilled
+    expect(c.statBaseline.hp).toBe(40);             // species baseline backfilled
     expect('longevity' in c).toBe(false);          // dropped
+  });
+
+  it('preserves unscaled inherited stats when migrating a freshly-bred pre-v5 creature', () => {
+    const inherited = { hp: 100, mp: 50, str: 40, def: 30, wis: 25, spd: 20, int: 15 };
+    localStorage.setItem('hollow_kin_save', JSON.stringify({
+      version: 4,
+      creatureBox: [{
+        instanceId: 'old-child', speciesId: 'ironjaw', nickname: null, starRating: 0,
+        currentLevel: 1, levelCap: 5, permanentLevel: 1, essenceInvested: 0,
+        abilities: [], traitSlots: [], lineage: { parentA: 'a', parentB: 'b' },
+        currentStats: inherited, resistances: [], weaknesses: [],
+        isRetired: false, isBreedReady: false, xp: 0,
+      }],
+    }));
+
+    expect(gameState.loadFromLocalStorage()).toBe(true);
+    expect(gameState.creatureBox[0].statBaseline).toEqual(inherited);
   });
 });
 
@@ -660,5 +712,105 @@ describe('save v3 -> v4 migration', () => {
     }));
     expect(gameState.loadFromLocalStorage()).toBe(true);
     expect(gameState.selectedStartFloor).toBe(6);
+  });
+});
+
+describe('breed-readiness (derived)', () => {
+  // Both regressions share one root cause: isBreedReady used to be a stored flag,
+  // set only inside in-run leveling (tryLevelUp) and reset at the top of every run
+  // (startRun). isCreatureBreedReady derives it from permanentLevel/levelCap alone,
+  // so neither path can affect it anymore.
+
+  it('regression: buying a creature straight to its level cap makes it breed-ready (previously impossible)', () => {
+    const c = gameState.creatureBox[0];
+    c.permanentLevel = c.levelCap - 1;
+    gameState.essence = 1_000_000;
+    expect(isCreatureBreedReady(c)).toBe(false);
+
+    const ok = gameState.spendEssenceOnLevel(c);
+
+    expect(ok).toBe(true);
+    expect(c.permanentLevel).toBe(c.levelCap);
+    expect(isCreatureBreedReady(c)).toBe(true);
+  });
+
+  it('regression: breed-readiness survives startRun() (previously wiped every run)', () => {
+    const c = gameState.creatureBox[0];
+    c.permanentLevel = c.levelCap;
+    expect(isCreatureBreedReady(c)).toBe(true);
+
+    gameState.setRunParty([c.instanceId]);
+    gameState.startRun();
+
+    expect(isCreatureBreedReady(gameState.runParty[0])).toBe(true);
+  });
+
+  it('in-run leveling (tryLevelUp) never confers breed-readiness, only permanentLevel does', () => {
+    const c = gameState.creatureBox[0];
+    c.permanentLevel = 1; // far below cap
+    c.currentLevel = c.levelCap - 1;
+    c.xp = 1_000_000;
+
+    const ok = gameState.tryLevelUp(c);
+
+    expect(ok).toBe(true);
+    expect(c.currentLevel).toBe(c.levelCap);
+    expect(isCreatureBreedReady(c)).toBe(false); // permanentLevel is still 1
+  });
+});
+
+describe('trait slot unlocking (permanentLevel-driven)', () => {
+  it('a purchase reaching the first threshold opens exactly slot 1, empty', () => {
+    const c = gameState.creatureBox[0]; // 0-star, levelCap 5 = TRAIT_SLOT_LEVELS[0]
+    c.permanentLevel = TRAIT_SLOT_LEVELS[0] - 1;
+    gameState.essence = 1_000_000;
+
+    expect(gameState.spendEssenceOnLevel(c)).toBe(true);
+
+    expect(c.permanentLevel).toBe(TRAIT_SLOT_LEVELS[0]);
+    expect(c.traitSlots[0].unlocked).toBe(true);
+    expect(c.traitSlots[0].traitId).toBeNull(); // unlocks EMPTY, never rolled
+    expect(c.traitSlots.slice(1).every(s => !s.unlocked)).toBe(true);
+  });
+
+  it('a purchase reaching the second threshold opens slot 2 as well', () => {
+    const c = gameState.creatureBox[0];
+    c.starRating = 1;
+    c.levelCap = STAR_LEVEL_CAPS[1]; // 10 = TRAIT_SLOT_LEVELS[1]
+    c.permanentLevel = TRAIT_SLOT_LEVELS[1] - 1;
+    gameState.essence = 1_000_000;
+
+    expect(gameState.spendEssenceOnLevel(c)).toBe(true);
+
+    expect(c.permanentLevel).toBe(TRAIT_SLOT_LEVELS[1]);
+    expect(c.traitSlots[0].unlocked).toBe(true);
+    expect(c.traitSlots[1].unlocked).toBe(true);
+    expect(c.traitSlots[1].traitId).toBeNull();
+    expect(c.traitSlots.slice(2).every(s => !s.unlocked)).toBe(true);
+  });
+
+  it('in-run leveling (tryLevelUp) past a slot threshold unlocks nothing — permanentLevel only', () => {
+    const c = gameState.creatureBox[0];
+    c.starRating = 1;
+    c.levelCap = STAR_LEVEL_CAPS[1]; // 10
+    c.permanentLevel = 1; // stays put; only currentLevel moves
+    c.currentLevel = TRAIT_SLOT_LEVELS[1] - 1;
+    c.xp = 1_000_000;
+
+    expect(gameState.tryLevelUp(c)).toBe(true);
+
+    expect(c.currentLevel).toBe(TRAIT_SLOT_LEVELS[1]);
+    expect(c.traitSlots.every(s => !s.unlocked)).toBe(true);
+  });
+
+  it('never re-locks a slot that is already unlocked, even when a later purchase would not unlock it on its own', () => {
+    const c = gameState.creatureBox[0];
+    c.permanentLevel = 1;
+    c.traitSlots[2].unlocked = true; // simulate a slot unlocked some other way
+    gameState.essence = 1_000_000;
+
+    expect(gameState.spendEssenceOnLevel(c)).toBe(true); // permanentLevel -> 2, below every threshold
+
+    expect(c.traitSlots[2].unlocked).toBe(true); // stays unlocked, monotonic
   });
 });

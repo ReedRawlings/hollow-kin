@@ -1,11 +1,14 @@
 import { CreatureInstance, STAR_LEVEL_CAPS, generateId, BaseStats, BREED_CARRYOVER_FRACTION } from '../types';
 import { getTemplate } from '../data/creatures';
 import { levelFromEssence } from './Economy';
+import { isCreatureBreedReady } from './Traits';
 
 export function calculateOffspringStar(parentA: CreatureInstance, parentB: CreatureInstance): number {
   const avgStar = Math.floor((parentA.starRating + parentB.starRating) / 2);
-  // Breed-ready bonus: if both breed-ready and same star, +1
-  if (parentA.isBreedReady && parentB.isBreedReady && parentA.starRating === parentB.starRating) {
+  // Breed-ready bonus: if both breed-ready and same star, +1. Breed-readiness is
+  // derived from permanentLevel (see isCreatureBreedReady) — the raw
+  // CreatureInstance.isBreedReady field is stale/unused, never read here.
+  if (isCreatureBreedReady(parentA) && isCreatureBreedReady(parentB) && parentA.starRating === parentB.starRating) {
     return avgStar + 1;
   }
   return avgStar;
@@ -76,9 +79,10 @@ export function breed(
       { traitId: null, traitLevel: 0, unlocked: starRating >= 5 },
     ],
     lineage: { parentA: parentA.instanceId, parentB: parentB.instanceId },
-    // currentStats are level-1-scale here and are non-authoritative until GameState.startRun
-    // recomputes them for the offspring's permanentLevel.
-    currentStats: baseStats,
+    // Unlike an ordinary creature's species baseline, this survives every later
+    // run reset and level recalculation.
+    statBaseline: { ...baseStats },
+    currentStats: { ...baseStats },
     resistances: [...template.resistances],
     weaknesses: [...template.weaknesses],
     isRetired: false,

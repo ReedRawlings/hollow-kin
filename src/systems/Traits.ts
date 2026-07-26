@@ -1,4 +1,4 @@
-import { STAR_LEVEL_CAPS } from '../types';
+import { STAR_LEVEL_CAPS, CreatureInstance } from '../types';
 import { TRAIT_LIBRARY, TraitDefinition } from '../data/traits';
 import { CREATURE_TEMPLATES } from '../data/creatures';
 
@@ -22,6 +22,21 @@ export const MAX_TRAIT_SLOTS = TRAIT_SLOT_LEVELS.length;
  */
 export function unlockedSlotCount(permanentLevel: number): number {
   return TRAIT_SLOT_LEVELS.filter((threshold) => permanentLevel >= threshold).length;
+}
+
+/**
+ * Whether a creature is breed-ready: derived from its permanent essence-bought
+ * floor alone, never from the temporary in-run `currentLevel`. Breed-readiness
+ * used to be a stored flag (`CreatureInstance.isBreedReady`) set only inside
+ * in-run leveling, which meant a creature bought straight to its cap could
+ * never earn it, and starting a new run before breeding wiped it. Deriving it
+ * here fixes both: it is simply always in sync with `permanentLevel`.
+ *
+ * `isBreedReady` remains on `CreatureInstance` for now (deliberately deferred
+ * cleanup) but is unused — callers should use this helper instead.
+ */
+export function isCreatureBreedReady(creature: CreatureInstance): boolean {
+  return creature.permanentLevel >= creature.levelCap;
 }
 
 const TRAIT_UPGRADE_COSTS: Record<1 | 2 | 3, number> = {

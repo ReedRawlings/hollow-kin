@@ -3,6 +3,7 @@ import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
 import { breed, calculateOffspringStar, calculateOffspringStats, carryoverForParents } from '../systems/BreedingSystem';
 import { CreatureInstance, STAR_LEVEL_CAPS } from '../types';
+import { isCreatureBreedReady } from '../systems/Traits';
 
 export class BreedingScene extends Phaser.Scene {
   private parentA: CreatureInstance | null = null;
@@ -63,7 +64,7 @@ export class BreedingScene extends Phaser.Scene {
       this.add.text(x - 45, y, `${template.archetype} | Lv ${creature.permanentLevel}`, {
         fontSize: '10px', color: '#aaaaaa', fontFamily: 'monospace',
       });
-      if (creature.isBreedReady) {
+      if (isCreatureBreedReady(creature)) {
         this.add.text(x - 45, y + 14, 'BREED READY', {
           fontSize: '9px', color: '#ff88cc', fontFamily: 'monospace',
         });
@@ -120,8 +121,8 @@ export class BreedingScene extends Phaser.Scene {
       this.add.text(x, y + 95, `★${creature.starRating} | ${template.archetype}`, {
         fontSize: '11px', color: '#aaaaaa', fontFamily: 'monospace',
       }).setOrigin(0.5);
-      this.add.text(x, y + 112, creature.isBreedReady ? 'BREED READY' : 'Not breed-ready', {
-        fontSize: '10px', color: creature.isBreedReady ? '#ff88cc' : '#666666', fontFamily: 'monospace',
+      this.add.text(x, y + 112, isCreatureBreedReady(creature) ? 'BREED READY' : 'Not breed-ready', {
+        fontSize: '10px', color: isCreatureBreedReady(creature) ? '#ff88cc' : '#666666', fontFamily: 'monospace',
       }).setOrigin(0.5);
 
       // Clear button
@@ -161,7 +162,7 @@ export class BreedingScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Show breed-ready bonus info
-    if (this.parentA.isBreedReady && this.parentB.isBreedReady &&
+    if (isCreatureBreedReady(this.parentA) && isCreatureBreedReady(this.parentB) &&
         this.parentA.starRating === this.parentB.starRating) {
       this.add.text(x, y + 100, 'Both breed-ready + same star = +1 star bonus!', {
         fontSize: '10px', color: '#44ff44', fontFamily: 'monospace',
