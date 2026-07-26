@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #10121c; }
+  a { color: #6dead6; text-decoration: none; }
+  a:hover { color: #f3a833; }
+  * { box-sizing: border-box; }
+</style>
+</helmet>
+
+<section style="padding: 32px; font-family: 'Silkscreen', monospace; color: #f6e8e0; display: flex; flex-direction: column; gap: 14px;">
+  <div style="display: flex; align-items: baseline; gap: 16px;">
+    <div style="font-family: 'Press Start 2P', monospace; font-size: 14px; color: #f3a833;">GRAVEMOUTH</div>
+    <div style="font-size: 13px; color: #8c78a5;">everything here costs essence · obols are worthless above ground · ← → moves</div>
+  </div>
+
+  <div style="width: 960px; height: 640px; background: #10121c; border: 4px solid #3e3b65; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+
+    <div style="flex: none; display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #2c1e31; padding-bottom: 10px;">
+      <div style="display: flex; align-items: baseline; gap: 12px;">
+        <div style="font-family: 'Press Start 2P', monospace; font-size: 13px; color: #f7f3b7;">THE TOWN</div>
+        <div style="font-size: 12px; color: #8c78a5;">{{ townSub }}</div>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 5px; border: 2px solid #6dead6; background: #14262a; padding: 4px 10px;">
+        <div style="font-family: 'Press Start 2P', monospace; font-size: 13px; color: #f7f3b7;">{{ essence }}</div>
+        <div style="font-size: 11px; color: #6dead6;">ESSENCE</div>
+      </div>
+    </div>
+
+    <div style="flex: 1; min-height: 0; display: flex; gap: 12px;">
+
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 9px;">
+        <div style="flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: 10px;">
+          <div style="font-family: 'Press Start 2P', monospace; font-size: 11px; color: #f7f3b7;">WHO WILL SEE YOU</div>
+          <div style="font-size: 11px; color: #8c78a5;">{{ openLine }}</div>
+        </div>
+
+        <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(4, 1fr); gap: 8px;">
+          <sc-for list="{{ vendors }}" as="v" hint-placeholder-count="7">
+            <div onMouseEnter="{{ v.hover }}" onClick="{{ v.hover }}" style="display: flex; cursor: {{ v.cursor }}; border: 2px solid {{ v.border }}; background: {{ v.plate }};">
+              <div style="flex: none; width: 6px; background: {{ v.accent }};"></div>
+              <div style="flex: 1; min-width: 0; padding: 8px 10px; display: flex; flex-direction: column; justify-content: center; gap: 4px;">
+                <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+                  <div style="font-size: 12px; color: {{ v.nameColor }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ v.name }}</div>
+                  <div style="flex: none; font-size: 10px; color: {{ v.tagColor }};">{{ v.tag }}</div>
+                </div>
+                <div style="font-size: 10px; color: {{ v.tradeColor }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ v.trade }}</div>
+              </div>
+            </div>
+          </sc-for>
+          <div style="border: 2px solid #2c1e31; background: #14141f; display: flex; align-items: center; justify-content: center;">
+            <div style="font-size: 10px; color: #5e5b8c;">an eighth door, still bricked</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex: none; width: 336px; display: flex; flex-direction: column; gap: 12px;">
+
+        <div style="flex: none; border: 3px solid #5e5b8c; background: #2c1e31; padding: 12px; display: flex; flex-direction: column; gap: 9px;">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+            <div style="font-size: 11px; color: #8c78a5;">DEFAULT PARTY</div>
+            <div style="font-size: 10px; color: {{ readyColor }};">{{ readyLine }}</div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <sc-for list="{{ party }}" as="p" hint-placeholder-count="3">
+              <div style="flex: 1; min-width: 0; border: 2px solid #3e3b65; background: #10121c; padding: 7px; display: flex; flex-direction: column; gap: 6px;">
+                <div style="height: 46px; border: 2px solid #3e3b65; background-color: #10121c; background-image: repeating-linear-gradient(45deg, {{ p.tint }} 0 5px, rgba(16,18,28,0) 5px 10px);"></div>
+                <div style="font-size: 10px; color: {{ p.archColor }};">{{ p.arch }}</div>
+                <div style="font-size: 11px; color: #f6e8e0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ p.name }}</div>
+                <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 5px;">
+                  <div style="font-size: 10px; color: #f3a833;">{{ p.stars }}</div>
+                  <div style="font-size: 10px; color: #b0a7b8;">LV{{ p.level }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="flex: 1; min-height: 0; overflow: hidden; border: 3px solid {{ cur.border }}; background: #14141f; padding: 13px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+            <div style="font-family: 'Press Start 2P', monospace; font-size: 11px; color: {{ cur.titleColor }}; line-height: 1.4;">{{ cur.name }}</div>
+            <div style="flex: none; font-size: 10px; color: {{ cur.tagColor }};">{{ cur.tag }}</div>
+          </div>
+          <div style="flex: none; font-size: 11px; color: #deceed; line-height: 1.6; text-wrap: pretty;">{{ cur.body }}</div>
+          <div style="flex: none; display: flex; flex-direction: column; gap: 5px;">
+            <sc-for list="{{ cur.lines }}" as="l" hint-placeholder-count="2">
+              <div style="display: flex; align-items: baseline; gap: 8px;">
+                <div style="flex: 1; min-width: 0; font-size: 11px; color: #8c78a5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ l.label }}</div>
+                <div style="flex: none; font-size: 11px; color: {{ l.color }};">{{ l.value }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: none; display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 10px;">
+      <sc-for list="{{ actions }}" as="a" hint-placeholder-count="4">
+        <div onMouseEnter="{{ a.hover }}" onClick="{{ a.hover }}" style="border: 3px solid {{ a.border }}; background: {{ a.plate }}; padding: 11px 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer;">
+          <div style="font-family: 'Press Start 2P', monospace; font-size: 11px; color: {{ a.color }};">{{ a.label }}</div>
+          <div style="font-size: 10px; color: {{ a.subColor }};">{{ a.sub }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex: none; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #5e5b8c;">
+      <div>← → VENDORS · ENTER VISIT · T TOWER · ESC TITLE</div>
+      <div>{{ footerLine }}</div>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1060, &quot;height&quot;: 780}}">
+class Component extends DCLogic {
+  state = { sel: 0, act: 0 };
+
+  VENDORS = [
+    {
+      name: 'Quartermaster', trade: 'bag slots · run stock', accent: '#f3a833', tag: 'RANK 2',
+      body: 'Sells the bag itself. Every rank widens what you carry down and skims a little more off the exchange on the way up.',
+      lines: [['RANK 3 — 12 SLOTS', '220', '#6dead6'], ['EXCHANGE BONUS', '+7% → +11%', '#9de64e']],
+    },
+    {
+      name: 'Apothecary', trade: 'salves · ethers · antidotes', accent: '#9de64e', tag: 'OPEN',
+      body: 'Restocks what you drank. Buy in threes; she will not sell one of anything.',
+      lines: [['SALVE ×3', '45', '#6dead6'], ['ANTIDOTE ×3', '30', '#6dead6']],
+    },
+    {
+      name: 'Hatchery', trade: 'clutch slots · incubation', accent: '#6dead6', tag: '1 EGG WARM',
+      body: 'Holds the eggs your pairs leave behind and hurries them along for a fee.',
+      lines: [['SECOND SLOT', '180', '#6dead6'], ['RUSH THIS EGG', '60', '#f3a833']],
+    },
+    {
+      name: 'Reliquary', trade: 'marks · mark slots', accent: '#dab163', tag: '3 IN STOCK',
+      body: 'Marks pulled off dead things and cleaned. Permanent once fitted, and never fitted twice.',
+      lines: [['GRAVEBOUND', '260', '#6dead6'], ['SECOND MARK SLOT', '400', '#8c78a5']],
+    },
+    {
+      name: 'Beast Broker', trade: 'grown creatures', accent: '#e98537', tag: '2 ON OFFER',
+      body: 'Sells creatures somebody else raised and lost. Expensive, honest about the levels, quiet about the rest.',
+      lines: [['4★ BOARHIDE LV20', '520', '#6dead6'], ['TRADE-IN CREDIT', 'from 90', '#9de64e']],
+    },
+    {
+      name: 'Stonecutter', trade: 'permanent run upgrades', accent: '#8c78a5', tag: 'RANK 1',
+      body: 'Cuts changes into the tower itself. Nothing he sells appears in your bag, and none of it can be lost.',
+      lines: [['START AT FLOOR 3', '340', '#6dead6'], ['KEEP 1 MORE ITEM ON WIPE', '280', '#6dead6']],
+    },
+    {
+      name: 'The Oracle', trade: 'floor foresight', accent: '#ec273f', tag: 'LOCKED',
+      body: 'Will tell you what one of the offered doors actually holds. She opens after a run reaches floor 15.',
+      lines: [['UNLOCK', 'reach floor 15', '#ec273f'], ['PER PEEK', '75', '#8c78a5']],
+    },
+  ];
+
+  ACTIONS = [
+    { label: 'ENTER TOWER', sub: 'begin a run', key: 'tower' },
+    { label: 'PARTY', sub: 'box · swaps', key: 'party' },
+    { label: 'BREED', sub: '3 pairs ready', key: 'breed' },
+    { label: 'PEDIA', sub: '34 of 60 seen', key: 'pedia' },
+  ];
+
+  PARTY = [
+    { name: 'Ironjaw', arch: 'BRUTE', archColor: '#e98537', stars: 4, level: 22, tint: 'rgba(233,133,55,0.35)' },
+    { name: 'Emberwhelp', arch: 'EMBER', archColor: '#ec273f', stars: 3, level: 19, tint: 'rgba(236,39,63,0.35)' },
+    { name: 'Bladeknight', arch: 'HOLLOW', archColor: '#8c78a5', stars: 5, level: 26, tint: 'rgba(218,177,99,0.25)' },
+  ];
+
+  componentDidMount() {
+    this._onKey = (e) => {
+      if (e.repeat) return;
+      const n = this.VENDORS.length;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') this.setState(s => ({ sel: (s.sel + 1) % n }));
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') this.setState(s => ({ sel: (s.sel + n - 1) % n }));
+    };
+    window.addEventListener('keydown', this._onKey);
+  }
+
+  componentWillUnmount() { window.removeEventListener('keydown', this._onKey); }
+
+  renderVals() {
+    const sel = this.state.sel;
+    const essence = 1592;
+
+    const vendors = this.VENDORS.map((v, i) => {
+      const on = i === sel;
+      const locked = v.tag === 'LOCKED';
+      return {
+        name: v.name,
+        trade: v.trade,
+        accent: locked ? '#3e3b65' : v.accent,
+        tag: v.tag,
+        tagColor: locked ? '#5e5b8c' : on ? '#f3a833' : '#8c78a5',
+        border: on ? '#f3a833' : locked ? '#2c1e31' : '#3e3b65',
+        plate: on ? '#2c1e31' : '#14141f',
+        nameColor: locked ? '#8c78a5' : on ? '#f7f3b7' : '#f6e8e0',
+        tradeColor: locked ? '#5e5b8c' : '#8c78a5',
+        cursor: locked ? 'default' : 'pointer',
+        hover: () => this.setState({ sel: i }),
+      };
+    });
+
+    const v = this.VENDORS[sel];
+    const locked = v.tag === 'LOCKED';
+    const cur = {
+      name: v.name.toUpperCase(),
+      tag: locked ? 'CLOSED TO YOU' : 'OPEN',
+      tagColor: locked ? '#ec273f' : '#9de64e',
+      titleColor: locked ? '#8c78a5' : '#f7f3b7',
+      border: locked ? '#94493a' : '#5e5b8c',
+      body: v.body,
+      lines: v.lines.map(([label, value, color]) => ({
+        label,
+        value,
+        color: value === 'reach floor 15' ? color : Number(value) > essence ? '#ec273f' : color,
+      })),
+    };
+
+    const actions = this.ACTIONS.map((a, i) => {
+      const on = i === this.state.act;
+      const primary = a.key === 'tower';
+      return {
+        label: a.label,
+        sub: a.sub,
+        border: primary ? '#f3a833' : on ? '#6dead6' : '#5e5b8c',
+        plate: primary && on ? '#f3a833' : on ? '#14262a' : '#2c1e31',
+        color: primary && on ? '#10121c' : primary ? '#f3a833' : on ? '#6dead6' : '#b0a7b8',
+        subColor: primary && on ? '#2c1e31' : '#8c78a5',
+        hover: () => this.setState({ act: i }),
+      };
+    });
+
+    return {
+      vendors,
+      actions,
+      party: this.PARTY.map(p => ({ ...p, stars: '★'.repeat(p.stars) + '☆'.repeat(5 - p.stars) })),
+      cur,
+      essence,
+      townSub: 'AFTER 7 RUNS · DEEPEST FLOOR 15',
+      openLine: '6 OPEN · 1 SEALED',
+      readyColor: '#6dead6',
+      readyLine: '3 PAIRS READY IN THE BOX',
+      footerLine: v.name + ' · ' + (locked ? 'locked' : v.trade),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #10121c; }
+  a { color: #6dead6; text-decoration: none; }
+  a:hover { color: #f3a833; }
+  * { box-sizing: border-box; }
+</style>
+</helmet>
+
+<section style="padding: 32px; font-family: 'Silkscreen', monospace; color: #f6e8e0; display: flex; flex-direction: column; gap: 14px;">
+  <div style="display: flex; align-items: baseline; gap: 16px;">
+    <div style="font-family: 'Press Start 2P', monospace; font-size: 14px; color: #f3a833;">FIRST THREE</div>
+    <div style="font-size: 13px; color: #8c78a5;">two hands are offered · you take one whole · ← → chooses</div>
+  </div>
+
+  <div style="width: 960px; height: 640px; background: #10121c; border: 4px solid #3e3b65; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+
+    <div style="flex: none; display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #2c1e31; padding-bottom: 10px;">
+      <div style="display: flex; align-items: baseline; gap: 12px;">
+        <div style="font-family: 'Press Start 2P', monospace; font-size: 13px; color: #f7f3b7;">CHOOSE YOUR THREE</div>
+        <div style="font-size: 12px; color: #8c78a5;">THE OTHER HAND IS SET FREE</div>
+      </div>
+    </div>
+
+    <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <sc-for list="{{ hands }}" as="h" hint-placeholder-count="2">
+        <div onMouseEnter="{{ h.hover }}" onClick="{{ h.hover }}" style="min-height: 0; cursor: pointer; border: 3px solid {{ h.frame }}; background: {{ h.plate }}; padding: 12px; display: flex; flex-direction: column; gap: 9px;">
+          <div style="flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+            <div style="font-family: 'Press Start 2P', monospace; font-size: 12px; color: {{ h.titleColor }};">{{ h.title }}</div>
+            <div style="flex: none; font-size: 10px; color: {{ h.badgeColor }};">{{ h.badge }}</div>
+          </div>
+          <div style="flex: none; font-size: 11px; color: #b0a7b8; line-height: 1.5; text-wrap: pretty;">{{ h.pitch }}</div>
+
+          <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 7px;">
+            <sc-for list="{{ h.creatures }}" as="c" hint-placeholder-count="3">
+              <div style="flex: 1; min-height: 0; display: flex; border: 2px solid {{ c.border }}; background: #10121c;">
+                <div style="flex: none; width: 6px; background: {{ c.archColor }};"></div>
+                <div style="flex: none; width: 62px; margin: 7px; border: 2px solid #3e3b65; background-color: #10121c; background-image: repeating-linear-gradient(45deg, {{ c.tint }} 0 5px, rgba(16,18,28,0) 5px 10px);"></div>
+                <div style="flex: 1; min-width: 0; padding: 7px 9px 7px 2px; display: flex; flex-direction: column; gap: 5px;">
+                  <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+                    <div style="font-size: 12px; color: #f6e8e0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.name }}</div>
+                    <div style="flex: none; font-size: 10px; color: #b0a7b8;">LV 1</div>
+                  </div>
+                  <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+                    <div style="font-size: 10px; color: {{ c.archColor }};">{{ c.arch }}</div>
+                    <div style="flex: none; font-size: 10px; color: #f3a833;">{{ c.stars }}</div>
+                  </div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px 8px;">
+                    <sc-for list="{{ c.stats }}" as="s" hint-placeholder-count="6">
+                      <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 5px;">
+                        <div style="font-size: 10px; color: #8c78a5;">{{ s.label }}</div>
+                        <div style="font-size: 10px; color: {{ s.color }};">{{ s.value }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="flex: none; border-top: 2px solid #3e3b65; padding-top: 8px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+            <div style="font-size: 11px; color: #8c78a5;">{{ h.shape }}</div>
+            <div style="flex: none; font-size: 11px; color: {{ h.riskColor }};">{{ h.risk }}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex: none; display: flex; justify-content: center;">
+      <div onClick="{{ start }}" style="width: 260px; border: 3px solid #f3a833; background: {{ startPlate }}; padding: 15px 0; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+        <div style="font-family: 'Press Start 2P', monospace; font-size: 13px; color: {{ startColor }};">START GAME</div>
+      </div>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1060, &quot;height&quot;: 780}}">
+class Component extends DCLogic {
+  state = { sel: 0, started: false };
+
+  ARCH = {
+    FAUNA: '#e98537',
+    MECHA: '#6dead6',
+    HUMAN: '#dab163',
+    GROVE: '#9de64e',
+    TIDE: '#5e91b4',
+    HOLLOW: '#8c78a5',
+  };
+
+  HANDS = [
+    {
+      title: 'THE KENNEL HAND', badge: 'RECOMMENDED', shape: 'TWO BODIES, ONE CASTER',
+      risk: 'FORGIVING', riskColor: '#9de64e',
+      pitch: 'What the gatekeeper hands most first-timers. Hits hard, holds a line, and one of them can burn.',
+      creatures: [
+        { name: 'Ironjaw', arch: 'FAUNA', tint: 'rgba(233,133,55,0.35)', stars: 0, hp: 40, str: 18, def: 8, int: 6, spd: 16, wis: 7 },
+        { name: 'Emberwhelp', arch: 'MECHA', tint: 'rgba(236,39,63,0.35)', stars: 0, hp: 35, str: 10, def: 7, int: 16, spd: 18, wis: 9 },
+        { name: 'Bladeknight', arch: 'HUMAN', tint: 'rgba(218,177,99,0.25)', stars: 0, hp: 45, str: 16, def: 14, int: 8, spd: 10, wis: 8 },
+      ],
+    },
+    {
+      title: 'THE DROWNED HAND', badge: 'HARDER START', shape: 'FAST, FRAIL, TWO CASTERS',
+      risk: 'PUNISHING', riskColor: '#ec273f',
+      pitch: 'Left behind by someone who did not come back up. Outruns most things and dies to the rest.',
+      creatures: [
+        { name: 'Sablefin', arch: 'TIDE', tint: 'rgba(109,234,214,0.3)', stars: 0, hp: 32, str: 9, def: 10, int: 17, spd: 22, wis: 14 },
+        { name: 'Thornmoth', arch: 'GROVE', tint: 'rgba(147,178,71,0.32)', stars: 0, hp: 30, str: 12, def: 6, int: 14, spd: 20, wis: 11 },
+        { name: 'Hollowpage', arch: 'HOLLOW', tint: 'rgba(140,120,165,0.4)', stars: 0, hp: 38, str: 14, def: 11, int: 10, spd: 13, wis: 16 },
+      ],
+    },
+  ];
+
+  componentDidMount() {
+    this._onKey = (e) => {
+      if (e.repeat) return;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'd' || e.key === 'a') this.setState(s => ({ sel: 1 - s.sel, started: false }));
+      else if (e.key === 'Enter') this.setState({ started: true });
+      else if (e.key === 'Escape') this.setState({ started: false });
+    };
+    window.addEventListener('keydown', this._onKey);
+  }
+
+  componentWillUnmount() { window.removeEventListener('keydown', this._onKey); }
+
+  renderVals() {
+    const sel = this.state.sel;
+    const started = this.state.started;
+
+    const hands = this.HANDS.map((h, i) => {
+      const on = i === sel;
+      return {
+        title: h.title,
+        pitch: h.pitch,
+        shape: h.shape,
+        risk: h.risk,
+        riskColor: on ? h.riskColor : '#8c78a5',
+        badge: h.badge,
+        badgeColor: on ? '#f3a833' : '#5e5b8c',
+        frame: on ? '#f3a833' : '#3e3b65',
+        plate: on ? '#2c1e31' : '#14141f',
+        titleColor: on ? '#f7f3b7' : '#b0a7b8',
+        hover: () => this.setState({ sel: i, started: false }),
+        creatures: h.creatures.map(c => ({
+          name: c.name,
+          arch: c.arch,
+          archColor: this.ARCH[c.arch],
+          tint: c.tint,
+          stars: '☆☆☆☆☆',
+          border: on ? '#5e5b8c' : '#3e3b65',
+          stats: [
+            { label: 'HP', value: c.hp, color: '#9de64e' },
+            { label: 'STR', value: c.str, color: '#deceed' },
+            { label: 'DEF', value: c.def, color: '#deceed' },
+            { label: 'INT', value: c.int, color: '#6dead6' },
+            { label: 'SPD', value: c.spd, color: '#deceed' },
+            { label: 'WIS', value: c.wis, color: '#deceed' },
+          ],
+        })),
+      };
+    });
+
+    const chosen = this.HANDS[sel];
+    return {
+      hands,
+      start: () => this.setState({ started: true }),
+      startPlate: started ? '#f3a833' : '#2c1e31',
+      startColor: started ? '#10121c' : '#f3a833',
+    };
+  }
+}
+</script>
+</body>
+</html>

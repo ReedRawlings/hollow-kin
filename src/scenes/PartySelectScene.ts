@@ -1,136 +1,209 @@
 import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
-import { TACTIC_ORDER, TACTIC_LABELS } from '../types';
+import { TACTIC_LABELS, TACTIC_ORDER, CreatureInstance } from '../types';
 import { PARTY_SIZE } from '../systems/PartyStatus';
+import {
+  UI, BODY_FONT, DISPLAY_FONT, archetypeColor, button, footer, header,
+  panel, screenFrame, spritePlate, stars, backButton,
+} from '../ui/Theme';
+
+const PAGE_SIZE = 12;
 
 export class PartySelectScene extends Phaser.Scene {
   private selected: string[] = [];
-  private cards: { bg: Phaser.GameObjects.Rectangle; id: string }[] = [];
-  private confirmBtn!: Phaser.GameObjects.Rectangle;
-  private confirmText!: Phaser.GameObjects.Text;
+  private candidateIndex = 0;
+  private slot = 0;
+  private page = 0;
 
   constructor() {
     super({ key: 'PartySelectScene' });
   }
 
   create(): void {
-    this.selected = [];
-    this.cards = [];
-    const cx = this.cameras.main.centerX;
+    const available = this.available();
+    this.selected = gameState.defaultParty.filter(id => available.some(c => c.instanceId === id));
+    this.candidateIndex = 0;
+    this.slot = 0;
+    this.page = 0;
+    this.draw();
+    this.input.keyboard?.on('keydown-LEFT', () => this.moveCandidate(-1));
+    this.input.keyboard?.on('keydown-RIGHT', () => this.moveCandidate(1));
+    this.input.keyboard?.on('keydown-UP', () => this.moveCandidate(-4));
+    this.input.keyboard?.on('keydown-DOWN', () => this.moveCandidate(4));
+    this.input.keyboard?.on('keydown-ENTER', () => this.swapCandidate());
+    this.input.keyboard?.on('keydown-ESC', () => this.scene.start('TownScene'));
+  }
 
-    this.add.text(cx, 30, 'YOUR PARTY (3)', {
-      fontSize: '24px', color: '#e0d0a0', fontFamily: 'monospace',
-    }).setOrigin(0.5);
+  private available(): CreatureInstance[] {
+    return gameState.creatureBox.filter(c => !c.isRetired);
+  }
 
-    this.add.text(cx, 60, 'Click to select. This party is used for every descent.', {
-      fontSize: '14px', color: '#888888', fontFamily: 'monospace',
-    }).setOrigin(0.5);
+  private draw(): void {
+    this.children.removeAll(true);
+    const creatures = this.available();
+    const candidate = creatures[this.candidateIndex];
+    const readyCount = creatures.filter(c => c.permanentLevel >= c.levelCap).length;
+    screenFrame(this);
+    header(this, 'THE ROOST', `${creatures.length} KEPT  ·  ${this.selected.length} IN PARTY`,
+      `${readyCount} BREED-READY`, UI.tealCss);
 
-    const available = gameState.creatureBox.filter(c => !c.isRetired);
-    this.selected = gameState.defaultParty.filter(
-      id => available.some(c => c.instanceId === id),
-    );
+    backButton(this, () => this.scene.start('TownScene'));
+    this.add.text(146, 94, 'CREATURE BOX', {
+      fontFamily: DISPLAY_FONT, fontSize: '10px', color: UI.hi,
+    });
+    this.add.text(670, 94, `PAGE ${this.page + 1}/${Math.max(1, Math.ceil(creatures.length / PAGE_SIZE))}`, {
+      fontFamily: BODY_FONT, fontSize: '9px', color: UI.muted,
+    }).setOrigin(1, 0);
 
-    available.forEach((creature, i) => {
-      const template = getTemplate(creature.speciesId);
-      const col = i % 3;
-      const row = Math.floor(i / 3);
-      const x = 180 + col * 260;
-      const y = 130 + row * 140;
+    const pageCreatures = creatures.slice(this.page * PAGE_SIZE, (this.page + 1) * PAGE_SIZE);
+    pageCreatures.forEach((creature, i) => {
+      const globalIndex = this.page * PAGE_SIZE + i;
+      const col = i % 4;
+      const row = Math.floor(i / 4);
+      const x = 104 + col * 154;
+      const y = 178 + row * 116;
+      this.drawCreatureCard(creature, x, y, globalIndex === this.candidateIndex, globalIndex);
+    });
 
-      const bg = this.add.rectangle(x, y + 30, 230, 120, 0x222244, 0.9)
-        .setStrokeStyle(2, 0x444466).setInteractive({ useHandCursor: true });
+    panel(this, 804, 346, 252, 490);
+    this.add.text(696, 116, 'BRINGING DOWN', {
+      fontFamily: DISPLAY_FONT, fontSize: '9px', color: UI.hi,
+    });
+    for (let i = 0; i < PARTY_SIZE; i++) this.drawPartySlot(i, 696, 145 + i * 68);
 
-      if (this.selected.includes(creature.instanceId)) {
-        bg.setStrokeStyle(3, 0x44ff44);
-      }
+    if (candidate) this.drawCompare(candidate);
 
-      // Creature color square
-      this.add.rectangle(x - 80, y + 20, 45, 45, template.spriteColor);
+    const canSave = this.selected.length === PARTY_SIZE;
+    button(this, 784, 568, 150, 38, canSave ? 'CONFIRM PARTY' : `${this.selected.length} / ${PARTY_SIZE} CHOSEN`,
+      canSave ? () => this.confirm() : null, UI.gold, canSave);
+    button(this, 878, 568, 74, 38, 'BACK', () => this.scene.start('TownScene'), UI.lineBright);
+    footer(this, 'ARROWS BROWSE  ·  ENTER SWAP  ·  ESC BACK',
+      candidate ? `${getTemplate(candidate.speciesId).name} SELECTED` : 'BOX EMPTY');
+  }
 
-      // Info text
-      this.add.text(x - 45, y - 10, template.name, {
-        fontSize: '14px', color: '#ffffff', fontFamily: 'monospace',
-      });
-      this.add.text(x - 45, y + 10, `${template.archetype} | ★${creature.starRating}`, {
-        fontSize: '12px', color: '#aaaaaa', fontFamily: 'monospace',
-      });
-      this.add.text(x - 45, y + 28, `HP:${creature.currentStats.hp} STR:${creature.currentStats.str} DEF:${creature.currentStats.def}`, {
-        fontSize: '10px', color: '#888888', fontFamily: 'monospace',
-      });
-      this.add.text(x - 45, y + 42, `INT:${creature.currentStats.int} SPD:${creature.currentStats.spd} WIS:${creature.currentStats.wis}`, {
-        fontSize: '10px', color: '#888888', fontFamily: 'monospace',
-      });
-      this.add.text(x - 45, y + 58, `Lv ${creature.permanentLevel}`, {
-        fontSize: '10px', color: '#44ff44', fontFamily: 'monospace',
-      });
+  private drawCreatureCard(creature: CreatureInstance, x: number, y: number, selected: boolean, index: number): void {
+    const t = getTemplate(creature.speciesId);
+    const inParty = this.selected.includes(creature.instanceId);
+    const bg = panel(this, x, y, 142, 102, selected);
+    this.add.rectangle(x - 68, y, 6, 102, archetypeColor(t.archetype));
+    spritePlate(this, x - 36, y - 8, 46, 46, archetypeColor(t.archetype));
+    this.add.text(x - 4, y - 39, t.archetype.toUpperCase(), {
+      fontFamily: BODY_FONT, fontSize: '8px', color: UI.muted,
+    });
+    if (inParty) {
+      this.add.text(x + 62, y - 39, 'IN', {
+        fontFamily: DISPLAY_FONT, fontSize: '7px', color: UI.goldCss,
+      }).setOrigin(1, 0);
+    }
+    this.add.text(x - 4, y - 20, creature.nickname ?? t.name, {
+      fontFamily: DISPLAY_FONT, fontSize: '7px', color: selected ? UI.hi : UI.text,
+    });
+    this.add.text(x - 4, y - 2, stars(creature.starRating), {
+      fontFamily: BODY_FONT, fontSize: '8px', color: UI.goldCss,
+    });
+    this.add.text(x - 4, y + 16, `LV ${creature.permanentLevel}`, {
+      fontFamily: BODY_FONT, fontSize: '9px', color: UI.body,
+    });
+    this.add.text(x - 58, y + 36, TACTIC_LABELS[creature.tactic].toUpperCase(), {
+      fontFamily: BODY_FONT, fontSize: '7px', color: UI.tealCss,
+    });
+    bg.setInteractive({ useHandCursor: true });
+    bg.on('pointerover', () => { if (this.candidateIndex !== index) { this.candidateIndex = index; this.draw(); } });
+    bg.on('pointerdown', () => { this.candidateIndex = index; this.swapCandidate(); });
+  }
 
-      // Tactic cycler — a standing behavior for auto-combat, persists across runs.
-      const tacticBg = this.add.rectangle(x + 62, y + 62, 96, 18, 0x223344, 0.95)
-        .setStrokeStyle(1, 0x446688).setInteractive({ useHandCursor: true });
-      const tacticText = this.add.text(x + 62, y + 62, TACTIC_LABELS[creature.tactic], {
-        fontSize: '9px', color: '#88bbdd', fontFamily: 'monospace',
+  private drawPartySlot(index: number, x: number, y: number): void {
+    const id = this.selected[index];
+    const creature = this.available().find(c => c.instanceId === id);
+    const selectedSlot = this.slot === index;
+    const bg = panel(this, x + 108, y + 24, 216, 58, selectedSlot);
+    if (!creature) {
+      this.add.text(x + 108, y + 24, `SLOT ${index + 1} — EMPTY`, {
+        fontFamily: DISPLAY_FONT, fontSize: '8px', color: UI.muted,
       }).setOrigin(0.5);
-
-      tacticBg.on('pointerover', () => tacticBg.setFillStyle(0x334466));
-      tacticBg.on('pointerout', () => tacticBg.setFillStyle(0x223344));
-      tacticBg.on('pointerdown', () => {
-        const idx = TACTIC_ORDER.indexOf(creature.tactic);
-        creature.tactic = TACTIC_ORDER[(idx + 1) % TACTIC_ORDER.length];
-        tacticText.setText(TACTIC_LABELS[creature.tactic]);
-        gameState.saveToLocalStorage();
-      });
-
-      bg.on('pointerdown', () => this.toggleSelect(creature.instanceId, bg));
-      this.cards.push({ bg, id: creature.instanceId });
-    });
-
-    // Confirm button
-    this.confirmBtn = this.add.rectangle(cx, 560, 200, 50, 0x336633, 0.5)
-      .setStrokeStyle(2, 0x44aa44).setInteractive({ useHandCursor: true });
-    this.confirmText = this.add.text(cx, 560, 'CONFIRM (0/3)', {
-      fontSize: '16px', color: '#88aa88', fontFamily: 'monospace',
-    }).setOrigin(0.5);
-
-    this.confirmBtn.on('pointerdown', () => {
-      if (this.selected.length === PARTY_SIZE) {
-        gameState.setDefaultParty(this.selected);
-        gameState.saveToLocalStorage();
-        this.scene.start('TownScene');
-      }
-    });
-
-    // Back button
-    this.add.text(30, 560, '← Back', {
-      fontSize: '14px', color: '#aaaaaa', fontFamily: 'monospace',
-    }).setInteractive({ useHandCursor: true }).on('pointerdown', () => {
-      this.scene.start('TownScene');
-    });
-
-    this.updateConfirm();
-  }
-
-  private toggleSelect(instanceId: string, bg: Phaser.GameObjects.Rectangle): void {
-    const idx = this.selected.indexOf(instanceId);
-    if (idx !== -1) {
-      this.selected.splice(idx, 1);
-      bg.setStrokeStyle(2, 0x444466);
-    } else if (this.selected.length < PARTY_SIZE) {
-      this.selected.push(instanceId);
-      bg.setStrokeStyle(3, 0x44ff44);
-    }
-    this.updateConfirm();
-  }
-
-  private updateConfirm(): void {
-    this.confirmText.setText(`CONFIRM (${this.selected.length}/${PARTY_SIZE})`);
-    if (this.selected.length === PARTY_SIZE) {
-      this.confirmBtn.setFillStyle(0x336633, 1);
-      this.confirmText.setColor('#ffffff');
     } else {
-      this.confirmBtn.setFillStyle(0x336633, 0.5);
-      this.confirmText.setColor('#88aa88');
+      const t = getTemplate(creature.speciesId);
+      this.add.rectangle(x + 3, y + 24, 6, 58, archetypeColor(t.archetype));
+      spritePlate(this, x + 29, y + 24, 32, 32, archetypeColor(t.archetype));
+      this.add.text(x + 52, y + 7, creature.nickname ?? t.name, {
+        fontFamily: DISPLAY_FONT, fontSize: '8px', color: UI.text,
+      });
+      this.add.text(x + 52, y + 25, `LV ${creature.permanentLevel} · ATK ${creature.currentStats.str} DEF ${creature.currentStats.def}`, {
+        fontFamily: BODY_FONT, fontSize: '8px', color: UI.body,
+      });
+      const tactic = this.add.text(x + 52, y + 40, TACTIC_LABELS[creature.tactic].toUpperCase(), {
+        fontFamily: BODY_FONT, fontSize: '7px', color: UI.tealCss,
+      }).setInteractive({ useHandCursor: true });
+      tactic.on('pointerdown', (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation();
+        const ti = TACTIC_ORDER.indexOf(creature.tactic);
+        creature.tactic = TACTIC_ORDER[(ti + 1) % TACTIC_ORDER.length];
+        gameState.saveToLocalStorage();
+        this.draw();
+      });
     }
+    bg.setInteractive({ useHandCursor: true }).on('pointerdown', () => { this.slot = index; this.draw(); });
+  }
+
+  private drawCompare(candidate: CreatureInstance): void {
+    const t = getTemplate(candidate.speciesId);
+    const replaced = this.available().find(c => c.instanceId === this.selected[this.slot]);
+    panel(this, 804, 420, 216, 148);
+    this.add.text(708, 354, `REPLACES SLOT ${this.slot + 1}`, {
+      fontFamily: BODY_FONT, fontSize: '8px', color: UI.muted,
+    });
+    this.add.text(708, 373, candidate.nickname ?? t.name, {
+      fontFamily: DISPLAY_FONT, fontSize: '9px', color: UI.hi,
+    });
+    this.add.text(708, 393, `${stars(candidate.starRating)}  LV ${candidate.permanentLevel}`, {
+      fontFamily: BODY_FONT, fontSize: '9px', color: UI.goldCss,
+    });
+    const rows: Array<['ATK' | 'DEF' | 'SPD', number, number | undefined]> = [
+      ['ATK', candidate.currentStats.str, replaced?.currentStats.str],
+      ['DEF', candidate.currentStats.def, replaced?.currentStats.def],
+      ['SPD', candidate.currentStats.spd, replaced?.currentStats.spd],
+    ];
+    rows.forEach(([label, value, old], i) => {
+      const delta = old === undefined ? 0 : value - old;
+      this.add.text(708, 420 + i * 20, `${label} ${value}`, {
+        fontFamily: BODY_FONT, fontSize: '10px', color: UI.body,
+      });
+      this.add.text(900, 420 + i * 20, old === undefined ? 'EMPTY SLOT' : `${delta >= 0 ? '+' : ''}${delta} VS ${getTemplate(replaced!.speciesId).name}`, {
+        fontFamily: BODY_FONT, fontSize: '8px',
+        color: delta > 0 ? UI.greenCss : delta < 0 ? UI.redCss : UI.muted,
+      }).setOrigin(1, 0);
+    });
+    const ready = candidate.permanentLevel >= candidate.levelCap;
+    this.add.text(708, 486, ready ? 'BREED-READY' : `NOT READY · LV ${candidate.levelCap} REQUIRED`, {
+      fontFamily: BODY_FONT, fontSize: '8px', color: ready ? UI.tealCss : UI.muted,
+    });
+    const already = this.selected.includes(candidate.instanceId);
+    button(this, 804, 515, 192, 28, already ? 'IN PARTY' : 'SWAP IN',
+      already ? null : () => this.swapCandidate(), UI.gold, !already);
+  }
+
+  private moveCandidate(delta: number): void {
+    const creatures = this.available();
+    if (!creatures.length) return;
+    this.candidateIndex = Math.max(0, Math.min(creatures.length - 1, this.candidateIndex + delta));
+    this.page = Math.floor(this.candidateIndex / PAGE_SIZE);
+    this.draw();
+  }
+
+  private swapCandidate(): void {
+    const candidate = this.available()[this.candidateIndex];
+    if (!candidate || this.selected.includes(candidate.instanceId)) return;
+    if (this.slot < this.selected.length) this.selected[this.slot] = candidate.instanceId;
+    else this.selected.push(candidate.instanceId);
+    this.slot = (this.slot + 1) % PARTY_SIZE;
+    this.draw();
+  }
+
+  private confirm(): void {
+    if (this.selected.length !== PARTY_SIZE) return;
+    gameState.setDefaultParty(this.selected);
+    gameState.saveToLocalStorage();
+    this.scene.start('TownScene');
   }
 }

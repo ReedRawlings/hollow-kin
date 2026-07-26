@@ -8,13 +8,14 @@ import {
   scaledDelay, COMBAT_DELAY_ACTION, COMBAT_DELAY_TURN_END, COMBAT_DELAY_STATUS_SKIP,
 } from '../types';
 import {
-  calculateTurnOrder, calculateDamage, applyDamage, applyHeal,
+  calculateTurnOrder, calculateDamage, applyDamage,
   applyAbilityEffects, tickStatusEffects, isSkipTurn,
-  createCombatCreature,
+  createCombatCreature, resolveNonDamagingAbility,
 } from '../systems/CombatEngine';
 import { getEnemyAction, chooseAction } from '../systems/TacticsAI';
 import { obolsForEncounter } from '../systems/Economy';
 import { renderBattlefield } from './combat/BattlefieldRenderer';
+import { UI, BODY_FONT, DISPLAY_FONT } from '../ui/Theme';
 
 export class CombatScene extends Phaser.Scene {
   private playerParty: CombatCreature[] = [];
@@ -100,6 +101,7 @@ export class CombatScene extends Phaser.Scene {
         abilities: [...template.defaultAbilities, null, null].slice(0, 4),
         traitSlots: [],
         lineage: { parentA: null, parentB: null },
+        statBaseline: { ...template.baseStats },
         currentStats: { ...template.baseStats },
         resistances: [...template.resistances],
         weaknesses: [...template.weaknesses],
@@ -190,7 +192,6 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private showActionMenu(creature: CombatCreature): void {
-    const y = 510;
     const abilities = creature.instance.abilities.filter((id): id is string => id !== null);
 
     // Always have basic attack
@@ -202,26 +203,29 @@ export class CombatScene extends Phaser.Scene {
     // Ability buttons
     allActions.forEach((abilityId, i) => {
       const ability = getAbility(abilityId);
-      const x = 120 + i * 180;
+      const col = i % 3;
+      const row = Math.floor(i / 3);
+      const x = 170 + col * 310;
+      const y = 506 + row * 54;
       const canUse = creature.currentMp >= ability.mpCost;
 
-      const bg = this.add.rectangle(x, y, 160, 40, canUse ? 0x334466 : 0x222222, 0.9)
-        .setStrokeStyle(1, canUse ? 0x6688aa : 0x444444).setInteractive({ useHandCursor: true });
+      const bg = this.add.rectangle(x, y, 286, 44, canUse ? UI.plate : UI.panel)
+        .setStrokeStyle(2, canUse ? UI.gold : UI.line).setInteractive({ useHandCursor: true });
       this.uiElements.push(bg);
 
       const label = this.add.text(x, y - 6, ability.name, {
-        fontSize: '11px', color: canUse ? '#ffffff' : '#666666', fontFamily: 'monospace',
+        fontSize: '9px', color: canUse ? UI.hi : UI.muted, fontFamily: DISPLAY_FONT,
       }).setOrigin(0.5);
       this.uiElements.push(label);
 
       const mpText = this.add.text(x, y + 10, ability.mpCost > 0 ? `MP:${ability.mpCost} | Pow:${ability.power || '—'}` : 'Free', {
-        fontSize: '9px', color: '#888888', fontFamily: 'monospace',
+        fontSize: '9px', color: canUse ? UI.mutedBright : UI.muted, fontFamily: BODY_FONT,
       }).setOrigin(0.5);
       this.uiElements.push(mpText);
 
       if (canUse) {
-        bg.on('pointerover', () => bg.setFillStyle(0x446688));
-        bg.on('pointerout', () => bg.setFillStyle(0x334466));
+        bg.on('pointerover', () => bg.setFillStyle(UI.gold));
+        bg.on('pointerout', () => bg.setFillStyle(UI.plate));
         bg.on('pointerdown', () => {
           this.selectedAbilityId = abilityId;
           if (ability.targeting === 'self' || ability.targeting === 'all_enemies' || ability.targeting === 'all_allies') {
@@ -249,12 +253,14 @@ export class CombatScene extends Phaser.Scene {
     });
 
     // Defend button
-    const defX = 120 + allActions.length * 180;
-    const defBg = this.add.rectangle(defX, y, 120, 40, 0x443322, 0.9)
-      .setStrokeStyle(1, 0x886644).setInteractive({ useHandCursor: true });
+    const defIndex = allActions.length;
+    const defX = 170 + (defIndex % 3) * 310;
+    const defY = 506 + Math.floor(defIndex / 3) * 54;
+    const defBg = this.add.rectangle(defX, defY, 286, 44, UI.plate)
+      .setStrokeStyle(2, UI.teal).setInteractive({ useHandCursor: true });
     this.uiElements.push(defBg);
-    const defLabel = this.add.text(defX, y, 'DEFEND', {
-      fontSize: '11px', color: '#ffffff', fontFamily: 'monospace',
+    const defLabel = this.add.text(defX, defY, 'DEFEND', {
+      fontSize: '9px', color: UI.tealCss, fontFamily: DISPLAY_FONT,
     }).setOrigin(0.5);
     this.uiElements.push(defLabel);
     defBg.on('pointerdown', () => {
@@ -275,8 +281,8 @@ export class CombatScene extends Phaser.Scene {
 
     this.enemyParty.forEach((enemy, i) => {
       if (enemy.isKnockedOut) return;
-      const x = 620;
-      const y = 130 + i * 110;
+      const x = 480 - ((this.enemyParty.length - 1) * 154) / 2 + i * 154;
+      const y = 173;
 
       const highlight = this.add.rectangle(x, y + 20, 110, 90, 0xffdd88, 0.15)
         .setStrokeStyle(2, 0xffdd88).setInteractive({ useHandCursor: true });
@@ -301,8 +307,8 @@ export class CombatScene extends Phaser.Scene {
 
     this.playerParty.forEach((ally, i) => {
       if (ally.isKnockedOut) return;
-      const x = 140;
-      const y = 120 + i * 120;
+      const x = 180 + i * 300;
+      const y = 354;
 
       const highlight = this.add.rectangle(x, y, 110, 90, 0x88ffaa, 0.15)
         .setStrokeStyle(2, 0x88ffaa).setInteractive({ useHandCursor: true });
@@ -402,10 +408,13 @@ export class CombatScene extends Phaser.Scene {
       effectMsgs.forEach(m => this.addMessage(m));
     } else {
       // Status/buff move
+      const result = resolveNonDamagingAbility(ability, attacker, target);
+      if (result.missed) {
+        this.addMessage(`${attacker.template.name} used ${ability.name} — MISS!`);
+        return;
+      }
       this.addMessage(`${attacker.template.name} used ${ability.name}!`);
-      const effectTarget = ability.targeting === 'self' ? attacker : target;
-      const effectMsgs = applyAbilityEffects(ability, attacker, effectTarget, 0);
-      effectMsgs.forEach(m => this.addMessage(m));
+      result.messages.forEach(m => this.addMessage(m));
     }
   }
 
@@ -477,39 +486,16 @@ export class CombatScene extends Phaser.Scene {
         }
       }
 
-      this.add.text(cx, 440, 'VICTORY!', {
-        fontSize: '24px', color: '#ffdd88', fontFamily: 'monospace',
-      }).setOrigin(0.5);
-
-      let rewards = `+${obolGain} Obols  |  +${xpPerCreature} XP each`;
-      if (levelUpMsg) rewards += '\n' + levelUpMsg;
-
-      this.add.text(cx, 475, rewards, {
-        fontSize: '12px', color: '#aaaaaa', fontFamily: 'monospace', align: 'center',
-      }).setOrigin(0.5);
-
-      // Save party state before reward choice
       this.savePartyState(run);
-
-      // Show reward choice
-      this.showRewardChoice(cx, run);
-    } else {
-      this.add.text(cx, 470, 'DEFEAT...', {
-        fontSize: '24px', color: '#ff4444', fontFamily: 'monospace',
-      }).setOrigin(0.5);
-
-      this.savePartyState(run);
-
-      const returnBtn = this.add.text(cx, 560, 'RETURN', {
-        fontSize: '16px', color: '#ffffff', fontFamily: 'monospace',
-        backgroundColor: '#444444', padding: { x: 30, y: 10 },
-      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-      returnBtn.on('pointerdown', () => {
-        gameState.endRun(false, run.obols);
-        gameState.saveToLocalStorage();
-        this.scene.start('TownScene');
+      this.scene.start('PostCombatScene', {
+        floor: this.encounter.floor,
+        obolGain,
+        xpPerCreature,
+        levelUpMessage: levelUpMsg.trim(),
       });
+    } else {
+      this.savePartyState(run);
+      this.scene.start('RunScene', { continueRun: true });
     }
   }
 
@@ -519,57 +505,6 @@ export class CombatScene extends Phaser.Scene {
       run.partyMp[pc.instance.instanceId] = pc.currentMp;
       run.partyKO[pc.instance.instanceId] = pc.isKnockedOut;
     }
-  }
-
-  private showRewardChoice(cx: number, run: typeof gameState.currentRun & object): void {
-    this.add.text(cx, 510, 'Choose a reward:', {
-      fontSize: '14px', color: '#cccccc', fontFamily: 'monospace',
-    }).setOrigin(0.5);
-
-    const alive = this.playerParty.filter(c => !c.isKnockedOut);
-
-    const choices = [
-      { label: 'Restore HP', desc: 'Heal party for 10% HP', color: 0x44aa44 },
-      { label: 'Restore MP', desc: 'Restore party 20% MP', color: 0x4466cc },
-    ];
-
-    choices.forEach((choice, i) => {
-      const bx = cx - 100 + i * 200;
-      const by = 560;
-      const bg = this.add.rectangle(bx, by, 170, 60, choice.color, 0.9)
-        .setStrokeStyle(2, 0xffffff).setInteractive({ useHandCursor: true });
-
-      this.add.text(bx, by - 10, choice.label, {
-        fontSize: '14px', color: '#ffffff', fontFamily: 'monospace',
-      }).setOrigin(0.5);
-
-      this.add.text(bx, by + 12, choice.desc, {
-        fontSize: '10px', color: '#dddddd', fontFamily: 'monospace',
-      }).setOrigin(0.5);
-
-      bg.on('pointerover', () => bg.setAlpha(0.7));
-      bg.on('pointerout', () => bg.setAlpha(1));
-
-      bg.on('pointerdown', () => {
-        if (i === 0) {
-          // Restore 25% HP to alive party members
-          for (const pc of alive) {
-            const heal = Math.floor(pc.maxHp * 0.10);
-            pc.currentHp = Math.min(pc.maxHp, pc.currentHp + heal);
-            run.partyHp[pc.instance.instanceId] = pc.currentHp;
-          }
-        } else {
-          // Restore 20% MP to alive party members
-          for (const pc of alive) {
-            const restore = Math.floor(pc.maxMp * 0.20);
-            pc.currentMp = Math.min(pc.maxMp, pc.currentMp + restore);
-            run.partyMp[pc.instance.instanceId] = pc.currentMp;
-          }
-        }
-        gameState.saveToLocalStorage();
-        this.scene.start('RunScene', { continueRun: true });
-      });
-    });
   }
 
   // ---------- RENDERING ----------

@@ -99,8 +99,9 @@ export class BreedingScene extends Phaser.Scene {
     }
 
     // Back button
-    this.add.text(30, 600, '← Back', {
-      fontSize: '14px', color: '#aaaaaa', fontFamily: 'monospace',
+    this.add.text(24, 20, '← TOWN', {
+      fontSize: '12px', color: '#f7f3b7', fontFamily: 'monospace',
+      backgroundColor: '#2c1e31', padding: { x: 10, y: 7 },
     }).setInteractive({ useHandCursor: true }).on('pointerdown', () => {
       this.scene.start('TownScene');
     });

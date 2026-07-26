@@ -116,7 +116,10 @@ describe('getEnemyAction — characterization', () => {
   });
 });
 
-import { calculateDamage, baseDamage } from './CombatEngine';
+import {
+  calculateDamage, baseDamage, isHostileAbility, resolveNonDamagingAbility,
+  rollAbilityHit,
+} from './CombatEngine';
 import { getAbility } from '../data/abilities';
 
 describe('baseDamage', () => {
@@ -182,5 +185,60 @@ describe('calculateDamage — RNG contract', () => {
     // would return Math.max(1, 0) = 1, breaking zero-power abilities.
     expect(result.damage).toBe(0);
     expect(result.missed).toBe(false);
+  });
+});
+
+describe('non-damaging ability accuracy', () => {
+  it('classifies enemy-targeting debuffs as hostile and friendly moves as non-hostile', () => {
+    expect(isHostileAbility(getAbility('weaken'))).toBe(true);
+    expect(isHostileAbility(getAbility('scold'))).toBe(true);
+    expect(isHostileAbility(getAbility('bold'))).toBe(false);
+    expect(isHostileAbility(getAbility('soothe'))).toBe(false);
+  });
+
+  it('uses the configured accuracy boundary', () => {
+    // Weaken is 85% accurate; the boundary itself hits.
+    seedRandom([0.85]);
+    expect(rollAbilityHit(getAbility('weaken'))).toBe(true);
+
+    vi.restoreAllMocks();
+    seedRandom([0.851]);
+    expect(rollAbilityHit(getAbility('weaken'))).toBe(false);
+  });
+
+  it('misses a hostile debuff without changing the target', () => {
+    seedRandom([0.99]);
+    const user = makeTestCreature({ speciesId: 'user', isPlayer: true });
+    const target = makeTestCreature({ speciesId: 'target', isPlayer: false });
+
+    const result = resolveNonDamagingAbility(getAbility('weaken'), user, target);
+
+    expect(result).toEqual({ missed: true, messages: [] });
+    expect(target.buffStages.str).toBeUndefined();
+  });
+
+  it('applies a hostile debuff after a successful accuracy roll', () => {
+    // First roll hits; second roll is the effect's guaranteed chance.
+    seedRandom([0, 0]);
+    const user = makeTestCreature({ speciesId: 'user', isPlayer: true });
+    const target = makeTestCreature({ speciesId: 'target', isPlayer: false });
+
+    const result = resolveNonDamagingAbility(getAbility('weaken'), user, target);
+
+    expect(result.missed).toBe(false);
+    expect(target.buffStages.str).toBe(-1);
+  });
+
+  it('keeps friendly self buffs guaranteed without an accuracy roll', () => {
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.99);
+    const user = makeTestCreature({ speciesId: 'user', isPlayer: true });
+
+    const result = resolveNonDamagingAbility(getAbility('bold'), user, user);
+
+    expect(result.missed).toBe(false);
+    expect(user.buffStages.str).toBe(1);
+    // applyAbilityEffects still performs its effect-chance roll; there is no
+    // additional ability-accuracy roll for the friendly move.
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });

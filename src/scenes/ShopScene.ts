@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { Encounter } from '../types';
+import {
+  SHOP_ITEMS, canBenefitFromShopItem, tryPurchaseShopItem,
+} from '../systems/Shop';
 
 export class ShopScene extends Phaser.Scene {
   constructor() {
@@ -19,34 +22,30 @@ export class ShopScene extends Phaser.Scene {
       fontSize: '16px', color: '#aaaaaa', fontFamily: 'monospace',
     }).setOrigin(0.5);
 
-    const items = [
-      { name: 'Heal Party (50% HP)', cost: 20, action: () => this.healParty(0.5) },
-      { name: 'Restore MP (Full)', cost: 25, action: () => this.restoreMp(1.0) },
-      { name: 'Revive Creature', cost: 40, action: () => this.reviveOne() },
-    ];
-
-    items.forEach((item, i) => {
+    SHOP_ITEMS.forEach((item, i) => {
       const y = 180 + i * 80;
-      const canAfford = run.obols >= item.cost;
-      const bg = this.add.rectangle(cx, y, 300, 55, canAfford ? 0x224466 : 0x222222, 0.9)
-        .setStrokeStyle(2, canAfford ? 0x4488aa : 0x444444);
+      const useful = canBenefitFromShopItem(item.id, run, gameState.runParty);
+      const enabled = useful && run.obols >= item.cost;
+      const bg = this.add.rectangle(cx, y, 300, 55, enabled ? 0x224466 : 0x222222, 0.9)
+        .setStrokeStyle(2, enabled ? 0x4488aa : 0x444444);
 
-      if (canAfford) {
+      if (enabled) {
         bg.setInteractive({ useHandCursor: true });
         bg.on('pointerdown', () => {
-          run.obols -= item.cost;
-          item.action();
-          this.scene.restart(data);
+          if (tryPurchaseShopItem(item, run, gameState.runParty)) {
+            this.scene.restart(data);
+          }
         });
         bg.on('pointerover', () => bg.setFillStyle(0x336688));
         bg.on('pointerout', () => bg.setFillStyle(0x224466));
       }
 
       this.add.text(cx, y - 8, item.name, {
-        fontSize: '14px', color: canAfford ? '#ffffff' : '#666666', fontFamily: 'monospace',
+        fontSize: '14px', color: enabled ? '#ffffff' : '#666666', fontFamily: 'monospace',
       }).setOrigin(0.5);
-      this.add.text(cx, y + 12, `Cost: ${item.cost} Obols`, {
-        fontSize: '12px', color: canAfford ? '#88ccff' : '#444444', fontFamily: 'monospace',
+      const detail = useful ? `Cost: ${item.cost} Obols` : 'Not needed';
+      this.add.text(cx, y + 12, detail, {
+        fontSize: '12px', color: enabled ? '#88ccff' : '#444444', fontFamily: 'monospace',
       }).setOrigin(0.5);
     });
 
@@ -58,33 +57,4 @@ export class ShopScene extends Phaser.Scene {
     });
   }
 
-  private healParty(pct: number): void {
-    const run = gameState.currentRun!;
-    for (const c of gameState.runParty) {
-      if (!run.partyKO[c.instanceId]) {
-        const max = c.currentStats.hp;
-        run.partyHp[c.instanceId] = Math.min(max, (run.partyHp[c.instanceId] ?? 0) + Math.floor(max * pct));
-      }
-    }
-  }
-
-  private restoreMp(pct: number): void {
-    const run = gameState.currentRun!;
-    for (const c of gameState.runParty) {
-      if (!run.partyKO[c.instanceId]) {
-        const max = c.currentStats.mp;
-        run.partyMp[c.instanceId] = Math.min(max, (run.partyMp[c.instanceId] ?? 0) + Math.floor(max * pct));
-      }
-    }
-  }
-
-  private reviveOne(): void {
-    const run = gameState.currentRun!;
-    const ko = gameState.runParty.find(c => run.partyKO[c.instanceId]);
-    if (ko) {
-      run.partyKO[ko.instanceId] = false;
-      run.partyHp[ko.instanceId] = Math.floor(ko.currentStats.hp * 0.25);
-      run.partyMp[ko.instanceId] = Math.floor(ko.currentStats.mp * 0.25);
-    }
-  }
 }

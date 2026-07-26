@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #10121c; }
+  a { color: #6dead6; text-decoration: none; }
+  a:hover { color: #f3a833; }
+  * { box-sizing: border-box; }
+</style>
+</helmet>
+
+<section style="padding: 32px; font-family: 'Silkscreen', monospace; color: #f6e8e0; display: flex; flex-direction: column; gap: 14px;">
+  <div style="display: flex; align-items: baseline; gap: 16px;">
+    <div style="font-family: 'Press Start 2P', monospace; font-size: 14px; color: #f3a833;">RUN RESULTS</div>
+    <div style="font-size: 13px; color: #8c78a5;">obols do not leave the tower · what you carried up becomes essence</div>
+  </div>
+
+  <div style="width: 960px; height: 640px; background: #10121c; border: 4px solid #3e3b65; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+
+    <div style="flex: none; display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #2c1e31; padding-bottom: 10px;">
+      <div style="display: flex; align-items: baseline; gap: 12px;">
+        <div style="font-family: 'Press Start 2P', monospace; font-size: 13px; color: {{ outcomeColor }};">{{ outcomeTitle }}</div>
+        <div style="font-size: 12px; color: #8c78a5;">{{ outcomeSub }}</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 9px;">
+        <div style="font-size: 12px; color: #8c78a5;">LEFTOVER</div>
+        <div style="display: flex; align-items: baseline; gap: 5px; border: 2px solid #f3a833; background: #2c1e31; padding: 3px 8px;">
+          <div style="font-family: 'Press Start 2P', monospace; font-size: 12px; color: #f7f3b7;">{{ obols }}</div>
+          <div style="font-size: 11px; color: #f3a833;">OBOLS</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: 1; min-height: 0; display: flex; gap: 12px;">
+
+      <div style="flex: 1; min-width: 0; border: 3px solid #2c1e31; background: #14141f; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: 10px;">
+          <div style="font-family: 'Press Start 2P', monospace; font-size: 11px; color: #f7f3b7;">THE EXCHANGE</div>
+          <div style="font-size: 11px; color: #8c78a5;">{{ rateLine }}</div>
+        </div>
+
+        <div style="flex: none; display: flex; flex-direction: column; gap: 6px;">
+          <sc-for list="{{ ledger }}" as="l" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 7px 9px; border: 2px solid {{ l.border }}; background: {{ l.plate }};">
+              <div style="flex: none; width: 6px; height: 18px; background: {{ l.accent }};"></div>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+                <div style="font-size: 12px; color: {{ l.labelColor }};">{{ l.label }}</div>
+                <div style="font-size: 10px; color: #8c78a5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ l.note }}</div>
+              </div>
+              <div style="flex: none; font-family: 'Press Start 2P', monospace; font-size: 11px; color: {{ l.valueColor }};">{{ l.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="flex: 1; min-height: 0;"></div>
+
+        <div style="flex: none; border: 3px solid {{ totalBorder }}; background: {{ totalPlate }}; padding: 12px 13px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 11px; color: {{ totalLabelColor }};">ESSENCE GAINED</div>
+            <div style="font-size: 10px; color: #8c78a5;">{{ totalNote }}</div>
+          </div>
+          <div style="font-family: 'Press Start 2P', monospace; font-size: 22px; color: {{ totalColor }};">{{ essence }}</div>
+        </div>
+      </div>
+
+      <div style="flex: none; width: 344px; display: flex; flex-direction: column; gap: 12px;">
+
+        <div style="flex: none; border: 3px solid #6dead6; background: #14262a; padding: 13px; display: flex; flex-direction: column; gap: 7px;">
+          <div style="font-size: 11px; color: #6dead6;">PERMANENT BALANCE</div>
+          <div style="display: flex; align-items: baseline; gap: 9px;">
+            <div style="font-size: 13px; color: #8c78a5;">{{ balanceBefore }}</div>
+            <div style="font-size: 13px; color: #5e5b8c;">→</div>
+            <div style="font-family: 'Press Start 2P', monospace; font-size: 18px; color: #f7f3b7;">{{ balanceAfter }}</div>
+            <div style="font-size: 11px; color: #6dead6;">ESSENCE</div>
+          </div>
+          <div style="font-size: 11px; color: #b0a7b8; line-height: 1.5; text-wrap: pretty;">{{ balanceNote }}</div>
+        </div>
+
+        <div style="flex: 1; min-height: 0; border: 3px solid {{ bagBorder }}; background: #14141f; padding: 13px; display: flex; flex-direction: column; gap: 9px;">
+          <div style="flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+            <div style="font-size: 11px; color: {{ bagTitleColor }};">{{ bagTitle }}</div>
+            <div style="font-size: 10px; color: #8c78a5;">{{ bagSub }}</div>
+          </div>
+          <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 5px;">
+            <sc-for list="{{ bag }}" as="b" hint-placeholder-count="5">
+              <div style="flex: none; display: flex; align-items: center; gap: 8px; padding: 5px 7px; border: 2px solid {{ b.border }}; background: {{ b.plate }};">
+                <div style="flex: none; width: 22px; height: 22px; border: 2px solid #3e3b65; background-color: #10121c; background-image: repeating-linear-gradient(45deg, {{ b.tint }} 0 4px, rgba(16,18,28,0) 4px 8px); filter: {{ b.dim }};"></div>
+                <div style="flex: 1; min-width: 0; font-size: 11px; color: {{ b.nameColor }}; text-decoration: {{ b.strike }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ b.name }}</div>
+                <div style="flex: none; font-size: 10px; color: {{ b.tagColor }};">{{ b.tag }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="flex: none; display: flex; gap: 8px;">
+          <sc-for list="{{ party }}" as="p" hint-placeholder-count="3">
+            <div style="flex: 1; min-width: 0; border: 2px solid {{ p.frame }}; background: {{ p.plate }}; padding: 7px; display: flex; flex-direction: column; gap: 5px;">
+              <div style="height: 30px; border: 2px solid #3e3b65; background-color: #10121c; background-image: repeating-linear-gradient(45deg, {{ p.tint }} 0 4px, rgba(16,18,28,0) 4px 8px); filter: {{ p.dim }};"></div>
+              <div style="font-size: 10px; color: {{ p.nameColor }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ p.name }}</div>
+              <div style="font-size: 10px; color: {{ p.fateColor }};">{{ p.fate }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: none; display: flex; gap: 10px; align-items: stretch;">
+      <div style="flex: 1; border: 3px solid {{ noteBorder }}; background: {{ notePlate }}; padding: 10px 12px; display: flex; align-items: center; gap: 14px;">
+        <div style="flex: none; font-size: 11px; color: {{ noteColor }};">{{ lossTitle }}</div>
+        <div style="flex: 1; display: flex; gap: 9px; flex-wrap: wrap;">
+          <sc-for list="{{ losses }}" as="l" hint-placeholder-count="2">
+            <div style="display: flex; align-items: baseline; gap: 7px; border: 2px solid {{ l.border }}; padding: 3px 8px;">
+              <div style="font-size: 10px; color: #8c78a5;">{{ l.label }}</div>
+              <div style="font-family: 'Press Start 2P', monospace; font-size: 11px; color: {{ l.color }};">{{ l.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="flex: none; width: 168px; border: 3px solid #f3a833; background: #2c1e31; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer;">
+        <div style="font-family: 'Press Start 2P', monospace; font-size: 11px; color: #f3a833;">TO TOWN</div>
+        <div style="font-size: 10px; color: #8c78a5;">spend the essence</div>
+      </div>
+    </div>
+
+    <div style="flex: none; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #5e5b8c;">
+      <div>ENTER CONTINUE · L FULL LEDGER</div>
+      <div>{{ footerLine }}</div>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1060, &quot;height&quot;: 780}, &quot;outcome&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;ESCAPED&quot;, &quot;WIPED&quot;], &quot;default&quot;: &quot;ESCAPED&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Run end&quot;}}">
+class Component extends DCLogic {
+  BAG = [
+    { name: 'Salve ×3', tint: 'rgba(90,181,82,0.34)', protected: false },
+    { name: 'Ether Drop', tint: 'rgba(109,234,214,0.3)', protected: false },
+    { name: 'Bone Charm', tint: 'rgba(218,177,99,0.3)', protected: false },
+    { name: 'Warden\u2019s Sigil', tint: 'rgba(243,168,51,0.32)', protected: true },
+    { name: 'Hollow Token ×4', tint: 'rgba(94,91,140,0.4)', protected: true },
+  ];
+
+  PARTY = [
+    { name: 'Ironjaw', tint: 'rgba(233,133,55,0.35)' },
+    { name: 'Emberwhelp', tint: 'rgba(236,39,63,0.35)' },
+    { name: 'Bladeknight', tint: 'rgba(218,177,99,0.25)' },
+  ];
+
+  renderVals() {
+    const wiped = (this.props.outcome ?? 'ESCAPED') === 'WIPED';
+    const obols = 412;
+    const floor = wiped ? 13 : 15;
+    const base = Math.round(obols / 4);
+    const traits = 9;
+    const quarter = 14;
+    const depth = floor * 2;
+    const gross = base + traits + quarter + depth;
+    const penalty = wiped ? -Math.round(gross * 0.5) : 0;
+    const essence = gross + penalty;
+    const balanceBefore = 1180;
+
+    const row = (label, note, value, accent, valueColor) => ({
+      label, note, value, accent,
+      valueColor: valueColor || '#f7f3b7',
+      labelColor: '#f6e8e0',
+      border: '#3e3b65',
+      plate: '#10121c',
+    });
+
+    const ledger = [
+      row('BASE CONVERSION', obols + ' obols at 4 : 1', '+' + base, '#f3a833'),
+      row('CREATURE TRAITS', 'Bladeknight · Oathkeeper · +3 per floor cleared', '+' + traits, '#dab163', '#dab163'),
+      row('QUARTERMASTER', 'town rank 2 · +7% of the purse, rounded up', '+' + quarter, '#6dead6', '#6dead6'),
+      row('DEPTH REACHED', 'floor ' + floor + ' · 2 essence a floor, kept even on a wipe', '+' + depth, '#9de64e', '#9de64e'),
+    ];
+    if (wiped) {
+      ledger.push({
+        label: 'WIPE PENALTY',
+        note: 'the tower keeps half of everything you had not spent',
+        value: penalty,
+        accent: '#ec273f',
+        valueColor: '#ec273f',
+        labelColor: '#ec273f',
+        border: '#94493a',
+        plate: '#2c1e31',
+      });
+    }
+
+    const lostIdx = wiped ? 2 : -1;
+    const bag = this.BAG.map((b, i) => {
+      const lost = i === lostIdx;
+      return {
+        name: b.name,
+        tint: b.tint,
+        dim: lost ? 'grayscale(1) brightness(0.6)' : 'none',
+        strike: lost ? 'line-through' : 'none',
+        nameColor: lost ? '#8c78a5' : '#f6e8e0',
+        tag: lost ? 'LOST' : b.protected ? 'PROTECTED' : 'KEPT',
+        tagColor: lost ? '#ec273f' : b.protected ? '#6dead6' : '#9de64e',
+        border: lost ? '#94493a' : '#3e3b65',
+        plate: lost ? '#2c1e31' : '#10121c',
+      };
+    });
+
+    const party = this.PARTY.map((p, i) => {
+      const dead = wiped;
+      return {
+        name: p.name,
+        tint: p.tint,
+        dim: dead ? 'grayscale(1) brightness(0.7)' : 'none',
+        fate: dead ? (i === 0 ? 'FELLED' : 'FELLED') : 'HOME',
+        fateColor: dead ? '#ec273f' : '#9de64e',
+        nameColor: dead ? '#8c78a5' : '#f6e8e0',
+        frame: dead ? '#2c1e31' : '#5e5b8c',
+        plate: dead ? '#14141f' : '#2c1e31',
+      };
+    });
+
+    return {
+      ledger,
+      bag,
+      party,
+      obols,
+      essence: '+' + essence,
+      rateLine: '4 OBOLS : 1 ESSENCE',
+      outcomeTitle: wiped ? 'PARTY WIPED' : 'CLIMBED OUT',
+      outcomeSub: wiped ? 'FLOOR 13 · 47 MINUTES · NOBODY CAME BACK' : 'FLOOR 15 · 61 MINUTES · ALL THREE STANDING',
+      outcomeColor: wiped ? '#ec273f' : '#9de64e',
+      totalBorder: wiped ? '#94493a' : '#f3a833',
+      totalPlate: wiped ? '#2c1e31' : '#2c1e31',
+      totalColor: wiped ? '#f3a833' : '#f7f3b7',
+      totalLabelColor: wiped ? '#f3a833' : '#f3a833',
+      totalNote: wiped ? gross + ' earned · half taken at the gate' : gross + ' earned · nothing withheld',
+      balanceBefore,
+      balanceAfter: balanceBefore + essence,
+      balanceNote: 'Essence is the only thing that survives a run. Spend it in town on ranks, stock, and hatchery slots.',
+      bagTitle: wiped ? 'THE BAG · ONE ITEM TAKEN' : 'THE BAG · ALL KEPT',
+      bagTitleColor: wiped ? '#ec273f' : '#9de64e',
+      bagSub: wiped ? 'unprotected items are rolled for' : '5 items home',
+      bagBorder: wiped ? '#94493a' : '#2c1e31',
+      lossTitle: wiped ? 'TAKEN AT THE GATE' : 'NOTHING TAKEN',
+      losses: wiped
+        ? [
+            { label: 'ESSENCE', value: penalty, color: '#ec273f', border: '#94493a' },
+            { label: 'ITEM', value: this.BAG[lostIdx].name, color: '#ec273f', border: '#94493a' },
+          ]
+        : [
+            { label: 'ESSENCE', value: '0', color: '#9de64e', border: '#3e6e3e' },
+            { label: 'ITEMS', value: '0', color: '#9de64e', border: '#3e6e3e' },
+          ],
+      noteBorder: wiped ? '#94493a' : '#3e3b65',
+      notePlate: wiped ? '#2c1e31' : '#14141f',
+      noteColor: wiped ? '#ec273f' : '#9de64e',
+      footerLine: (wiped ? 'WIPE · ' : 'ESCAPE · ') + essence + ' ESSENCE BANKED',
+    };
+  }
+}
+</script>
+</body>
+</html>

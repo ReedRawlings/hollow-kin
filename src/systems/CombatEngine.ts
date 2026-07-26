@@ -58,14 +58,19 @@ export function baseDamage(
   return damage;
 }
 
+/** Roll an ability's configured accuracy, respecting the global minimum hit chance. */
+export function rollAbilityHit(ability: Ability): boolean {
+  const hitChance = Math.max(MIN_HIT_CHANCE, ability.accuracy / 100);
+  return Math.random() <= hitChance;
+}
+
 export function calculateDamage(
   attacker: CombatCreature,
   defender: CombatCreature,
   ability: Ability,
 ): { damage: number; isCrit: boolean; missed: boolean } {
   // Check hit — this roll must stay first to preserve the RNG stream.
-  const hitChance = Math.max(MIN_HIT_CHANCE, ability.accuracy / 100);
-  if (Math.random() > hitChance) {
+  if (!rollAbilityHit(ability)) {
     return { damage: 0, isCrit: false, missed: true };
   }
 
@@ -165,6 +170,34 @@ export function applyAbilityEffects(
     }
   }
   return messages;
+}
+
+/** Enemy-targeting abilities are hostile; self and ally abilities are friendly. */
+export function isHostileAbility(ability: Ability): boolean {
+  return ability.targeting === 'single_enemy' || ability.targeting === 'all_enemies';
+}
+
+/**
+ * Resolve a zero-power status, buff, debuff, or heal.
+ *
+ * Hostile abilities roll their configured accuracy. Friendly abilities remain
+ * guaranteed, matching their existing behavior. The scene calls this once per
+ * target, so future area debuffs get an independent hit roll for each target.
+ */
+export function resolveNonDamagingAbility(
+  ability: Ability,
+  user: CombatCreature,
+  target: CombatCreature,
+): { missed: boolean; messages: string[] } {
+  if (isHostileAbility(ability) && !rollAbilityHit(ability)) {
+    return { missed: true, messages: [] };
+  }
+
+  const effectTarget = ability.targeting === 'self' ? user : target;
+  return {
+    missed: false,
+    messages: applyAbilityEffects(ability, user, effectTarget, 0),
+  };
 }
 
 export function tickStatusEffects(creature: CombatCreature): string[] {
