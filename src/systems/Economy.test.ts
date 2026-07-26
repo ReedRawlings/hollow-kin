@@ -1,17 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { obolsForEncounter, convertObolsToEssence, essenceCostForLevel, depthJumpCost, levelFromEssence } from './Economy';
+import { convertObolsToEssence, essenceCostForLevel, depthJumpCost, levelFromEssence } from './Economy';
 
-describe('obolsForEncounter', () => {
-  it('gives the normal-combat weight', () => {
-    expect(obolsForEncounter('normal')).toBe(5);
-  });
-  it('gives the mini-boss weight', () => {
-    expect(obolsForEncounter('mini')).toBe(25);
-  });
-  it('gives the major-boss weight', () => {
-    expect(obolsForEncounter('major')).toBe(75);
-  });
-});
+// obolsForEncounter is unbranching arithmetic over two tunable constants, and the
+// exponent is derived in types.ts rather than asserted here. Nothing to test.
 
 describe('convertObolsToEssence', () => {
   it('converts 100% of leftover on a clean exit at the default rate', () => {

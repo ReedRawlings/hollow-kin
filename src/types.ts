@@ -203,8 +203,11 @@ export const HIGH_CRIT_RATE = 0.15;
 export const MIN_HIT_CHANCE = 0.30;
 
 // --- Essence / Obol economy (placeholders for playtest tuning) ---
+/** Base Obol reward per encounter kind, before depth scaling. */
 export const OBOL_REWARDS = { normal: 5, mini: 25, major: 75 } as const;
 export const OBOL_TO_ESSENCE_RATE = 0.5;
+
+// Obol rewards scale with depth — see OBOL_REWARD_EXPONENT below LEVEL_COST_EXPONENT.
 
 // --- Tower structure ---
 export const TOWER_FLOORS = 30;
@@ -221,6 +224,29 @@ export function bossTierForFloor(floor: number): 'mini' | 'major' {
 export const WIPE_OBOL_PENALTY = 0.5; // fraction of leftover Obols lost on a full wipe
 export const LEVEL_COST_BASE = 10;
 export const LEVEL_COST_EXPONENT = 1.5;
+
+/**
+ * Obol rewards scale with depth: `base * OBOL_REWARD_SCALAR * floor^OBOL_REWARD_EXPONENT`.
+ *
+ * The exponent is NOT a free parameter — it is derived from `LEVEL_COST_EXPONENT`. A creature
+ * that clears floor F is roughly level F, so the marginal cost of one more floor of reach is
+ * ~`LEVEL_COST_BASE * F^LEVEL_COST_EXPONENT`. A run to floor F earns the sum of its floors,
+ * which grows as `F^(OBOL_REWARD_EXPONENT + 1)`. Progression pace holds constant only when
+ * those match, hence:
+ *
+ *     OBOL_REWARD_EXPONENT === LEVEL_COST_EXPONENT - 1
+ *
+ * At 0 — flat rewards, the behaviour before this scaling landed — every floor of progress
+ * costs more runs than the last, floors 1-10 pay exactly what floors 21-30 pay, and the
+ * EV-optimal exit sits around floor 20, making the deepest third of the tower not worth
+ * attempting. **Retune these two constants together, never separately.**
+ *
+ * SCALAR is the independent knob: it sets total game length and has no effect on pace.
+ * At 1.0, floor 1 pays exactly the base reward, so the scaling is purely additive — no
+ * floor pays less than it did before; depth simply pays more. Lower it to lengthen the game.
+ */
+export const OBOL_REWARD_EXPONENT = LEVEL_COST_EXPONENT - 1;
+export const OBOL_REWARD_SCALAR = 1.0;
 export const BREED_CARRYOVER_FRACTION = 0.5; // fraction of parents' avg invested essence that carries to offspring
 
 export function generateId(): string {
