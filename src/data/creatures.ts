@@ -7,6 +7,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['ember', 'spark'],
     resistances: ['Fire'], weaknesses: ['Ice'],
     spriteColor: ARCHETYPE_COLORS.Mecha,
+    naturalTraitPool: ['hp_up', 'mp_up', 'spd_up', 'int_up', 'resist_fire', 'initiative_boost', 'opening_buff'],
   },
   voltarc: {
     id: 'voltarc', name: 'Voltarc', archetype: 'Mecha',
@@ -14,6 +15,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['crackle', 'discharge'],
     resistances: ['Electric'], weaknesses: ['Fighting'],
     spriteColor: ARCHETYPE_COLORS.Mecha,
+    naturalTraitPool: ['mp_up', 'spd_up', 'int_up', 'resist_lightning', 'initiative_boost', 'evasion_up', 'opening_buff'],
   },
   thornvine: {
     id: 'thornvine', name: 'Thornvine', archetype: 'Flora',
@@ -21,6 +23,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['mend', 'gust'],
     resistances: ['Wind'], weaknesses: ['Fire'],
     spriteColor: ARCHETYPE_COLORS.Flora,
+    naturalTraitPool: ['hp_up', 'mp_up', 'wis_up', 'opening_ward', 'resist_status', 'kin_bond'],
   },
   petalward: {
     id: 'petalward', name: 'Petalward', archetype: 'Flora',
@@ -28,6 +31,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['soothe', 'harden'],
     resistances: ['Ice'], weaknesses: ['Fire'],
     spriteColor: ARCHETYPE_COLORS.Flora,
+    naturalTraitPool: ['hp_up', 'def_up', 'wis_up', 'resist_ice', 'opening_ward', 'opening_block', 'resist_status'],
   },
   ironjaw: {
     id: 'ironjaw', name: 'Ironjaw', archetype: 'Fauna',
@@ -35,6 +39,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['thrash', 'slash'],
     resistances: ['Fighting'], weaknesses: ['Ghost'],
     spriteColor: ARCHETYPE_COLORS.Fauna,
+    naturalTraitPool: ['str_up', 'spd_up', 'hp_up', 'resist_physical', 'opening_buff', 'kin_bond'],
   },
   swiftfang: {
     id: 'swiftfang', name: 'Swiftfang', archetype: 'Fauna',
@@ -42,6 +47,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['jab', 'razor_wind'],
     resistances: ['Wind'], weaknesses: ['Ice'],
     spriteColor: ARCHETYPE_COLORS.Fauna,
+    naturalTraitPool: ['str_up', 'spd_up', 'initiative_boost', 'evasion_up', 'opening_buff', 'kin_bond'],
   },
   stoneguard: {
     id: 'stoneguard', name: 'Stoneguard', archetype: 'Rock',
@@ -49,6 +55,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['smash', 'harden'],
     resistances: ['Fire', 'Fighting'], weaknesses: ['Ice', 'Electric'],
     spriteColor: ARCHETYPE_COLORS.Rock,
+    naturalTraitPool: ['hp_up', 'def_up', 'opening_ward', 'opening_block', 'resist_fire', 'resist_physical', 'kin_bond'],
   },
   bouldershell: {
     id: 'bouldershell', name: 'Bouldershell', archetype: 'Rock',
@@ -56,6 +63,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['seismic_slam', 'steel_skin'],
     resistances: ['Fire'], weaknesses: ['Wind'],
     spriteColor: ARCHETYPE_COLORS.Rock,
+    naturalTraitPool: ['hp_up', 'def_up', 'str_up', 'resist_fire', 'opening_ward', 'opening_block'],
   },
   frostwisp: {
     id: 'frostwisp', name: 'Frostwisp', archetype: 'Kami',
@@ -63,6 +71,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['freeze', 'weaken'],
     resistances: ['Ice'], weaknesses: ['Fire'],
     spriteColor: ARCHETYPE_COLORS.Kami,
+    naturalTraitPool: ['wis_up', 'int_up', 'mp_up', 'resist_ice', 'resist_status', 'opening_ward'],
   },
   duskgeist: {
     id: 'duskgeist', name: 'Duskgeist', archetype: 'Spirits',
@@ -70,6 +79,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['shadow_claw', 'spook'],
     resistances: ['Ghost'], weaknesses: ['Fighting'],
     spriteColor: ARCHETYPE_COLORS.Spirits,
+    naturalTraitPool: ['int_up', 'wis_up', 'spd_up', 'evasion_up', 'kin_bond', 'essence_distiller'],
   },
   riceball: {
     id: 'riceball', name: 'Riceball', archetype: 'Food',
@@ -77,6 +87,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['bold', 'smash'],
     resistances: ['Ice'], weaknesses: ['Ghost'],
     spriteColor: ARCHETYPE_COLORS.Food,
+    naturalTraitPool: ['hp_up', 'str_up', 'wis_up', 'resist_ice', 'opening_buff', 'kin_bond'],
   },
   bladeknight: {
     id: 'bladeknight', name: 'Bladeknight', archetype: 'Human',
@@ -84,6 +95,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['frost', 'cross_counter'],
     resistances: ['Fighting'], weaknesses: ['Ghost'],
     spriteColor: ARCHETYPE_COLORS.Human,
+    naturalTraitPool: ['str_up', 'def_up', 'hp_up', 'resist_physical', 'opening_ward', 'kami_slayer'],
   },
   glacikin: {
     id: 'glacikin', name: 'Glacikin', archetype: 'Kami',
@@ -91,6 +103,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['freeze', 'weaken'],
     resistances: ['Ice'], weaknesses: ['Fire'],
     spriteColor: ARCHETYPE_COLORS.Kami,
+    naturalTraitPool: ['wis_up', 'int_up', 'def_up', 'hp_up', 'resist_ice', 'resist_status'],
   },
   mistvane: {
     id: 'mistvane', name: 'Mistvane', archetype: 'Kami',
@@ -98,6 +111,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['chill', 'scold'],
     resistances: ['Ice'], weaknesses: ['Fire'],
     spriteColor: ARCHETYPE_COLORS.Kami,
+    naturalTraitPool: ['wis_up', 'int_up', 'spd_up', 'resist_ice', 'resist_status', 'opening_ward'],
   },
   yukiorb: {
     id: 'yukiorb', name: 'Yukiorb', archetype: 'Kami',
@@ -105,6 +119,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['frost', 'focus'],
     resistances: ['Ice'], weaknesses: ['Fighting'],
     spriteColor: ARCHETYPE_COLORS.Kami,
+    naturalTraitPool: ['wis_up', 'int_up', 'mp_up', 'resist_ice', 'resist_status', 'opening_buff'],
   },
   hoarfang: {
     id: 'hoarfang', name: 'Hoarfang', archetype: 'Kami',
@@ -112,6 +127,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['weaken', 'chill'],
     resistances: ['Ice'], weaknesses: ['Fire'],
     spriteColor: ARCHETYPE_COLORS.Kami,
+    naturalTraitPool: ['wis_up', 'int_up', 'hp_up', 'resist_ice', 'resist_status', 'kin_bond'],
   },
   wraithling: {
     id: 'wraithling', name: 'Wraithling', archetype: 'Spirits',
@@ -119,6 +135,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['shadow_claw', 'spook'],
     resistances: ['Ghost'], weaknesses: ['Fighting'],
     spriteColor: ARCHETYPE_COLORS.Spirits,
+    naturalTraitPool: ['int_up', 'spd_up', 'mp_up', 'evasion_up', 'initiative_boost', 'kin_bond'],
   },
   banewisp: {
     id: 'banewisp', name: 'Banewisp', archetype: 'Spirits',
@@ -126,6 +143,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['phantom', 'weaken'],
     resistances: ['Ghost'], weaknesses: ['Fighting'],
     spriteColor: ARCHETYPE_COLORS.Spirits,
+    naturalTraitPool: ['wis_up', 'int_up', 'mp_up', 'evasion_up', 'resist_status', 'essence_distiller'],
   },
   gravemoth: {
     id: 'gravemoth', name: 'Gravemoth', archetype: 'Spirits',
@@ -133,6 +151,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['spook', 'scold'],
     resistances: ['Ghost'], weaknesses: ['Fighting'],
     spriteColor: ARCHETYPE_COLORS.Spirits,
+    naturalTraitPool: ['int_up', 'spd_up', 'mp_up', 'evasion_up', 'initiative_boost', 'kin_bond'],
   },
   hollowveil: {
     id: 'hollowveil', name: 'Hollowveil', archetype: 'Spirits',
@@ -140,6 +159,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['shadow_claw', 'weaken'],
     resistances: ['Ghost'], weaknesses: ['Fire'],
     spriteColor: ARCHETYPE_COLORS.Spirits,
+    naturalTraitPool: ['wis_up', 'int_up', 'mp_up', 'evasion_up', 'resist_status', 'kin_bond'],
   },
   dumplord: {
     id: 'dumplord', name: 'Dumplord', archetype: 'Food',
@@ -147,6 +167,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['bold', 'thrash'],
     resistances: ['Ice'], weaknesses: ['Ghost'],
     spriteColor: ARCHETYPE_COLORS.Food,
+    naturalTraitPool: ['hp_up', 'str_up', 'def_up', 'resist_ice', 'opening_ward', 'essence_distiller'],
   },
   skewerkin: {
     id: 'skewerkin', name: 'Skewerkin', archetype: 'Food',
@@ -154,6 +175,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['jab', 'bold'],
     resistances: ['Ice'], weaknesses: ['Ghost'],
     spriteColor: ARCHETYPE_COLORS.Food,
+    naturalTraitPool: ['str_up', 'hp_up', 'resist_ice', 'opening_buff', 'def_up', 'kin_bond'],
   },
   brothling: {
     id: 'brothling', name: 'Brothling', archetype: 'Food',
@@ -161,6 +183,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['harden', 'smash'],
     resistances: ['Ice'], weaknesses: ['Ghost'],
     spriteColor: ARCHETYPE_COLORS.Food,
+    naturalTraitPool: ['hp_up', 'wis_up', 'def_up', 'resist_ice', 'opening_ward', 'resist_status'],
   },
   pepperfist: {
     id: 'pepperfist', name: 'Pepperfist', archetype: 'Food',
@@ -168,6 +191,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['focus', 'thrash'],
     resistances: ['Ice'], weaknesses: ['Ghost'],
     spriteColor: ARCHETYPE_COLORS.Food,
+    naturalTraitPool: ['str_up', 'hp_up', 'resist_ice', 'opening_buff', 'kin_bond'],
   },
   frostblade: {
     id: 'frostblade', name: 'Frostblade', archetype: 'Human',
@@ -175,6 +199,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['frost', 'slash'],
     resistances: ['Fighting'], weaknesses: ['Ghost'],
     spriteColor: ARCHETYPE_COLORS.Human,
+    naturalTraitPool: ['str_up', 'def_up', 'hp_up', 'resist_physical', 'opening_buff', 'kami_slayer'],
   },
   duelist: {
     id: 'duelist', name: 'Duelist', archetype: 'Human',
@@ -182,6 +207,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['cross_counter', 'jab'],
     resistances: ['Fighting'], weaknesses: ['Ghost'],
     spriteColor: ARCHETYPE_COLORS.Human,
+    naturalTraitPool: ['str_up', 'spd_up', 'resist_physical', 'opening_buff', 'initiative_boost', 'kami_slayer'],
   },
   icevow: {
     id: 'icevow', name: 'Icevow', archetype: 'Human',
@@ -189,6 +215,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['chill', 'cross_counter'],
     resistances: ['Fighting'], weaknesses: ['Ghost'],
     spriteColor: ARCHETYPE_COLORS.Human,
+    naturalTraitPool: ['hp_up', 'def_up', 'resist_physical', 'opening_ward', 'opening_block', 'resist_status'],
   },
   ronin: {
     id: 'ronin', name: 'Ronin', archetype: 'Human',
@@ -196,6 +223,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['slash', 'freeze'],
     resistances: ['Fighting'], weaknesses: ['Ghost'],
     spriteColor: ARCHETYPE_COLORS.Human,
+    naturalTraitPool: ['str_up', 'spd_up', 'resist_physical', 'opening_buff', 'kami_slayer', 'evasion_up'],
   },
   sparkoid: {
     id: 'sparkoid', name: 'Sparkoid', archetype: 'Mecha',
@@ -203,6 +231,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['spark', 'discharge'],
     resistances: ['Electric'], weaknesses: ['Fighting'],
     spriteColor: ARCHETYPE_COLORS.Mecha,
+    naturalTraitPool: ['spd_up', 'int_up', 'mp_up', 'resist_lightning', 'initiative_boost', 'evasion_up'],
   },
   cindercog: {
     id: 'cindercog', name: 'Cindercog', archetype: 'Mecha',
@@ -210,6 +239,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['ember', 'overdrive'],
     resistances: ['Fire'], weaknesses: ['Ice'],
     spriteColor: ARCHETYPE_COLORS.Mecha,
+    naturalTraitPool: ['spd_up', 'int_up', 'mp_up', 'resist_fire', 'initiative_boost', 'opening_buff'],
   },
   mossgolem: {
     id: 'mossgolem', name: 'Mossgolem', archetype: 'Flora',
@@ -217,6 +247,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['harden', 'soothe'],
     resistances: ['Wind'], weaknesses: ['Fire'],
     spriteColor: ARCHETYPE_COLORS.Flora,
+    naturalTraitPool: ['hp_up', 'def_up', 'wis_up', 'opening_ward', 'resist_status', 'kin_bond'],
   },
   bloomwarden: {
     id: 'bloomwarden', name: 'Bloomwarden', archetype: 'Flora',
@@ -224,6 +255,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['mend', 'bold'],
     resistances: ['Ice'], weaknesses: ['Fire'],
     spriteColor: ARCHETYPE_COLORS.Flora,
+    naturalTraitPool: ['wis_up', 'hp_up', 'mp_up', 'resist_ice', 'resist_status', 'opening_ward'],
   },
   hornback: {
     id: 'hornback', name: 'Hornback', archetype: 'Fauna',
@@ -231,6 +263,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['thrash', 'slash'],
     resistances: ['Fighting'], weaknesses: ['Ghost'],
     spriteColor: ARCHETYPE_COLORS.Fauna,
+    naturalTraitPool: ['str_up', 'spd_up', 'resist_physical', 'opening_buff', 'kin_bond'],
   },
   duskfang: {
     id: 'duskfang', name: 'Duskfang', archetype: 'Fauna',
@@ -238,6 +271,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['jab', 'razor_wind'],
     resistances: ['Wind'], weaknesses: ['Ice'],
     spriteColor: ARCHETYPE_COLORS.Fauna,
+    naturalTraitPool: ['str_up', 'spd_up', 'initiative_boost', 'evasion_up', 'kin_bond'],
   },
   cragback: {
     id: 'cragback', name: 'Cragback', archetype: 'Rock',
@@ -245,6 +279,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['smash', 'steel_skin'],
     resistances: ['Fighting'], weaknesses: ['Ice'],
     spriteColor: ARCHETYPE_COLORS.Rock,
+    naturalTraitPool: ['hp_up', 'def_up', 'str_up', 'resist_physical', 'opening_ward', 'opening_block'],
   },
   granitehide: {
     id: 'granitehide', name: 'Granitehide', archetype: 'Rock',
@@ -252,6 +287,7 @@ export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
     defaultAbilities: ['seismic_slam', 'harden'],
     resistances: ['Fire'], weaknesses: ['Electric'],
     spriteColor: ARCHETYPE_COLORS.Rock,
+    naturalTraitPool: ['hp_up', 'def_up', 'resist_fire', 'opening_ward', 'opening_block', 'kin_bond'],
   },
 };
 

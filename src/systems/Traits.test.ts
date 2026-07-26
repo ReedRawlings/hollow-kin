@@ -5,6 +5,7 @@ import {
 } from './Traits';
 import { STAR_LEVEL_CAPS } from '../types';
 import { TRAIT_LIBRARY } from '../data/traits';
+import { CREATURE_TEMPLATES } from '../data/creatures';
 
 describe('TRAIT_SLOT_LEVELS', () => {
   it('is ordered strictly ascending', () => {
@@ -85,14 +86,28 @@ describe('duplicateSellValue', () => {
   });
 });
 
-describe('canSpeciesTakeTrait', () => {
-  it('is permissive for a real species with no naturalTraitPool defined yet (pre-Task-4 data)', () => {
-    expect(canSpeciesTakeTrait('emberwhelp', 'hp_up')).toBe(true);
-    expect(canSpeciesTakeTrait('emberwhelp', 'essence_distiller')).toBe(true);
+describe('canSpeciesTakeTrait (strict, deny-by-default)', () => {
+  it('allows a real species a trait that is actually in its authored pool', () => {
+    const [speciesId, template] = Object.entries(CREATURE_TEMPLATES)[0];
+    const inPoolTrait = template.naturalTraitPool[0];
+    expect(canSpeciesTakeTrait(speciesId, inPoolTrait)).toBe(true);
   });
 
-  it('is permissive for an entirely unknown species id (missing pool)', () => {
-    expect(canSpeciesTakeTrait('not_a_real_species', 'hp_up')).toBe(true);
+  it('denies a real species a trait that is not in its authored pool, if one exists', () => {
+    const entry = Object.entries(CREATURE_TEMPLATES).find(
+      ([, t]) => t.naturalTraitPool.length < Object.keys(TRAIT_LIBRARY).length,
+    );
+    expect(entry).toBeDefined();
+    const [speciesId, template] = entry!;
+    const outOfPoolTrait = Object.keys(TRAIT_LIBRARY).find(
+      (id) => !template.naturalTraitPool.includes(id),
+    );
+    expect(outOfPoolTrait).toBeDefined();
+    expect(canSpeciesTakeTrait(speciesId, outOfPoolTrait!)).toBe(false);
+  });
+
+  it('denies everything for an entirely unknown species id (missing pool)', () => {
+    expect(canSpeciesTakeTrait('not_a_real_species', 'hp_up')).toBe(false);
   });
 
   it('respects an explicit pool: allows a trait that is in it', () => {
@@ -109,6 +124,61 @@ describe('canSpeciesTakeTrait', () => {
   it('denies everything for a species given an explicit empty pool', () => {
     const templates = { testspecies: { naturalTraitPool: [] as string[] } };
     expect(canSpeciesTakeTrait('testspecies', 'hp_up', templates)).toBe(false);
+  });
+});
+
+describe('naturalTraitPool authoring invariants (CREATURE_TEMPLATES)', () => {
+  const templates = Object.values(CREATURE_TEMPLATES);
+  const libraryIds = Object.keys(TRAIT_LIBRARY);
+
+  it('every species has a non-empty naturalTraitPool', () => {
+    for (const t of templates) {
+      expect(t.naturalTraitPool).toBeDefined();
+      expect(t.naturalTraitPool.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('every pool entry is a known trait id', () => {
+    for (const t of templates) {
+      for (const traitId of t.naturalTraitPool) {
+        expect(libraryIds).toContain(traitId);
+      }
+    }
+  });
+
+  it('no species pool contains the entire trait library', () => {
+    for (const t of templates) {
+      expect(t.naturalTraitPool.length).toBeLessThan(libraryIds.length);
+    }
+  });
+
+  it('no pool contains duplicate trait ids', () => {
+    for (const t of templates) {
+      expect(new Set(t.naturalTraitPool).size).toBe(t.naturalTraitPool.length);
+    }
+  });
+
+  it('essence_distiller is rare — held by a small minority of species', () => {
+    const count = templates.filter((t) => t.naturalTraitPool.includes('essence_distiller')).length;
+    expect(count).toBeGreaterThan(0);
+    expect(count).toBeLessThan(templates.length / 4);
+  });
+
+  it('a resistance trait is only granted to a species that actually resists that damage type (reinforce, not patch)', () => {
+    const resistTraitToDamageType: Record<string, string> = {
+      resist_fire: 'Fire',
+      resist_ice: 'Ice',
+      resist_lightning: 'Electric',
+      resist_physical: 'Fighting',
+    };
+    for (const t of templates) {
+      for (const traitId of t.naturalTraitPool) {
+        const damageType = resistTraitToDamageType[traitId];
+        if (!damageType) continue;
+        expect(t.resistances).toContain(damageType);
+        expect(t.weaknesses).not.toContain(damageType);
+      }
+    }
   });
 });
 

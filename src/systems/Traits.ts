@@ -68,26 +68,22 @@ type TraitPoolSource = Record<string, { naturalTraitPool?: string[] }>;
 /**
  * Whether `speciesId` can be imbued with `traitId`, per its `naturalTraitPool`.
  *
- * `naturalTraitPool` does not exist on any real species template yet — a later task
- * (Task 4) authors it per species. Until that data lands, a species with no pool
- * defined is treated as PERMISSIVE (returns true), so this function is meaningfully
- * testable ahead of that data existing. Once pools are authored, a species found
- * with no explicit pool should likely flip to strict (deny-by-default) — update this
- * comment and behavior when that change is made.
+ * STRICT (deny-by-default): a species with no pool defined, or an entirely unknown
+ * species id, cannot take any trait. A trait must appear in the species' curated
+ * `naturalTraitPool` to be allowed — compatibility is authored per species (Task 4),
+ * never randomly assigned. A strong trait the player cannot use on the creature they
+ * wanted is an intended outcome, not a bug.
  *
  * `templates` defaults to the real creature template table; tests may inject a
- * stand-in map with `naturalTraitPool` populated to exercise the strict path early.
+ * stand-in map to exercise the strict path without touching real species data.
  */
 export function canSpeciesTakeTrait(
   speciesId: string,
   traitId: string,
-  // CreatureTemplate doesn't declare naturalTraitPool yet (Task 4 adds it), so TS's
-  // weak-type check rejects a direct structural match here — cast is safe since the
-  // lookup only ever reads the optional field, never assumes CreatureTemplate's shape.
-  templates: TraitPoolSource = CREATURE_TEMPLATES as unknown as TraitPoolSource,
+  templates: TraitPoolSource = CREATURE_TEMPLATES,
 ): boolean {
   const pool = templates[speciesId]?.naturalTraitPool;
-  if (!pool) return true;
+  if (!pool) return false;
   return pool.includes(traitId);
 }
 

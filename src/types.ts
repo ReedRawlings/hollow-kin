@@ -86,6 +86,8 @@ export interface CreatureTemplate {
   resistances: DamageType[];
   weaknesses: DamageType[];
   spriteColor: number;
+  /** Trait ids this species may be imbued with. Compatibility is curated, never random. */
+  naturalTraitPool: string[];
 }
 
 export interface TraitSlot {

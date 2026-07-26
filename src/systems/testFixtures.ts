@@ -43,6 +43,7 @@ export function makeTestCreature(opts: TestCreatureOpts = {}): CombatCreature {
     resistances: [],
     weaknesses: [],
     spriteColor: 0,
+    naturalTraitPool: [],
   };
   const instance: CreatureInstance = {
     instanceId: `i-${speciesId}`,
@@ -56,6 +57,7 @@ export function makeTestCreature(opts: TestCreatureOpts = {}): CombatCreature {
     abilities: opts.abilities ?? ['basic_attack'],
     traitSlots: [],
     lineage: { parentA: null, parentB: null },
+    statBaseline: { ...s },
     currentStats: s,
     resistances: opts.resistances ?? [],
     weaknesses: opts.weaknesses ?? [],
