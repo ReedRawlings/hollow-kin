@@ -106,6 +106,8 @@ export interface CreatureInstance {
   abilities: (string | null)[];
   traitSlots: TraitSlot[];
   lineage: { parentA: string | null; parentB: string | null };
+  /** Permanent, instance-specific level-1 stat baseline (inherited for offspring). */
+  statBaseline: BaseStats;
   currentStats: BaseStats;
   resistances: DamageType[];
   weaknesses: DamageType[];
