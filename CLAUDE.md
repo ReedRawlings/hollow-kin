@@ -25,7 +25,23 @@ What this means in practice:
 
 ## Design Documents
 
-The project root contains the full game design documentation. **The GDD is the source of truth.** Each section has a corresponding detailed doc:
+The project root contains the game design documentation.
+
+> ### ⚠️ The GDD is NOT the source of truth any more — read this before trusting it
+>
+> `game-design-document.md` was written for a **roguelite creature collector**: runs as the unit of progress, creatures reset, power earned and lost within a descent. **That direction has been abandoned in favour of a permanent progression model** — creatures keep an essence-bought level floor, progress persists across runs, and a run is a harvesting trip rather than a self-contained arc.
+>
+> The GDD has been patched in places to match, but its **framing, emphasis, and much of its unrevised detail still describe the old roguelite game.** Where it disagrees with the essence model, the essence model wins.
+>
+> **Current authorities, in order:**
+> 1. **This file** — for what is actually built and the design rules that bind.
+> 2. `docs/superpowers/specs/2026-07-23-essence-progression-pivot-design.md` — the progression model itself.
+> 3. Later specs in `docs/superpowers/specs/` — each supersedes the older docs on its own subject.
+> 4. The topic docs below — accurate on mechanics they own, stale wherever they lean on run-scoped progression.
+>
+> Treat a roguelite-flavoured claim in any older doc as suspect until checked against the above. **Do not "restore" run-reset behaviour because a doc implies it.**
+
+Each section has a corresponding detailed doc:
 
 | File | Covers |
 |------|--------|
