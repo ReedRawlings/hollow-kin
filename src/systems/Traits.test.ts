@@ -4,8 +4,8 @@ import {
   traitUpgradeCost, duplicateSellValue, canSpeciesTakeTrait, getTrait,
   contestedSlotIndices,
 } from './Traits';
-import { CreatureInstance, STAR_LEVEL_CAPS, TraitSlot } from '../types';
-import { TRAIT_LIBRARY } from '../data/traits';
+import { CreatureInstance, DamageType, STAR_LEVEL_CAPS, TraitSlot } from '../types';
+import { TRAIT_LIBRARY, TraitDefinition } from '../data/traits';
 import { CREATURE_TEMPLATES } from '../data/creatures';
 
 describe('TRAIT_SLOT_LEVELS', () => {
@@ -165,25 +165,37 @@ describe('naturalTraitPool authoring invariants (CREATURE_TEMPLATES)', () => {
     expect(count).toBeLessThan(templates.length / 4);
   });
 
-  it('a resistance trait is only granted to a species that actually resists that damage type (reinforce, not patch)', () => {
+  // The old rule here — "a resistance trait is only granted to a species that already
+  // resists that damage type" (reinforce, never patch) — has been rejected by design.
+  // Pools may now hand out a resistance trait for a type the species does NOT resist,
+  // including one that patches an existing weakness (see the pool-fix report). What
+  // remains true, and worth guarding, is content coverage: every damage type has a
+  // matching resistance trait, and every resistance trait is actually reachable by
+  // some species' pool.
+
+  it('every DamageType has exactly one corresponding resistance trait in TRAIT_LIBRARY', () => {
     // Derived from TRAIT_LIBRARY itself (category === 'resistance' && target) rather than
-    // a hand-rolled list of ids someone remembered to type — so a newly added resistance
-    // trait (e.g. resist_wind) is automatically covered by this invariant, not silently
-    // skipped. resist_status has no `target` (it isn't tied to a damage type) and is
-    // correctly excluded by the `t.target` filter.
-    const resistTraitToDamageType: Record<string, string> = Object.fromEntries(
-      Object.values(TRAIT_LIBRARY)
-        .filter((t) => t.category === 'resistance' && t.target)
-        .map((t) => [t.id, t.target as string]),
-    );
-    expect(Object.keys(resistTraitToDamageType).length).toBeGreaterThan(0);
-    for (const t of templates) {
-      for (const traitId of t.naturalTraitPool) {
-        const damageType = resistTraitToDamageType[traitId];
-        if (!damageType) continue;
-        expect(t.resistances).toContain(damageType);
-        expect(t.weaknesses).not.toContain(damageType);
-      }
+    // a hand-rolled list, so a newly added DamageType with no matching trait (a content
+    // gap, like the pre-fix Wind/Ghost gap) fails this test instead of silently shipping.
+    const resistanceTraitsByDamageType: Record<string, TraitDefinition[]> = {};
+    for (const t of Object.values(TRAIT_LIBRARY)) {
+      if (t.category !== 'resistance' || !t.target) continue;
+      (resistanceTraitsByDamageType[t.target] ??= []).push(t);
+    }
+    const allDamageTypes: DamageType[] = ['Fighting', 'Electric', 'Wind', 'Fire', 'Ice', 'Ghost'];
+    for (const damageType of allDamageTypes) {
+      expect(resistanceTraitsByDamageType[damageType]?.length).toBe(1);
+    }
+  });
+
+  it('every resistance trait in TRAIT_LIBRARY appears in at least one species pool', () => {
+    const resistanceTraitIds = Object.values(TRAIT_LIBRARY)
+      .filter((t) => t.category === 'resistance')
+      .map((t) => t.id);
+    expect(resistanceTraitIds.length).toBeGreaterThan(0);
+    for (const traitId of resistanceTraitIds) {
+      const usedSomewhere = templates.some((t) => t.naturalTraitPool.includes(traitId));
+      expect(usedSomewhere).toBe(true);
     }
   });
 });

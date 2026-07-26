@@ -131,6 +131,18 @@ export const TRAIT_LIBRARY: Record<string, TraitDefinition> = {
     magnitudes: [0.1, 0.2, 0.3, 0.4],
     target: 'Fighting',
   },
+  resist_wind: {
+    id: 'resist_wind', name: 'Resist Wind', category: 'resistance',
+    description: 'Reduces incoming Wind damage.',
+    magnitudes: [0.1, 0.2, 0.3, 0.4],
+    target: 'Wind',
+  },
+  resist_ghost: {
+    id: 'resist_ghost', name: 'Resist Ghost', category: 'resistance',
+    description: 'Reduces incoming Ghost damage.',
+    magnitudes: [0.1, 0.2, 0.3, 0.4],
+    target: 'Ghost',
+  },
   resist_status: {
     id: 'resist_status', name: 'Resist Status', category: 'resistance',
     description: 'Reduces the chance of debuffs/status landing on this creature.',
