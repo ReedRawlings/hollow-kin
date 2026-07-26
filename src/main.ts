@@ -15,11 +15,38 @@ import { PostCombatScene } from './scenes/PostCombatScene';
 import { gameState } from './managers/GameState';
 
 // Fix blurry text on HiDPI displays.
-// Phaser Text renders to an internal canvas. We inject `resolution: dpr` into the
-// style object BEFORE construction so the internal canvas is sized correctly from
-// the start. Patching after construction (setResolution) is too late — the first
-// render already happened at 1x.
+const GAME_WIDTH = 960;
+const GAME_HEIGHT = 640;
+
+/**
+ * Pixel-perfect scaling.
+ *
+ * The requirement for pixel art is that one game pixel maps onto a whole number of
+ * physical device pixels. Phaser's own pixel-art guide puts it plainly: "non-integer
+ * scale will produce non-integer pixel positions."
+ *
+ * `Scale.FIT` breaks that — it picks whatever fraction fills the window. Measured on
+ * a 1456x827 viewport at dpr 2 it produced a CSS size of 1252.5x835 and **2.609375
+ * device pixels per game pixel**, which smears every glyph edge regardless of what
+ * font size is asked for.
+ *
+ * So instead of letting the window decide, pick the largest INTEGER number of device
+ * pixels per game pixel that still fits, and derive the CSS zoom from it. Costs some
+ * letterboxing; buys an exact pixel grid.
+ */
 const dpr = window.devicePixelRatio || 1;
+
+function integerDeviceScale(): number {
+  const availableDeviceW = window.innerWidth * dpr;
+  const availableDeviceH = window.innerHeight * dpr;
+  return Math.max(1, Math.floor(Math.min(
+    availableDeviceW / GAME_WIDTH,
+    availableDeviceH / GAME_HEIGHT,
+  )));
+}
+
+/** Whole device pixels per game pixel. The number that must stay an integer. */
+const DEVICE_SCALE = integerDeviceScale();
 
 /**
  * Both UI faces are 8px-grid bitmap fonts — Press Start 2P is documented as
@@ -46,9 +73,11 @@ const origTextFactory = Phaser.GameObjects.GameObjectFactory.prototype.text;
   x: number, y: number, text: string | string[], style?: any
 ) {
   const s = { ...(style ?? {}) };
-  // Bitmap glyphs must land on whole device pixels, so draw at DPR and let the
-  // browser map 1 font pixel onto an integer number of screen pixels.
-  if (dpr > 1) s.resolution = dpr;
+  // Rasterize each Text at exactly the final device-pixel density, so an 8px glyph
+  // drawn at DEVICE_SCALE 2 is rasterized at 16px and lands 1:1 on device pixels —
+  // no resampling at any stage. Using `dpr` here instead would only be correct when
+  // DEVICE_SCALE happens to equal dpr.
+  if (DEVICE_SCALE > 1) s.resolution = DEVICE_SCALE;
   if (s.fontFamily === 'monospace' || s.fontFamily === undefined) {
     s.fontFamily = 'Silkscreen, monospace';
   }
@@ -70,7 +99,12 @@ const config: Phaser.Types.Core.GameConfig = {
     pixelArt: true,
   },
   scale: {
-    mode: Phaser.Scale.FIT,
+    // NONE, not FIT — FIT scales by a fraction and destroys the pixel grid.
+    // zoom is the CSS multiplier that yields exactly DEVICE_SCALE device pixels
+    // per game pixel (e.g. DEVICE_SCALE 2 at dpr 2 → zoom 1 → 960x640 CSS → 1920x1280
+    // device). Always an exact ratio of two integers, never a rounded fraction.
+    mode: Phaser.Scale.NONE,
+    zoom: DEVICE_SCALE / dpr,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
 };
@@ -87,6 +121,18 @@ Promise.all([
   // to decode or is unavailable in an older browser.
 }).then(() => {
   const game = new Phaser.Game(config);
+
+  // DEVICE_SCALE is chosen once from the window size at boot, so a resize (or dragging
+  // the window to a monitor with a different dpr) would otherwise leave the game at a
+  // stale zoom — too small, or overflowing. Recompute and re-apply, but only when the
+  // integer actually changes; setZoom triggers a full canvas resize.
+  let appliedScale = DEVICE_SCALE;
+  window.addEventListener('resize', () => {
+    const next = integerDeviceScale();
+    if (next === appliedScale) return;
+    appliedScale = next;
+    game.scale.setZoom(next / dpr);
+  });
 
   // Lightweight integration hooks used by the screenshot/playtest loop.
   (window as any).render_game_to_text = () => {
