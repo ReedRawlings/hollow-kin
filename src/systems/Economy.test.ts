@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { convertObolsToEssence, essenceCostForLevel, depthJumpCost, levelFromEssence } from './Economy';
+import { convertObolsToEssence, essenceCostForLevel, depthJumpCost, depthUnlockCost, depthRunFee, levelFromEssence } from './Economy';
+import { DEPTH_UNLOCK_COST_PER_FLOOR, DEPTH_RUN_FEE_PER_FLOOR } from '../types';
 
 // obolsForEncounter is unbranching arithmetic over two tunable constants, and the
 // exponent is derived in types.ts rather than asserted here. Nothing to test.
@@ -70,5 +71,42 @@ describe('levelFromEssence', () => {
   it('never exceeds the level cap (invested is only what was spent to reach the cap)', () => {
     // cap 3: cost(1)=10, cost(2)=28 -> invested 38 reaches level 3, stops even with essence to spare
     expect(levelFromEssence(100000, 3)).toEqual({ level: 3, invested: 38 });
+  });
+});
+
+describe('depth costs', () => {
+  it('are both free at floor 1', () => {
+    expect(depthUnlockCost(1)).toBe(0);
+    expect(depthRunFee(1)).toBe(0);
+  });
+
+  it('never go negative for a nonsensical floor', () => {
+    expect(depthUnlockCost(0)).toBe(0);
+    expect(depthRunFee(0)).toBe(0);
+  });
+
+  it('both rise with depth', () => {
+    expect(depthUnlockCost(11)).toBeGreaterThan(depthUnlockCost(6));
+    expect(depthRunFee(11)).toBeGreaterThan(depthRunFee(6));
+  });
+
+  it('charges far more to unlock a floor than to depart from it', () => {
+    // The split's whole point: a large one-time gate, a small recurring fee.
+    for (const floor of [6, 11, 16, 21, 26]) {
+      expect(depthUnlockCost(floor)).toBeGreaterThan(depthRunFee(floor));
+    }
+  });
+
+  it('keeps the per-run fee below the old flat per-run cost at every depth', () => {
+    // The old model charged (floor - 1) * 15 every single run. The split is only
+    // an improvement for the player if the recurring part actually got cheaper.
+    for (const floor of [6, 11, 16, 21, 26]) {
+      expect(depthRunFee(floor)).toBeLessThan((floor - 1) * 15);
+    }
+  });
+
+  it('derives both from their constants, so retuning a constant retunes the curve', () => {
+    expect(depthUnlockCost(6)).toBe(5 * DEPTH_UNLOCK_COST_PER_FLOOR);
+    expect(depthRunFee(6)).toBe(5 * DEPTH_RUN_FEE_PER_FLOOR);
   });
 });
