@@ -18,7 +18,21 @@ export interface TraitDefinition {
   description: string;
   /** Effect magnitude per trait level, index 0 = L1 … index 3 = L4. */
   magnitudes: [number, number, number, number];
-  /** For 'stat' traits, which stat it raises. For 'resistance', the DamageType resisted. */
+  /**
+   * What the effect points at. The domain depends on `category` — it is typed as a
+   * plain string because those domains are unrelated, so nothing enforces the pairing.
+   * Read this table before consuming `target`:
+   *
+   * | category       | `target` is                          | example   |
+   * |----------------|--------------------------------------|-----------|
+   * | `stat`         | a `BaseStats` key                    | `'str'`   |
+   * | `battle_start` | a `BaseStats` key (the stat buffed)  | `'str'`   |
+   * | `resistance`   | a `DamageType`                       | `'Fire'`  |
+   * | `type`         | an `Archetype`                       | `'Kami'`  |
+   * | others         | omitted — the effect has no operand  | —         |
+   *
+   * Omitted where the effect needs no operand (e.g. `resist_status`, `evasion_up`).
+   */
   target?: string;
 }
 
