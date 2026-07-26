@@ -541,4 +541,63 @@ describe('save v3 -> v4 migration', () => {
     expect(gameState.loadFromLocalStorage()).toBe(true);
     expect(gameState.unlockedStartFloors()).toEqual([1]);
   });
+
+  it('resets a v3 save\'s selectedStartFloor to 1 while still granting the earned unlocks', () => {
+    // v3's selectedStartFloor: 11 was chosen under the old rules (auto-unlock + a
+    // different fee formula). It must not survive the migration verbatim, but the
+    // unlocked-floor grant (tested above) must still happen.
+    // Poison the in-memory field to something other than 1 first: gameState is a
+    // singleton and beforeEach happens to already leave it at 1, so without this the
+    // assertion below would pass by coincidence even if load() stopped touching the
+    // field entirely — it must be load() actively normalizing it, not an accident of
+    // prior state.
+    gameState.selectedStartFloor = 999;
+    localStorage.setItem('hollow_kin_save', JSON.stringify({
+      version: 3,
+      essence: 500,
+      deepestBreakCleared: 10,
+      selectedStartFloor: 11,
+      hasCompletedFirstRun: true,
+      creatureBox: [], seenSpecies: [], battleSpeed: 1,
+    }));
+    expect(gameState.loadFromLocalStorage()).toBe(true);
+    expect(gameState.selectedStartFloor).toBe(1);
+    expect(gameState.unlockedStartFloors()).toEqual([1, 6, 11]);
+  });
+
+  it('regression: a v3 save with low Essence no longer crashes resolveRunStartFloor on load', () => {
+    // Before the fix, selectedStartFloor: 11 carried over verbatim. A returning player
+    // whose Essence didn't cover the new (floor-1)*5 fee for floor 11 would hit an
+    // uncaught throw the moment RunScene.init() called resolveRunStartFloor() — no dev
+    // tools or manual state poking required, just an ordinary low-Essence returning player.
+    // Poisoned for the same reason as above: gameState is a singleton and beforeEach
+    // already leaves selectedStartFloor at 1, so this write is what makes the assertions
+    // below actually exercise load()'s migration logic instead of passing by coincidence.
+    gameState.selectedStartFloor = 999;
+    localStorage.setItem('hollow_kin_save', JSON.stringify({
+      version: 3,
+      essence: 1, // far below the fee for floor 11 under the new formula
+      deepestBreakCleared: 10,
+      selectedStartFloor: 11,
+      hasCompletedFirstRun: true,
+      creatureBox: [], seenSpecies: [], battleSpeed: 1,
+    }));
+    expect(gameState.loadFromLocalStorage()).toBe(true);
+    expect(() => gameState.resolveRunStartFloor()).not.toThrow();
+    expect(gameState.resolveRunStartFloor()).toBe(1);
+  });
+
+  it('preserves a v4 save\'s selectedStartFloor as-is (migration reset does not apply)', () => {
+    // A v4 save's selectedStartFloor is the player's own current, live choice and must
+    // not be clobbered — the reset is a migration-only decision for v3 saves.
+    gameState.selectedStartFloor = 999; // poison, see above
+    localStorage.setItem('hollow_kin_save', JSON.stringify({
+      version: 4, essence: 10_000, deepestBreakCleared: 10,
+      selectedStartFloor: 6, hasCompletedFirstRun: true,
+      creatureBox: [], seenSpecies: [], battleSpeed: 1,
+      defaultParty: [], unlockedFloors: [6],
+    }));
+    expect(gameState.loadFromLocalStorage()).toBe(true);
+    expect(gameState.selectedStartFloor).toBe(6);
+  });
 });

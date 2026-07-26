@@ -266,15 +266,20 @@ class GameStateManager {
       // Essence: new field, else migrate old townResources, else 0
       this.essence = data.essence ?? data.townResources ?? 0;
       this.deepestBreakCleared = data.deepestBreakCleared ?? 0;
-      this.selectedStartFloor = data.selectedStartFloor ?? 1;
       this.hasCompletedFirstRun = data.hasCompletedFirstRun ?? false;
       // v3 additions — absent on v2 saves, so default safely.
       this.seenSpecies = new Set<string>(data.seenSpecies ?? []);
       this.battleSpeed = (data.battleSpeed ?? 1) as BattleSpeed;
       // v4 additions.
+      // `defaultParty` has no old-semantics value to preserve when absent — there was
+      // nothing like it pre-v4 — so a plain `?? []` is correct as-is. Unlike
+      // `unlockedFloors` below, presence-checking here would buy nothing; don't "fix"
+      // this into an Array.isArray check.
       this.defaultParty = data.defaultParty ?? [];
       if (Array.isArray(data.unlockedFloors)) {
         this.unlockedFloors = [...data.unlockedFloors];
+        // v4 save: this is the player's own current choice — preserve it verbatim.
+        this.selectedStartFloor = data.selectedStartFloor ?? 1;
       } else {
         // v3 save: cleared breaks already granted deep starts under the old rules.
         // Grant them outright so nobody is asked to re-buy depth they earned.
@@ -284,6 +289,17 @@ class GameStateManager {
           granted.push(f + 1);
         }
         this.unlockedFloors = granted;
+        // A v3 save's selectedStartFloor was chosen under the old rules: a different
+        // per-run fee formula ((floor-1)*15 vs the new (floor-1)*5) and floors that
+        // auto-unlocked on clearing a break rather than being purchased. That value is
+        // not meaningful under the new contract, so we don't carry it forward — this is
+        // true independent of the fact that a stale deep value here would otherwise reach
+        // resolveRunStartFloor()'s throw the moment an ordinary returning player's Essence
+        // falls short of the new fee. Declining to carry forward a *migrated* setting whose
+        // meaning changed is not the same as substituting the player's live choice at
+        // departure time, which remains forbidden — resolveRunStartFloor() keeps throwing
+        // for a v4 save's genuinely unaffordable/unowned selection.
+        this.selectedStartFloor = 1;
       }
       this.creatureBox = (data.creatureBox ?? []).map((c: any) => {
         const { longevity, ...rest } = c; // drop longevity if present
