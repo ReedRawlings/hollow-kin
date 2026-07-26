@@ -457,7 +457,7 @@ export class CombatScene extends Phaser.Scene {
       const obolKind = this.encounter.type === 'boss'
         ? (this.encounter.bossTier ?? 'mini')
         : 'normal';
-      const obolGain = obolsForEncounter(obolKind);
+      const obolGain = obolsForEncounter(obolKind, this.encounter.floor);
       run.obols += obolGain;
 
       if (this.encounter.type === 'boss') {

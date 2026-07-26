@@ -1,11 +1,21 @@
 import {
   OBOL_REWARDS, OBOL_TO_ESSENCE_RATE, WIPE_OBOL_PENALTY,
   LEVEL_COST_BASE, LEVEL_COST_EXPONENT,
+  OBOL_REWARD_EXPONENT, OBOL_REWARD_SCALAR,
 } from '../types';
 
-/** Obols awarded for clearing one combat encounter. */
-export function obolsForEncounter(kind: 'normal' | 'mini' | 'major'): number {
-  return OBOL_REWARDS[kind];
+/**
+ * Obols awarded for clearing one combat encounter on `floor`.
+ *
+ * Rewards scale with depth as `base * SCALAR * floor^EXPONENT`. The exponent is derived
+ * from the level cost curve so progression pace holds with depth — see the comment on
+ * `OBOL_REWARD_EXPONENT` in types.ts before changing either constant.
+ *
+ * Floor 1 is the anchor: at SCALAR 1.0 it pays exactly the base reward.
+ */
+export function obolsForEncounter(kind: 'normal' | 'mini' | 'major', floor: number): number {
+  const scaled = OBOL_REWARDS[kind] * OBOL_REWARD_SCALAR * Math.pow(Math.max(1, floor), OBOL_REWARD_EXPONENT);
+  return Math.max(1, Math.round(scaled));
 }
 
 /**
