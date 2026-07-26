@@ -112,6 +112,11 @@ src/
 > **Essence pivot is implemented (Phases 1–4a merged).** Progression is permanent and essence-driven in the code, not just the docs. Full design: `docs/superpowers/specs/2026-07-23-essence-progression-pivot-design.md`.
 
 - **Two-tier currency: Obols → Essence.** Obols are the in-run token earned from fights, spent during the descent on heals/revives/capture/shops. On leaving the tower, **leftover Obols convert to Essence** (leftover-only; conversion rate boostable by traits/upgrades/depth). Essence is the permanent currency, spent on levels/traits/marks/depth-jumps/backpack. Essence is the only permanent store of value; Obols never persist. Plasm is removed. **A full wipe loses 50% of leftover Obols; the other 50% still converts** (a deliberate exit/win converts 100%).
+- **A wipe costs exactly ONE thing, at random — never the whole inventory.** This is the rule most likely to be got wrong from intuition, in both directions:
+  - **Not "you lose everything."** The genre default is that death empties your bags. It does not here. A wipe takes one item from unprotected inventory and nothing else.
+  - **Not "captured creatures are safe."** They ride in inventory slots like any other carried thing, so a captured creature in an *unprotected* slot is a candidate for that single random loss. Only the **guaranteed inventory space** protects a capture.
+  - **The three creatures you entered the tower with can never be lost**, under any circumstance. That is absolute and separate from inventory entirely.
+  - This is what keeps capture a real gamble: catching something deep with no guaranteed space left means carrying it home is a risk you chose.
 - Creatures keep a **permanent essence-driven level floor** between runs. Temporary in-run levels vanish at run end (Model A). Do NOT hard-code a level-1 reset.
 - **No archetype-level type chart.** Resistances/weaknesses are per-creature.
 - Stars are the **level ceiling** for now (essence fills toward it); breeding still raises stars. Do NOT hard-couple to stars — removing them entirely (essence owns the cap) is the favored future direction.

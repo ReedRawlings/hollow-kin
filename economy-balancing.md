@@ -34,7 +34,7 @@ Obols can be spent **right now** to survive the descent (heals, revives, capture
 
 * **Obols never persist.** They are a run-local resource. What you don't spend converts to Essence on exit; what you do spend is simply gone.
 * **Essence is permanent and non-refundable.** Once spent on a pet (a permanent level, trait, or bound mark), it is locked to that pet — it cannot be reclaimed for a future pet.
-* A **full wipe loses 50% of leftover Obols** — only half converts to Essence if the run ends in a wipe rather than a chosen exit (a deliberate exit — including fleeing the tower via the **FLEE TOWER** button — or a win converts 100%, and captured creatures are kept; only an all-party wipe loses 50% and forfeits inventory). The 50% figure is a placeholder push-your-luck lever, tunable in playtest.
+* A **full wipe loses 50% of leftover Obols** — only half converts to Essence if the run ends in a wipe rather than a chosen exit (a deliberate exit — including fleeing the tower via the **FLEE TOWER** button — or a win converts 100%). On a wipe the player also loses **exactly one thing at random from unprotected inventory** — **not the whole inventory**. That one thing may be a consumable, an item, or a **captured creature**; only the guaranteed inventory space protects against it, and the three creatures the player entered with are never at risk. The 50% figure and the one-loss rule are placeholder push-your-luck levers, tunable in playtest.
 
 > **Resolved:** the earlier single-shared-pool model (one essence pool spent both in-run and permanently) was rejected as too punishing. The two-tier Obols→Essence model with leftover-only conversion replaces it.
 
@@ -185,7 +185,12 @@ The Quartermaster inherits the Leathersmith's old job — backpack/inventory cap
 * The player's inventory (backpack) has limited slots, upgraded via the **Quartermaster** with essence
 * The backpack holds items to use on the descent; more capacity means more flexibility per run
 * Banked Essence carried back to town is never at risk — it is committed only when spent
-* This creates meaningful risk/reward decisions on the descent: spend Obols on survival to push deeper for more Obols, or hoard them and convert on exit — remembering a full wipe loses half your leftover Obols
+* **A wipe costs exactly one thing at random from unprotected inventory — never the whole backpack.** Everything else carried comes home. Losing a full backpack would make carrying anything valuable punishing enough that players hoard in town and descend empty, defeating the point of having one. One loss is a sting, not a catastrophe.
+* **Captured creatures are eligible for that loss.** They occupy inventory slots, so a capture sitting in an unprotected slot can be the thing that is taken. This is the tension that makes capture a decision rather than free value — the deeper you catch, the more you are gambling on getting it home.
+* **The guaranteed inventory space is the hedge.** Anything in it survives a wipe, which is what makes Quartermaster capacity upgrades worth Essence: they buy certainty, not just room.
+* **The three creatures the player entered with are never at risk**, regardless of inventory state.
+* The *count* is fixed at one; the selection rule among unprotected contents is random.
+* This creates meaningful risk/reward decisions on the descent: spend Obols on survival to push deeper for more Obols, or hoard them and convert on exit — remembering a full wipe loses half your leftover Obols and one item
 
 ---
 
@@ -210,6 +215,8 @@ Key variables that can be tuned during playtesting:
 * Exact Obol earn weights, the base conversion rate, and how the three interact with the level cost curve to hit the 2–3-levels-per-strong-run target
 * How much traits / Quartermaster upgrades / depth should each boost the conversion rate
 * Whether the wipe penalty should stay at 50%, or be higher/lower
+* How large the **guaranteed inventory space** is at baseline, and how much Quartermaster capacity adds — this is the dial that sets how safe capturing feels
+* Whether a captured creature should be weighted differently from an item when the random loss is rolled, or treated as just another slot
 * Whether in-run temporary leveling (Model A) survives, or we fall back to permanent-only levels (Model B)
 * Whether stars survive as the level cap (Model A) or get removed so essence owns the cap directly (Model C)
 * How much invested essence/levels carry over to offspring on breeding

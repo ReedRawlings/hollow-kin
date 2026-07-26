@@ -328,9 +328,9 @@ Eight archetypes define a creature's general identity, combat role, and default 
 * \* Capture is an in-run Obol spend — it competes with hoarding Obols for conversion to permanent Essence (spend-vs-bank)  
 * \* Capture probability is based on two factors: Obols spent on the attempt and the target creature's current HP — more Obols and lower HP means a higher capture chance  
 * \* Captured creatures are held in the item inventory during the run, forcing resource constraints  
-* \* Captured creatures can substitute into the active battle party mid-run — when subbed in, the replaced creature moves to inventory and becomes subject to inventory loss on death  
-* \* The three active battle creatures are always protected from loss  
-* \* If the player dies, anything in inventory not in a safe slot is lost, including captured creatures  
+* \* Captured creatures can substitute into the active battle party mid-run — when subbed in, the replaced creature moves to inventory and becomes eligible for wipe loss unless it occupies guaranteed space  
+* \* **The three creatures you entered the tower with can never be lost**, under any circumstance  
+* \* **Captured creatures held in ordinary inventory slots CAN be lost on a wipe.** They are protected only while occupying the **guaranteed inventory space**. A creature you caught and left in an unprotected slot is a candidate for the wipe's random loss like any other carried thing  
 * \* Upon successfully leaving the tower, captured creatures move to the Creature Box if space is available
 
 ## Run Failure
@@ -339,9 +339,15 @@ Eight archetypes define a creature's general identity, combat role, and default 
 
 \* The player returns to town — active battle creatures are always safe and return to the Creature Box
 
-\* Anything in inventory not in a safe slot is lost: captured creatures, consumables, and items
+\* The three creatures you entered with always return to the Creature Box — they are never at risk
 
 \* **Obols on a wipe:** a full wipe loses **50%** of leftover Obols — the other 50% still converts to Essence. Winning or exiting deliberately converts **100%**. This keeps "push deeper vs. bank now" a real push-your-luck gamble without wiping out an entire run's gains. (Essence already spent is always safe.)
+
+\* **Losses on a wipe:** a full wipe costs **exactly one thing, chosen at random** from unprotected inventory — **never the entire inventory**. That one thing may be a consumable, an item, **or a captured creature**, since captured creatures ride in inventory slots like anything else.
+
+\* **What is safe:** the three creatures you entered the tower with, always. Anything occupying the **guaranteed inventory space**, always. Everything else in the backpack is eligible for the single random loss.
+
+\* This is what makes capture a live gamble rather than free value: catching something deep and having no guaranteed space left means carrying it home is a risk you chose. Losing the whole backpack would push players to descend empty rather than risk anything worth carrying; losing exactly one thing keeps the sting real without making the backpack a liability.
 
 ---
 
