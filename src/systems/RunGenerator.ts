@@ -90,5 +90,22 @@ export function generatePickNextChoices(encounters: Encounter[], currentIndex: n
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-  return shuffled.slice(0, count);
+
+  // Two shops offered side by side read as a duplicate even though they are
+  // distinct encounters, so a non-combat type may appear at most once per offer.
+  // Combat may repeat — those differ by their enemies.
+  const picked: Encounter[] = [];
+  const usedNonCombat = new Set<EncounterType>();
+  for (const e of shuffled) {
+    if (picked.length >= count) break;
+    if (e.type !== 'combat') {
+      if (usedNonCombat.has(e.type)) continue;
+      usedNonCombat.add(e.type);
+    }
+    picked.push(e);
+  }
+
+  // Deduping can starve the offer (e.g. every remaining encounter is a shop).
+  // One real choice beats two identical-looking ones, so accept the short list.
+  return picked;
 }

@@ -125,4 +125,34 @@ describe('generatePickNextChoices', () => {
     expect(forcedBossFloors).toEqual([5, 10, 15, 20, 25, 30]);
     expect(lastFloor).toBe(30);
   });
+
+  it('never offers the same non-combat encounter type twice in one choice set', () => {
+    // Two MARKETs side by side read as a duplicate even though they are distinct
+    // encounters. Combat may repeat — those differ by their enemies.
+    const d = generateDescent();
+    for (let seed = 0; seed < 300; seed++) {
+      for (let idx = -1; idx < d.length - 1; idx++) {
+        const choices = generatePickNextChoices(d, idx);
+        const nonCombat = choices.filter(c => c.type !== 'combat').map(c => c.type);
+        expect(new Set(nonCombat).size).toBe(nonCombat.length);
+      }
+    }
+  });
+
+  it('still offers a real choice most of the time after deduping', () => {
+    // Deduping can starve an offer down to one entry, but that should be the
+    // exception — if it were common the pick-next decision would stop existing.
+    const d = generateDescent();
+    let multi = 0;
+    let offers = 0;
+    for (let idx = 0; idx < d.length - 1; idx++) {
+      const choices = generatePickNextChoices(d, idx);
+      if (choices.length === 0) continue;
+      const forcedBoss = choices.length === 1 && choices[0].type === 'boss';
+      if (forcedBoss) continue;
+      offers++;
+      if (choices.length > 1) multi++;
+    }
+    expect(multi).toBeGreaterThan(offers / 2);
+  });
 });

@@ -161,8 +161,21 @@ export class RunScene extends Phaser.Scene {
       align: 'center', wordWrap: { width: w - 40 },
     }).setOrigin(0.5);
     bg.setInteractive({ useHandCursor: true });
-    bg.on('pointerover', () => { if (this.selected !== index) { this.selected = index; this.draw(); } });
-    bg.on('pointerdown', () => { this.selected = index; this.commitSelected(); });
+    // The flee modal and the run-end screen draw over these cards, but the cards stay
+    // interactive underneath. Without these guards a click that reaches a card while the
+    // modal is open commits the encounter instead — which looks exactly like "flee did
+    // nothing and put me back on the map". `pointerover` is guarded too: it calls draw(),
+    // which destroys and rebuilds every object in the scene, including the modal button
+    // the player is currently reaching for.
+    bg.on('pointerover', () => {
+      if (this.confirmingFlee || this.ending) return;
+      if (this.selected !== index) { this.selected = index; this.draw(); }
+    });
+    bg.on('pointerdown', () => {
+      if (this.confirmingFlee || this.ending) return;
+      this.selected = index;
+      this.commitSelected();
+    });
   }
 
   private offerMeta(e: Encounter): { name: string; glyph: string; color: number; line: string } {
@@ -191,8 +204,10 @@ export class RunScene extends Phaser.Scene {
   }
 
   private commitSelected(): void {
+    // `confirmingFlee` matters as much as `ending`: while the leave-the-tower modal is
+    // open, entering a room is never what the player meant.
     const encounter = gameState.currentRun?.choices[this.selected];
-    if (!encounter || this.ending) return;
+    if (!encounter || this.ending || this.confirmingFlee) return;
     this.selectEncounter(encounter);
   }
 
