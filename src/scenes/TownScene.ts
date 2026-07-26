@@ -55,11 +55,14 @@ export class TownScene extends Phaser.Scene {
 
     // Vendors (row 1)
     const vendorY = 430;
-    this.createButton(cx - 100, vendorY, 'LEVELER', '#4488aa', () => {
+    this.createButton(cx - 190, vendorY, 'LEVELER', '#4488aa', () => {
       this.scene.start('LevelerScene');
     });
-    this.createButton(cx + 100, vendorY, 'GATEKEEPER', '#aa8844', () => {
+    this.createButton(cx, vendorY, 'GATEKEEPER', '#aa8844', () => {
       this.scene.start('GatekeeperScene');
+    });
+    this.createButton(cx + 190, vendorY, 'MONSTERPEDIA', '#6666aa', () => {
+      this.scene.start('BestiaryScene');
     });
 
     // Run / breed / new game (row 2)
