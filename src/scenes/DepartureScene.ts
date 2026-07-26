@@ -3,155 +3,117 @@ import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
 import { depthRunFee } from '../systems/Economy';
 import { resolvePartyStatus } from '../systems/PartyStatus';
+import {
+  UI, BODY_FONT, DISPLAY_FONT, archetypeColor, button, footer, header, panel,
+  screenFrame, spritePlate, stars, backButton,
+} from '../ui/Theme';
 
 export class DepartureScene extends Phaser.Scene {
-  private tracked: Phaser.GameObjects.GameObject[] = [];
-
   constructor() {
     super({ key: 'DepartureScene' });
   }
 
   create(): void {
-    this.tracked = [];
     this.draw();
-  }
-
-  private track<T extends Phaser.GameObjects.GameObject>(obj: T): T {
-    this.tracked.push(obj);
-    return obj;
-  }
-
-  private destroyTracked(): void {
-    for (const o of this.tracked) o.destroy();
-    this.tracked = [];
+    this.input.keyboard?.on('keydown-ENTER', () => this.depart());
+    this.input.keyboard?.on('keydown-ESC', () => this.scene.start('TownScene'));
+    this.input.keyboard?.on('keydown-LEFT', () => this.shiftFloor(-1));
+    this.input.keyboard?.on('keydown-RIGHT', () => this.shiftFloor(1));
   }
 
   private draw(): void {
-    this.destroyTracked();
-    const cx = this.cameras.main.centerX;
-
-    this.track(this.add.rectangle(480, 320, 960, 640, 0x1a1a2e));
-    this.track(this.add.text(cx, 40, 'DESCEND', {
-      fontSize: '26px', color: '#e0d0a0', fontFamily: 'monospace',
-    }).setOrigin(0.5));
-    this.track(this.add.text(20, 20, `Essence: ${gameState.essence}`, {
-      fontSize: '14px', color: '#e0b060', fontFamily: 'monospace',
-    }));
-
+    this.children.removeAll(true);
+    screenFrame(this);
+    header(this, 'THE TOWER GATE', 'CHOOSE WHERE THE DESCENT BEGINS',
+      `${gameState.essence} ESSENCE`, UI.tealCss);
+    backButton(this, () => this.scene.start('TownScene'));
     const status = resolvePartyStatus(gameState.defaultParty, gameState.creatureBox);
-
-    // The party this run takes. Town blocks departure on a bad party, so reaching
-    // this screen with one is not expected — but render it rather than crash.
     if (status.kind !== 'ready') {
-      this.track(this.add.text(cx, 200, 'Your party is not ready to descend.', {
-        fontSize: '16px', color: '#ff8888', fontFamily: 'monospace',
-      }).setOrigin(0.5));
-      this.drawButton(cx, 300, 220, 'CHANGE PARTY', '#4488aa', () => {
-        this.scene.start('PartySelectScene');
-      });
-      this.drawBack();
+      panel(this, 480, 300, 620, 230);
+      this.add.text(480, 270, 'THE PARTY IS NOT READY', {
+        fontFamily: DISPLAY_FONT, fontSize: '12px', color: UI.redCss,
+      }).setOrigin(0.5);
+      this.add.text(480, 310, 'Return to the Roost and choose three standing creatures.', {
+        fontFamily: BODY_FONT, fontSize: '12px', color: UI.body,
+      }).setOrigin(0.5);
+      button(this, 480, 370, 220, 52, 'CHANGE PARTY', () => this.scene.start('PartySelectScene'));
+      footer(this, 'ESC BACK TO TOWN');
       return;
     }
 
+    this.add.text(146, 96, 'BRINGING DOWN', {
+      fontFamily: DISPLAY_FONT, fontSize: '10px', color: UI.hi,
+    });
     status.members.forEach((c, i) => {
-      const x = 160 + i * 240;
-      const template = getTemplate(c.speciesId);
-      this.track(this.add.rectangle(x, 130, 48, 48, template.spriteColor));
-      this.track(this.add.text(x + 34, 112, c.nickname ?? template.name, {
-        fontSize: '13px', color: '#ffffff', fontFamily: 'monospace',
-      }));
-      this.track(this.add.text(x + 34, 132, `Lv ${c.permanentLevel}  HP ${c.currentStats.hp}`, {
-        fontSize: '11px', color: '#aaaaaa', fontFamily: 'monospace',
-      }));
-    });
-
-    this.drawFloorChips();
-
-    const floor = gameState.selectedStartFloor;
-    const canDepart = gameState.canDepartFrom(floor);
-
-    if (canDepart) {
-      this.drawButton(cx, 470, 220, floor > 1 ? `DESCEND — Floor ${floor}` : 'DESCEND', '#44aa44', () => {
-        gameState.setRunParty(gameState.defaultParty);
-        this.scene.start('RunScene');
+      const t = getTemplate(c.speciesId);
+      const x = 180 + i * 300;
+      panel(this, x, 194, 276, 136);
+      this.add.rectangle(x - 135, 194, 6, 136, archetypeColor(t.archetype));
+      spritePlate(this, x - 88, 194, 72, 96, archetypeColor(t.archetype));
+      this.add.text(x - 40, 146, c.nickname ?? t.name, {
+        fontFamily: DISPLAY_FONT, fontSize: '9px', color: UI.text,
       });
-    } else {
-      // Never substitute a cheaper floor: the player picked this one.
-      this.track(this.add.rectangle(cx, 470, 220, 50, 0x333333, 0.7).setStrokeStyle(2, 0x555555));
-      this.track(this.add.text(cx, 470, 'DESCEND', {
-        fontSize: '15px', color: '#666666', fontFamily: 'monospace',
-      }).setOrigin(0.5));
-      this.track(this.add.text(cx, 508,
-        `Not enough Essence for Floor ${floor} (${depthRunFee(floor)} needed) — choose another floor`, {
-          fontSize: '12px', color: '#ff8888', fontFamily: 'monospace',
-        }).setOrigin(0.5));
-    }
-
-    this.drawButton(cx, 545, 220, 'CHANGE PARTY', '#4488aa', () => {
-      this.scene.start('PartySelectScene');
+      this.add.text(x - 40, 170, `LV ${c.permanentLevel}  ${stars(c.starRating)}`, {
+        fontFamily: BODY_FONT, fontSize: '10px', color: UI.goldCss,
+      });
+      this.add.text(x - 40, 194, `HP ${c.currentStats.hp}  MP ${c.currentStats.mp}`, {
+        fontFamily: BODY_FONT, fontSize: '10px', color: UI.body,
+      });
+      this.add.text(x - 40, 217, t.archetype.toUpperCase(), {
+        fontFamily: BODY_FONT, fontSize: '9px', color: UI.muted,
+      });
     });
 
-    this.drawBack();
-  }
-
-  private drawFloorChips(): void {
-    const cx = this.cameras.main.centerX;
+    this.add.text(24, 276, 'STARTING DEPTH', {
+      fontFamily: DISPLAY_FONT, fontSize: '10px', color: UI.hi,
+    });
     const floors = gameState.unlockedStartFloors();
-
-    this.track(this.add.text(cx, 250, 'Start from:', {
-      fontSize: '13px', color: '#aaaaaa', fontFamily: 'monospace',
-    }).setOrigin(0.5));
-
-    const spacing = 130;
-    const startX = cx - ((floors.length - 1) * spacing) / 2;
-
+    const spacing = Math.min(170, 780 / Math.max(1, floors.length));
+    const startX = 480 - ((floors.length - 1) * spacing) / 2;
     floors.forEach((floor, i) => {
-      const x = startX + i * spacing;
       const selected = floor === gameState.selectedStartFloor;
       const affordable = gameState.canAffordStartFloor(floor);
-      const fee = depthRunFee(floor);
-
-      const fill = !affordable ? 0x1c1c28 : selected ? 0x334466 : 0x222240;
-      const stroke = !affordable ? 0x333344 : selected ? 0x66aaff : 0x444466;
-      const chip = this.track(this.add.rectangle(x, 300, 116, 52, fill, 0.95)
-        .setStrokeStyle(2, stroke));
-
-      this.track(this.add.text(x, 290, `Floor ${floor}`, {
-        fontSize: '14px', color: affordable ? '#ffffff' : '#666677', fontFamily: 'monospace',
-      }).setOrigin(0.5));
-      this.track(this.add.text(x, 310, floor === 1 ? 'free' : `${fee} Essence`, {
-        fontSize: '10px', color: affordable ? '#8899aa' : '#555566', fontFamily: 'monospace',
-      }).setOrigin(0.5));
-
-      // Unaffordable chips stay visible but unselectable — hiding a floor the player
-      // bought would make them wonder where their purchase went.
-      if (affordable && !selected) {
-        chip.setInteractive({ useHandCursor: true });
-        chip.on('pointerdown', () => {
+      const x = startX + i * spacing;
+      const bg = panel(this, x, 350, 150, 104, selected);
+      this.add.text(x, 329, `FLOOR ${floor}`, {
+        fontFamily: DISPLAY_FONT, fontSize: '10px',
+        color: affordable ? selected ? UI.hi : UI.text : UI.muted,
+      }).setOrigin(0.5);
+      this.add.text(x, 363, floor === 1 ? 'FREE' : `${depthRunFee(floor)} ESSENCE`, {
+        fontFamily: BODY_FONT, fontSize: '10px',
+        color: affordable ? UI.tealCss : UI.redCss,
+      }).setOrigin(0.5);
+      if (affordable) {
+        bg.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
           gameState.setSelectedStartFloor(floor);
           gameState.saveToLocalStorage();
           this.draw();
         });
       }
     });
+
+    const floor = gameState.selectedStartFloor;
+    const canDepart = gameState.canDepartFrom(floor);
+    button(this, 480, 485, 280, 62, canDepart ? `DESCEND — FLOOR ${floor}` : 'NOT ENOUGH ESSENCE',
+      canDepart ? () => this.depart() : null, UI.gold, canDepart);
+    button(this, 480, 553, 200, 38, 'CHANGE PARTY', () => this.scene.start('PartySelectScene'), UI.lineBright);
+    footer(this, '← → DEPTH  ·  ENTER DESCEND  ·  ESC TOWN',
+      floor === 1 ? 'NO GATE FEE' : `${depthRunFee(floor)} ESSENCE AT THE GATE`);
   }
 
-  private drawButton(x: number, y: number, w: number, label: string, color: string, cb: () => void): void {
-    const bg = this.track(this.add.rectangle(x, y, w, 50,
-      Phaser.Display.Color.HexStringToColor(color).color, 0.85)
-      .setStrokeStyle(2, 0xffffff).setInteractive({ useHandCursor: true }));
-    this.track(this.add.text(x, y, label, {
-      fontSize: '15px', color: '#ffffff', fontFamily: 'monospace',
-    }).setOrigin(0.5));
-    bg.on('pointerover', () => bg.setAlpha(1));
-    bg.on('pointerout', () => bg.setAlpha(0.85));
-    bg.on('pointerdown', cb);
+  private shiftFloor(delta: number): void {
+    const floors = gameState.unlockedStartFloors().filter(f => gameState.canAffordStartFloor(f));
+    const current = floors.indexOf(gameState.selectedStartFloor);
+    if (!floors.length) return;
+    const next = floors[(Math.max(0, current) + delta + floors.length) % floors.length];
+    gameState.setSelectedStartFloor(next);
+    this.draw();
   }
 
-  private drawBack(): void {
-    const back = this.track(this.add.text(30, 600, '← Back to town', {
-      fontSize: '14px', color: '#aaaaaa', fontFamily: 'monospace',
-    }).setInteractive({ useHandCursor: true }));
-    back.on('pointerdown', () => this.scene.start('TownScene'));
+  private depart(): void {
+    const status = resolvePartyStatus(gameState.defaultParty, gameState.creatureBox);
+    if (status.kind !== 'ready' || !gameState.canDepartFrom(gameState.selectedStartFloor)) return;
+    gameState.setRunParty(gameState.defaultParty);
+    this.scene.start('RunScene');
   }
 }

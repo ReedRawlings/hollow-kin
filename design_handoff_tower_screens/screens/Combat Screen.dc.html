@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #10121c; }
+  a { color: #6dead6; text-decoration: none; }
+  a:hover { color: #f3a833; }
+  * { box-sizing: border-box; }
+</style>
+</helmet>
+
+<section style="padding: 32px; font-family: 'Silkscreen', monospace; color: #f6e8e0; display: flex; flex-direction: column; gap: 14px;">
+  <div style="display: flex; align-items: baseline; gap: 16px;">
+    <div style="font-family: 'Press Start 2P', monospace; font-size: 14px; color: #f3a833;">COMBAT — AWAITING ORDERS</div>
+    <div style="font-size: 13px; color: #8c78a5;">3 bound creatures vs a swarm · hover an enemy to target · ← → cycles</div>
+  </div>
+
+  <div style="position: relative; width: 960px; height: 640px; background: #10121c; border: 4px solid #3e3b65; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+
+    <div style="flex: none; display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #2c1e31; padding-bottom: 10px;">
+      <div style="display: flex; align-items: baseline; gap: 12px;">
+        <div style="font-family: 'Press Start 2P', monospace; font-size: 13px; color: #f7f3b7;">FLOOR 11 — AMBUSH</div>
+        <div style="font-size: 12px; color: #8c78a5;">ROUND {{ round }}</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="font-size: 11px; color: #8c78a5;">TURN ORDER</div>
+        <sc-for list="{{ order }}" as="o" hint-placeholder-count="5">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="font-size: 11px; color: {{ o.color }}; border: 2px solid {{ o.border }}; background: {{ o.bg }}; padding: 3px 6px;">{{ o.label }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex: 1; min-height: 0; border: 3px solid #2c1e31; background-color: #14141f; background-image: repeating-linear-gradient(180deg, rgba(62,59,101,0.22) 0 2px, rgba(0,0,0,0) 2px 8px); padding: 12px; overflow: hidden; display: flex; flex-direction: column; justify-content: center;">
+      <div style="display: grid; grid-template-columns: repeat(3, 200px); gap: 4px 8px; justify-content: center;">
+        <sc-for list="{{ enemies }}" as="e" hint-placeholder-count="6">
+          <div onMouseEnter="{{ e.hover }}" onClick="{{ e.pick }}" style="position: relative; width: 200px; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer;">
+            <div style="width: 100%; height: 108px; background-image: repeating-linear-gradient(45deg, {{ e.tint }} 0 5px, rgba(16,18,28,0) 5px 10px); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; filter: {{ e.dim }};">
+              <div style="font-family: monospace; font-size: 9px; color: #8c78a5;">enemy sprite</div>
+            </div>
+            <div style="width: 116px; height: 8px; background: #10121c; border: 2px solid {{ e.barBorder }}; padding: 1px;">
+              <div style="width: {{ e.hpPct }}; height: 100%; background: {{ e.hpColor }};"></div>
+            </div>
+            <div style="min-height: 14px; font-size: 10px; color: #de5d3a;">{{ e.status }}</div>
+            <sc-if value="{{ e.targeted }}" hint-placeholder-val="{{ false }}">
+              <div style="position: absolute; top: 2px; left: 50%; margin-left: -9px; width: 18px; height: 12px; background: #f3a833; clip-path: polygon(0 0, 100% 0, 50% 100%);"></div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex: none; display: flex; gap: 12px; align-items: stretch;">
+      <div style="flex: none; display: flex; gap: 8px;">
+        <sc-for list="{{ party }}" as="p" hint-placeholder-count="3">
+          <div style="width: 128px; border: 3px solid {{ p.frame }}; background: {{ p.plate }}; padding: 7px; display: flex; flex-direction: column; gap: 5px;">
+            <div style="height: 62px; border: 2px solid #3e3b65; background-color: #10121c; background-image: repeating-linear-gradient(45deg, {{ p.tint }} 0 4px, rgba(16,18,28,0) 4px 8px); filter: {{ p.dim }};"></div>
+            <div style="font-family: 'Press Start 2P', monospace; font-size: 9px; color: {{ p.nameColor }}; line-height: 1.4;">{{ p.name }}</div>
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 4px;">
+              <div style="font-size: 10px; color: #8c78a5;">HP</div>
+              <div style="font-size: 11px; color: {{ p.hpColor }};">{{ p.hp }}/{{ p.maxHp }}</div>
+            </div>
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 4px;">
+              <div style="font-size: 10px; color: #8c78a5;">MP</div>
+              <div style="font-size: 11px; color: {{ p.mpColor }};">{{ p.mp }}/{{ p.maxMp }}</div>
+            </div>
+            <div style="min-height: 14px; font-size: 10px; color: {{ p.statusColor }};">{{ p.status }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="position: relative; flex: 1; min-width: 0; border: 3px solid #5e5b8c; background: #2c1e31; padding: 9px; display: flex; flex-direction: column; gap: 7px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+          <div style="font-size: 11px; color: #8c78a5;">{{ headLine }}</div>
+          <sc-if value="{{ subOpen }}" hint-placeholder-val="{{ true }}">
+            <div onClick="{{ closeSub }}" style="font-size: 10px; color: #b0a7b8; border: 2px solid #5e5b8c; padding: 1px 6px; cursor: pointer;">BACK</div>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ rootOpen }}" hint-placeholder-val="{{ true }}">
+          <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 7px;">
+            <sc-for list="{{ commands }}" as="c" hint-placeholder-count="4">
+              <div onMouseEnter="{{ c.hover }}" onClick="{{ c.open }}" style="font-family: 'Press Start 2P', monospace; font-size: 11px; color: {{ c.color }}; background: {{ c.bg }}; border: 2px solid {{ c.border }}; display: flex; align-items: center; justify-content: center; cursor: pointer;">{{ c.label }}</div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ subOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 5px;">
+            <sc-for list="{{ subRows }}" as="r" hint-placeholder-count="4">
+              <div onMouseEnter="{{ r.hover }}" style="display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 4px 7px; cursor: pointer; background: {{ r.bg }}; border: 2px solid {{ r.border }};">
+                <div style="font-size: 12px; color: {{ r.color }};">{{ r.label }}</div>
+                <div style="font-size: 10px; color: {{ r.metaColor }};">{{ r.meta }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <div style="flex: none; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #5e5b8c;">
+      <div style="color: #deceed;">{{ subDetail }}</div>
+      <div>{{ targetLine }}</div>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1060, &quot;height&quot;: 780}, &quot;enemyCount&quot;: {&quot;editor&quot;: &quot;int&quot;, &quot;default&quot;: 6, &quot;min&quot;: 1, &quot;max&quot;: 6, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Encounter&quot;}, &quot;openMenu&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;NONE&quot;, &quot;MAGIC&quot;, &quot;ITEM&quot;], &quot;default&quot;: &quot;NONE&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Command menu&quot;}}">
+class Component extends DCLogic {
+  state = { target: 0, cmd: null, sub: undefined, row: 0 };
+
+  SUBS = [
+    null,
+    {
+      title: 'MAGIC — IRONJAW',
+      meta: 'MP 30/41',
+      rows: [
+        { label: 'Stonecall', meta: 'MP6 · POW55', detail: 'Earth · hits the whole enemy row.' },
+        { label: 'Gale Edge', meta: 'MP4 · POW40', detail: 'Wind · two hits at half power each.' },
+        { label: 'Mend', meta: 'MP8 · HEAL30', detail: 'Light · restore 30 HP to one ally.' },
+        { label: 'Warding Sign', meta: 'MP34', detail: 'Not enough MP to cast this.', off: true },
+      ],
+    },
+    {
+      title: 'ITEM — SHARED BAG',
+      meta: '7 SLOTS USED',
+      rows: [
+        { label: 'Salve', meta: '×3', detail: 'Restores 25 HP to one bound creature.' },
+        { label: 'Ether Drop', meta: '×1', detail: 'Restores 15 MP to one bound creature.' },
+        { label: 'Antidote', meta: '×2', detail: 'Clears poison and burn.' },
+        { label: 'Smoke Bomb', meta: '×1', detail: 'Guarantees escape from a normal encounter.' },
+      ],
+    },
+    null,
+  ];
+
+  ROOT_DETAIL = [
+    'FIGHT — basic attack, no MP cost.',
+    'MAGIC — spend MP on a spell.',
+    'ITEM — use something from the shared bag.',
+    'RUN — attempt escape, 62% odds.',
+  ];
+
+  componentDidMount() {
+    this._onKey = (e) => {
+      if (e.repeat) return;
+      if (e.key === 'Escape') { this.setState({ sub: null }); return; }
+      const n = this.enemyList().length;
+      if (e.key === 'ArrowRight' || e.key === 'd') this.setState(s => ({ target: (s.target + 1) % n }));
+      else if (e.key === 'ArrowLeft' || e.key === 'a') this.setState(s => ({ target: (s.target + n - 1) % n }));
+    };
+    window.addEventListener('keydown', this._onKey);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('keydown', this._onKey);
+  }
+
+  enemyList() {
+    const all = [
+      { name: 'Gloomrat', lv: 'Lv9', hp: 24, maxHp: 30, status: '', tint: 'rgba(140,120,165,0.35)' },
+      { name: 'Gloomrat', lv: 'Lv9', hp: 30, maxHp: 30, status: '', tint: 'rgba(140,120,165,0.35)' },
+      { name: 'Cinderling', lv: 'Lv11', hp: 19, maxHp: 44, status: 'BRN', tint: 'rgba(222,93,58,0.35)' },
+      { name: 'Bonepike', lv: 'Lv12', hp: 51, maxHp: 58, status: '', tint: 'rgba(218,177,99,0.3)' },
+      { name: 'Gloomrat', lv: 'Lv9', hp: 7, maxHp: 30, status: 'PSN', tint: 'rgba(140,120,165,0.35)' },
+      { name: 'Hexwarden', lv: 'Lv15', hp: 88, maxHp: 96, status: '', tint: 'rgba(109,234,214,0.28)' },
+    ];
+    const n = Math.max(1, Math.min(6, this.props.enemyCount ?? 6));
+    return all.slice(0, n);
+  }
+
+  renderVals() {
+    const { target, row } = this.state;
+    const NAMES = ['FIGHT', 'MAGIC', 'ITEM', 'RUN'];
+    const fromProp = NAMES.indexOf(this.props.openMenu ?? 'NONE');
+    const rawSub = this.state.sub === undefined ? (fromProp < 0 ? null : fromProp) : this.state.sub;
+    const sub = rawSub !== null && this.SUBS[rawSub] ? rawSub : null;
+    const cmd = this.state.cmd === null ? (sub === null ? 0 : sub) : this.state.cmd;
+    const hpColor = (pct) => (pct > 0.55 ? '#5ab552' : pct > 0.25 ? '#f3a833' : '#ec273f');
+    const pct = (a, b) => Math.round((a / b) * 100) + '%';
+
+    const enemies = this.enemyList().map((e, i) => ({
+      ...e,
+      hpPct: pct(e.hp, e.maxHp),
+      hpColor: hpColor(e.hp / e.maxHp),
+      targeted: i === target,
+      barBorder: i === target ? '#f3a833' : '#3e3b65',
+      dim: i === target ? 'none' : 'brightness(0.78)',
+      hover: () => this.setState({ target: i }),
+      pick: () => this.setState({ target: i }),
+    }));
+
+    const partyRaw = [
+      { name: 'Ironjaw', hp: 61, maxHp: 82, mp: 30, maxMp: 41, status: '', tint: 'rgba(233,133,55,0.35)', active: true },
+      { name: 'Emberwhelp', hp: 34, maxHp: 77, mp: 12, maxMp: 66, status: 'BRN', tint: 'rgba(236,39,63,0.35)', active: false },
+      { name: 'Bladeknight', hp: 0, maxHp: 85, mp: 8, maxMp: 41, status: 'FAINTED', tint: 'rgba(218,177,99,0.25)', active: false },
+    ];
+    const party = partyRaw.map((p) => ({
+      ...p,
+      hpPct: pct(p.hp, p.maxHp),
+      mpPct: pct(p.mp, p.maxMp),
+      hpColor: hpColor(p.hp / p.maxHp),
+      frame: p.active ? '#f3a833' : p.hp === 0 ? '#2c1e31' : '#5e5b8c',
+      plate: p.active ? '#3e3b65' : p.hp === 0 ? '#1a1a26' : '#2c1e31',
+      nameColor: p.hp === 0 ? '#8c78a5' : '#f6e8e0',
+      statusColor: p.hp === 0 ? '#8c78a5' : '#de5d3a',
+      mpColor: p.mp === 0 ? '#5e5b8c' : '#6dead6',
+      statusBorder: p.hp === 0 ? '#3e3b65' : '#94493a',
+      dim: p.hp === 0 ? 'grayscale(1) brightness(0.7)' : 'none',
+    }));
+
+    const labels = ['FIGHT', 'MAGIC', 'ITEM', 'RUN'];
+    const commands = labels.map((label, i) => ({
+      label,
+      color: i === cmd ? '#10121c' : '#f6e8e0',
+      bg: i === cmd ? '#f3a833' : '#10121c',
+      border: i === cmd ? '#f3a833' : '#5e5b8c',
+      hover: () => this.setState({ cmd: i }),
+      open: () => this.setState({ cmd: i, sub: this.SUBS[i] ? i : null, row: 0 }),
+    }));
+
+    const s = sub === null ? null : this.SUBS[sub];
+    const subRows = s
+      ? s.rows.map((r, i) => ({
+          label: r.label,
+          meta: r.meta,
+          color: r.off ? '#5e5b8c' : i === row ? '#10121c' : '#f6e8e0',
+          metaColor: r.off ? '#5e5b8c' : i === row ? '#2c1e31' : '#8c78a5',
+          bg: i === row ? '#f3a833' : '#10121c',
+          border: i === row ? '#f3a833' : '#3e3b65',
+          hover: () => this.setState({ row: i }),
+        }))
+      : [];
+
+    const order = [
+      { label: 'Hexwarden', me: false },
+      { label: 'Ironjaw', me: true },
+      { label: 'Cinderling', me: false },
+      { label: 'Emberwhelp', me: true },
+      { label: 'Bonepike', me: false },
+    ].map((o) => ({
+      label: o.label,
+      color: o.me ? '#f7f3b7' : '#b0a7b8',
+      border: o.me ? '#f3a833' : '#3e3b65',
+      bg: o.me ? '#2c1e31' : '#10121c',
+    }));
+
+    return {
+      round: 3,
+      enemies,
+      party,
+      commands,
+      order,
+      actorLine: 'IRONJAW\u2019S TURN',
+      subOpen: sub !== null,
+      rootOpen: sub === null,
+      headLine: s ? s.title + '  ·  ' + s.meta : 'IRONJAW\u2019S TURN',
+      subRows,
+      subDetail: s ? s.rows[Math.min(row, s.rows.length - 1)].detail : this.ROOT_DETAIL[cmd],
+      closeSub: () => this.setState({ sub: null }),
+      targetLine: 'TARGET — ' + enemies[target].name + ' ' + enemies[target].hp + '/' + enemies[target].maxHp,
+    };
+  }
+}
+</script>
+</body>
+</html>

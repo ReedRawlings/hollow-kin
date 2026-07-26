@@ -86,6 +86,8 @@ export interface CreatureTemplate {
   resistances: DamageType[];
   weaknesses: DamageType[];
   spriteColor: number;
+  /** Trait ids this species may be imbued with. Compatibility is curated, never random. */
+  naturalTraitPool: string[];
 }
 
 export interface TraitSlot {
@@ -106,6 +108,14 @@ export interface CreatureInstance {
   abilities: (string | null)[];
   traitSlots: TraitSlot[];
   lineage: { parentA: string | null; parentB: string | null };
+  /**
+   * Permanent, instance-specific level-1 stat baseline (inherited for offspring).
+   *
+   * Optional because several construction sites do not set it yet and readers already
+   * fall back (`instance.statBaseline ?? template.baseStats`). Tighten to required once
+   * every construction site populates it and the save migration has backfilled.
+   */
+  statBaseline?: BaseStats;
   currentStats: BaseStats;
   resistances: DamageType[];
   weaknesses: DamageType[];

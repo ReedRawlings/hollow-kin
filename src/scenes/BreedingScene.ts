@@ -3,6 +3,7 @@ import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
 import { breed, calculateOffspringStar, calculateOffspringStats, carryoverForParents } from '../systems/BreedingSystem';
 import { CreatureInstance, STAR_LEVEL_CAPS } from '../types';
+import { isCreatureBreedReady } from '../systems/Traits';
 
 export class BreedingScene extends Phaser.Scene {
   private parentA: CreatureInstance | null = null;
@@ -63,7 +64,7 @@ export class BreedingScene extends Phaser.Scene {
       this.add.text(x - 45, y, `${template.archetype} | Lv ${creature.permanentLevel}`, {
         fontSize: '10px', color: '#aaaaaa', fontFamily: 'monospace',
       });
-      if (creature.isBreedReady) {
+      if (isCreatureBreedReady(creature)) {
         this.add.text(x - 45, y + 14, 'BREED READY', {
           fontSize: '9px', color: '#ff88cc', fontFamily: 'monospace',
         });
@@ -98,8 +99,9 @@ export class BreedingScene extends Phaser.Scene {
     }
 
     // Back button
-    this.add.text(30, 600, '← Back', {
-      fontSize: '14px', color: '#aaaaaa', fontFamily: 'monospace',
+    this.add.text(24, 20, '← TOWN', {
+      fontSize: '12px', color: '#f7f3b7', fontFamily: 'monospace',
+      backgroundColor: '#2c1e31', padding: { x: 10, y: 7 },
     }).setInteractive({ useHandCursor: true }).on('pointerdown', () => {
       this.scene.start('TownScene');
     });
@@ -120,8 +122,8 @@ export class BreedingScene extends Phaser.Scene {
       this.add.text(x, y + 95, `★${creature.starRating} | ${template.archetype}`, {
         fontSize: '11px', color: '#aaaaaa', fontFamily: 'monospace',
       }).setOrigin(0.5);
-      this.add.text(x, y + 112, creature.isBreedReady ? 'BREED READY' : 'Not breed-ready', {
-        fontSize: '10px', color: creature.isBreedReady ? '#ff88cc' : '#666666', fontFamily: 'monospace',
+      this.add.text(x, y + 112, isCreatureBreedReady(creature) ? 'BREED READY' : 'Not breed-ready', {
+        fontSize: '10px', color: isCreatureBreedReady(creature) ? '#ff88cc' : '#666666', fontFamily: 'monospace',
       }).setOrigin(0.5);
 
       // Clear button
@@ -161,7 +163,7 @@ export class BreedingScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Show breed-ready bonus info
-    if (this.parentA.isBreedReady && this.parentB.isBreedReady &&
+    if (isCreatureBreedReady(this.parentA) && isCreatureBreedReady(this.parentB) &&
         this.parentA.starRating === this.parentB.starRating) {
       this.add.text(x, y + 100, 'Both breed-ready + same star = +1 star bonus!', {
         fontSize: '10px', color: '#44ff44', fontFamily: 'monospace',
@@ -193,6 +195,13 @@ export class BreedingScene extends Phaser.Scene {
     const uniqueAbilities = [...new Set(parentAbilities)];
     const chosenAbilities = uniqueAbilities.slice(0, 4);
 
+    // NOTE: no traitChoices passed here. Per spec §5 case 1, a slot where BOTH parents
+    // hold a trait is supposed to be the PLAYER's choice — but that choice UI belongs to
+    // the not-yet-built Trait-keeper task and doesn't exist yet. Until it lands, every
+    // contested slot silently ships as "parent A wins" (resolveInheritedTraitSlots'
+    // default), and parent B's trait there is destroyed along with the retired parent.
+    // Do not mistake this for finished; see Traits.ts' contestedSlotIndices(), which the
+    // future UI will use to know what to prompt about.
     const offspring = breed(this.parentA, this.parentB, offspringSpecies, chosenAbilities);
 
     // Parents stay in the box as tombstones (isRetired = true, set by breed()) rather

@@ -2,18 +2,18 @@
 
 **Date:** 2026-07-25
 **Status:** Approved design, ready for implementation planning
-**Scope:** Obols-based creature capture during runs. Covers the threshold model, the duplicate Essence grant, Creature Box capacity and the pending-capture queue, and the combat-turn interaction. Background survey: `docs/superpowers/research/capture-mechanics-research.md`.
+**Scope:** Obols-based creature capture during runs. Covers the rite and price model, the knowledge layer, duplicates, Creature Box handling, and the combat-turn interaction. Background survey: `docs/superpowers/research/capture-mechanics-research.md`.
 
 ---
 
 ## Guiding Principle
 
-**Capture is a price, not a slot machine.** Below the threshold a spend buys a probability; at or above it, the capture is guaranteed. The player always knows what certainty costs, and can choose to gamble under it. This is Monster Crown's reachable determinism rather than Pokémon's asymptote, and it avoids the failure mode the survey is clearest about: a permanently scarce guaranteed-capture item (the Master Ball) that players hoard and never use.
+**Capture is a price, not a slot machine.** Bid under the price and you gamble at exactly that fraction; pay it and the capture is guaranteed. What moves the price is how you fought — the rites — so the interesting decision happens during the battle rather than at a menu. This is Monster Crown's reachable determinism rather than Pokémon's asymptote, and it avoids the failure mode the survey is clearest about: a permanently scarce guaranteed-capture item (the Master Ball) that players hoard and never use.
 
 Two consequences shape everything below:
 
-1. **The threshold is the design.** Odds, safe slots and backpack size are all downstream of it. Getting the threshold curve right is the whole balance problem.
-2. **Duplicates are bounded by systems that already exist.** The Essence grant is *invested* into a species line rather than added to the player's pool, so it cannot be redirected to whatever the player is optimising, and `levelCap` from stars caps how much a line can absorb. No escalating price, no lifetime counter, no per-species decay.
+1. **The rites are the design.** The price bands, the odds, and everything downstream follow from them. Getting the rite vocabulary right is the whole problem; the numbers are tuning.
+2. **Capture has exactly one output.** A creature, every time, duplicate or not. There is no Obols-to-permanent-power path through capture, so none of the genre's farming problems apply and none of their machinery is needed — no escalating duplicate price, no lifetime counters, no per-species decay.
 
 ---
 
@@ -21,85 +21,116 @@ Two consequences shape everything below:
 
 | Question | Decision |
 |---|---|
-| Cost model | Obols. Below the threshold, a gamble; at or above it, a guaranteed capture. |
-| Threshold inputs | Per-species base × depth × the target's current HP. Commoner species, shallower floors and hurt targets are cheaper. |
-| Failure cost | Obols spent are consumed, and the attempt costs the acting creature's turn. |
-| Duplicates | Invest a small amount of Essence into that species' line, scaled by capture depth. |
-| Line eligibility | Only if a member of that species sits in the Creature Box or the active party. A species held only in the run inventory does not qualify. |
+| Cost model | Obols. Bid under the price to gamble at `bid / price`; pay the price for a guarantee. |
+| Price model | Rites set the band: unsatisfied → high, family rite → ordinary, signature rite → near-nothing. HP is a nudge only, 1.25× at most. |
+| Rite kinds | Family rites are broad and guessable; signature rites are bespoke. Rare species get **volatile** rites (true right now); commons get **sticky** ones (true at any point this fight). |
+| Failure cost | Every Obol offered is lost regardless of outcome, excess included. The attempt costs the acting creature's turn. |
+| Blind attempts | Unstudied species hide both rites and price. A failed bid returns a directional reaction that brackets the price, never a number. |
+| Enrage | Three rejected bids and the creature refuses all further advances, heals slightly and gains a temporary buff. Only satisfying a rite clears it. Battle-scoped; nothing persists. |
+| Knowledge | Failed bids narrow a price bracket. A successful bid confirms that one price point exactly. **Nothing ever reveals a rite** — rites are found by satisfying them. |
+| Visible tell | The price is never shown by default. A satisfied rite puts the enemy into a visible **soothed** state — two intensities, one per band — for studied and unstudied species alike. |
+| Duplicates | No Essence, no experience. A duplicate is a creature like any other — breeding fodder. Capture always does exactly one thing. |
+| Monsterpedia | Exactly two price points per species — one with a rite, one without — each tagged with how it was learned (captured / wavered / insulted). |
 | Box full on exit | The capture waits in the run inventory, occupying a slot, until Box space frees. |
 | Box capacity | Becomes bounded and Essence-expandable, with a release mechanic added separately. Storage, not a pressure system. |
-| Uncapturable creatures | Expressed as a species threshold of 0 — covers boss-exclusive and breed-only creatures with no special-casing. |
+| Uncapturable creatures | Expressed as a base price of 0 — covers boss-exclusive and breed-only creatures with no special-casing. |
 | Arrival state | A capture arrives as `createCreatureInstance(speciesId, 0)` — level 1, 0 stars, no Essence invested. It is cargo for the rest of the run and cannot be fielded. |
-| Auto-combat | A standing capture policy the player sets between fights, executed by an explicit rule ladder. AUTO buys the guarantee or skips; it never gambles. |
+| Auto-combat | A standing capture policy. AUTO never sets up rites and always pays list price; the penalty is emergent, not a rule. Wasting Obols on unstudied species is a policy the player can knowingly choose. |
 
 ---
 
-## 2. The threshold
+## 2. Rites and the price
 
-```ts
-/** Obols required to guarantee a capture of this target, right now. */
-export function captureThreshold(
-  template: CreatureTemplate,
-  floor: number,
-  hpCurrent: number,
-  hpMax: number,
-): number
+Every species carries one or more **rites** — conditions that, when satisfied, replace which price band the creature is bought at.
+
+| Band | When |
+|---|---|
+| **Unsatisfied** | high — payable only as a deliberate splurge |
+| **Family rite** | ordinary — the working price for a prepared player |
+| **Signature rite** | near-nothing |
+
+Bands **replace** rather than stack. If both a family and a signature rite are satisfied, the better band applies.
+
+**Family rites** are broad and guessable from the fiction — fire moves frost, a broken Defense opens armoured things. A player meeting an unfamiliar species can reason toward these. **Signature rites** are bespoke and strange, and they are the ones players tell each other about.
+
+**Volatile vs sticky** is the difficulty dial. Common species get **sticky** rites, satisfied at any point in the fight and true thereafter — *was hit by fire this fight*. Rare species get **volatile** rites that must be true at the instant of the bid — *is burning right now*. Same vocabulary, sharply different demand: sticky rites are a checklist, volatile ones require you to build the turn.
+
+**HP is a nudge, not a lever.** At most a 1.25× swing from full HP to nearly dead. The rites carry the price, so there is no reason to grind a target to 1 HP and no false-swipe minigame — the genre's oldest annoyance is designed out rather than mitigated.
+
+`base` scales with depth by `floor ^ CAPTURE_DEPTH_EXPONENT`, matching `OBOL_REWARD_EXPONENT`. Obol income grows as `floor^0.5`; if prices grew more slowly, captures would get relatively cheaper with depth and deep floors would become the farmable ones. **These constants move together** — the same coupling rule documented on `OBOL_REWARD_EXPONENT` in `types.ts`.
+
+### Bidding
+
+```
+chance = clamp01(bid / price)      // price 0 → uncapturable, chance always 0
 ```
 
-```
-threshold = base × depthMult(floor) × hpMult
+Pay the price and the capture is guaranteed. Bid under it and you are gambling at exactly that fraction. **Every Obol offered is lost regardless of outcome, overpayment included** — there is no change from a bid.
 
-base       = template.captureThreshold        // 0 = uncapturable
-depthMult  = floor ^ CAPTURE_DEPTH_EXPONENT
-hpMult     = (3·hpMax) / (3·hpMax − 2·hpCurrent)      // 1× at 1 HP, 3× at full HP
-```
+**A successful capture resolves immediately.** The creature leaves the battle at the moment the bid lands; it is not held until the encounter ends.
 
-`hpMult` is the genre's one shared constant, inverted into a price. Pokémon has used `(3·HPmax − 2·HPcurrent)/(3·HPmax)` as a probability multiplier since Gen III, and Temtem and Cassette Beasts both mirror it; expressed as a price it means **a full-HP target costs exactly 3× a nearly-dead one, and never more.** That cap is the point — without it capture collapses into a false-swipe minigame where the only question is whether you can avoid overkilling.
+### Enrage — the cap on brute force
 
-`CAPTURE_DEPTH_EXPONENT` should match `OBOL_REWARD_EXPONENT`. Obol income now grows as `floor^0.5` per encounter; if capture prices grew more slowly, captures would get relatively cheaper the deeper you went, drifting toward deep floors being the farmable ones. Keying both to the same exponent keeps the ratio flat. **These constants move together** — the same coupling rule already documented on `OBOL_REWARD_EXPONENT` in `types.ts`.
+**Three rejected bids and the creature turns away for good.** It refuses all further advances that battle, heals slightly, and takes a temporary buff. **Only satisfying a rite clears the enraged state**; more coins never will. Enrage is battle-scoped — it does not follow the creature anywhere, and nothing about it persists.
 
-### Resolution
+This is the load-bearing limit on probing. Without it, an unstudied species is a binary search — bid, read the bracket, bisect, and solve any creature's price inside one encounter. Three attempts is enough to narrow a bracket meaningfully and nowhere near enough to solve it, so probing stays a scouting tool rather than a substitute for figuring the creature out.
 
-```ts
-export function captureChance(obolsSpent: number, threshold: number): number
-// → clamp01(obolsSpent / threshold);  threshold 0 → always 0
-```
-
-Linear, so "half the price, half the chance" is true and checkable. Any curve here would make the displayed percentage harder to reason about for no gain.
-
-**Display the number, live**, updating as the target takes damage and as the player adjusts the spend. The survey is clear that transparency only works when the number is *engineerable* — Dragon Quest Monsters prints its scout percentage and it reads fine because buffs and debuffs move it, while Palworld shows a number the player cannot influence and drew accusations of lying. Here the player moves it two ways: by spending more, and by hurting the target.
+It also fails in the right direction. A player who has spent three bids and got nothing is now fighting a healed, buffed enemy — the cost of brute force is paid in the battle rather than only in Obols, and the way out is the rite, which is where the design wanted them looking the whole time.
 
 ---
 
-## 3. Failure
+## 3. Knowledge, and what a blind bid buys
 
-Obols spent on a failed attempt are consumed, and the attempt costs the acting creature's turn.
+An unstudied species hides **both its rites and its price**. You can still bid, blind.
 
-The survey's clearest single finding is that whether the resource survives failure matters more than the odds do — World of Final Fantasy, Monster Sanctuary and Tactics Ogre all read as deterministic despite being probabilistic, purely because retries are free. If a failed capture refunded, the player would spend the minimum repeatedly and the threshold would stop meaning anything.
+A failed bid returns a **directional reaction, never a number**:
 
-**Auto-combat interaction.** Capture is available to AUTO through a standing capture policy — see §10.
+| Reaction | Means |
+|---|---|
+| **Insulted** | the bid was under 50% of the price |
+| **Wavers** | the bid was between 50% and the full price |
+
+So a blind bid is a probe. It costs Obols and buys a bracket, and the Monsterpedia keeps that bracket and narrows it across attempts and across runs. A successful bid confirms one price point exactly — the amount that worked, at whatever rite state was live when it worked.
+
+**Nothing ever reveals a rite.** Not a successful capture, not a full-price bid, not the Monsterpedia. Rites are found only by satisfying them, and the tell is the price: a species whose price you have recorded suddenly costs far less, and the question becomes what you did differently this time. The bracket is a hint about the puzzle precisely because it prices the answer without naming it.
+
+### What the Monsterpedia records
+
+**Exactly two price points per species, always** — one with a rite satisfied, one without. Never a list, regardless of how many rites a species actually has. Two fixed slots mean the display can never leak the number of rites, which is the part of the puzzle worth protecting.
+
+Each slot shows what it is worth and how it was learned:
+
+| Provenance | The slot holds |
+|---|---|
+| **Captured** | a confirmed exact price |
+| **Wavered** | a lower bound — the bid was at least half |
+| **Insulted** | an upper bound — the bid was under half |
+
+So a slot sharpens over time from "somewhere under this" to "at least this" to a hard number, and the icon tells the player at a glance how much to trust it.
+
+### Soothed — the visible tell
+
+The price is **not** displayed by default. What is displayed is the creature's disposition: when any rite is satisfied, the enemy visibly enters a **soothed** state — a status marker and a treatment on the sprite, readable at a glance and referenceable mid-fight.
+
+This shows for **every** species, studied or not. That matters more than anything else in the knowledge design: a first-time player who happens to satisfy a rite by accident *sees something change*, and that is the moment the whole layer becomes discoverable. It is the exact failure World of Final Fantasy shipped — ~40 condition types and a player base where a visible share never realised conditions existed and concluded the RNG was rigged. The soothed state is the fix, and it costs nothing to read.
+
+**Two intensities, one per band.** A family rite and a signature rite both soothe, but visibly differently. Without that, a player who satisfies a family rite has no reason to suspect a signature rite exists — and signature rites are the thing worth hunting. The stronger state says "there is a deeper one and you found it" without naming what it was.
+
+Soothed and enraged are a matched pair. The creature's disposition toward you is always legible on its sprite — soothed when you have done something it wants, enraged when you have insulted it three times — while the *reason* stays the puzzle. The player always knows **that** something changed, never **what**, and never the price.
+
+**Auto-combat interaction.** See §10.
 
 ---
 
 ## 4. Duplicates
 
-A capture of a species the player already owns grants **invested Essence to that species' line** rather than a creature.
+A duplicate is just a creature. No Essence, no experience, no special case — capturing a species you already own gives you another one, exactly as the first did.
 
-```
-essenceGrant(floor) = round(DUP_ESSENCE_BASE × floor ^ OBOL_REWARD_EXPONENT)
-```
+**Why it is nothing more than that.** Any permanent reward on a duplicate creates a second path from Obols to permanent power, running in parallel to the Quartermaster's conversion at a rate the player controls rather than one we set. Bounding it takes escalating prices, lifetime counters, or per-species decay — machinery the survey is full of, all of it solving a problem we can simply not create.
 
-Applied as `essenceInvested` on the recipient, with `permanentLevel` recomputed through the existing `levelFromEssence` path so the Leveler invariant holds.
+**What duplicates are for: breeding.** Parents currently come from starters and from offspring, and nothing else. Capture becomes the supply line for the breeding pool, which is what makes "collect" a pillar rather than a checklist — and since breeding retires both parents, the pool drains as fast as it fills. The sink is already in the game.
 
-**Eligibility.** The line qualifies only if a member of that species is in the Creature Box or the active party. A species whose only member is a capture sitting in the run inventory does not qualify — so the first capture of a species gives you the creature, and subsequent ones feed the line.
-
-**Why this needs no anti-abuse machinery.** Three existing systems bound it:
-
-- The grant is **invested, not liquid.** It cannot be redirected to whatever the player is optimising. Farming shallow duplicates of one species only ever pumps that species.
-- **`levelCap` from stars is a hard ceiling.** Once a line is capped, further investment is inert.
-- **The level cost curve is convex** (`10·L^1.5`), so a fixed grant is automatically trivial at high level. A grant worth 5% of a level at level 3 is worth 0.2% at level 25 with no rule written. Scaling the grant by capture depth — deep captures stay meaningful, shallow ones fade — is the only lever needed on top.
-
-**The one case to check against the model:** early game, at low level, a shallow duplicate is worth the most it will ever be worth. Farming floors 1–3 could out-earn banking for the first few levels. It is self-correcting, but `DUP_ESSENCE_BASE` should be picked by checking that crossover rather than by feel.
+A player with no interest in breeding a given species simply doesn't capture it, or releases it. That is a real decision, and it is the only one this needs.
 
 ---
 
@@ -132,7 +163,7 @@ That is the whole rule. This is storage, not a pressure system — the failure m
 Decision logic is pure and testable; the scene owns turn driving and presentation, matching the split `TacticsAI` already uses.
 
 ```
-src/systems/Capture.ts       — pure: captureThreshold, captureChance, essenceGrant, captureIntent
+src/systems/Capture.ts       — pure: capturePrice, rite evaluation, captureChance, captureIntent
 src/scenes/CombatScene.ts    — the capture action, spend UI, live percentage, turn consumption
 src/managers/GameState.ts    — Box capacity, pending-capture queue, line-investment application
 ```
@@ -144,7 +175,8 @@ src/managers/GameState.ts    — Box capacity, pending-capture queue, line-inves
 ## 8. Data model & persistence
 
 **New on `CreatureTemplate`:**
-- `captureThreshold: number` — base Obol threshold. `0` means uncapturable in the wild.
+- `captureBasePrice: number` — base Obol price before rites. `0` means uncapturable in the wild.
+- `rites: RiteDef[]` — family and signature rites, each flagged volatile or sticky, each with its own price.
 
 **New on `GameState` (persisted, save version 3 → 4):**
 - `creatureBoxCapacity: number`
@@ -159,12 +191,12 @@ src/managers/GameState.ts    — Box capacity, pending-capture queue, line-inves
 
 ## 9. Open questions
 
-1. **Which line member receives the grant?** Applying it to every owned instance of the species would multiply the reward by ownership count, which is farmable. Applying it once to the lowest-`permanentLevel` member pulls up the weakest and does not scale with ownership — proposed, but not yet decided.
-2. **`DUP_ESSENCE_BASE`** — pick against the early-game crossover in §4, not by feel.
-3. **Starting Box capacity and Quartermaster pricing**, and whether Box capacity and backpack capacity are one purchase or two.
-4. **The release mechanic** — out of scope here, but the Box-full rule leans on it existing.
-5. **Does the capture policy persist across runs or reset?** See §10.2.
-6. **The Obol reserve floor** for auto-capture — a fixed fraction, an explicit player setting, or a constant. See §10.4.
+Everything structural is decided. What remains is a rite vocabulary and a handful of numbers, both of which want playtest rather than argument.
+
+1. **The rite vocabulary itself** — the family rites per archetype, and a signature rite for each species that gets one. This is the design work the rest of the spec exists to support.
+2. **The three price bands**, and how far apart they sit. "Near-nothing" for a signature rite has to still cost enough that paying it registers as a purchase.
+3. **`CAPTURE_BASE_PRICE` per species**, checked against Obol income at the depth each species appears.
+4. **How much Enrage heals and buffs.** Enough to punish three failed probes, not enough to lose the fight over.
 
 ---
 
@@ -194,7 +226,7 @@ On `GameState`, persisted, like `battleSpeed` — not per-creature and not per-r
 
 Per-creature was considered and rejected. Tactics are per-creature because each creature *fights* differently; a capture policy expresses what the player wants out of the descent, not how a creature behaves. Per-creature would imply a designated-catcher role, which is complexity with no payoff.
 
-Whether it should reset per run like `RunState.autoCombat`, or persist like `battleSpeed`, is open — persisting matches its "standing preference" character, but a player who set `always` for an Essence-farming run may not want it still on next descent.
+It **persists across runs**, unlike `RunState.autoCombat`. It is a standing preference, and it is changed in town where the player can see it.
 
 ### 10.3 Architecture — a gate in front of the AI, not inside it
 
@@ -224,18 +256,18 @@ Pure: no mutation, no RNG, same contract as `TacticsAI.chooseAction`. On an auto
 Explicit and ordered, in the same style as the tactic ladders — a player must be able to predict what it will do and explain a surprising action afterwards.
 
 1. Policy is `never` → no capture.
-2. Target's species threshold is `0` (uncapturable) → no capture.
+2. Target's base price is `0` (uncapturable) → no capture.
 3. Target does not match the policy predicate → no capture.
 4. **Any ally is knocked out, or any ally is below one third HP** → no capture. Don't spend a turn shopping while the party is dying.
 5. **More than one foe still alive** → no capture.
-6. `obolsAvailable − captureThreshold(target) < obolReserve` → no capture.
-7. Otherwise → capture, spending exactly `captureThreshold(target)`.
+6. `obolsAvailable − listPrice(target) < obolReserve` → no capture.
+7. Otherwise → bid exactly the list price for whichever band happens to be satisfied. AUTO never sets rites up deliberately, so that is usually the unsatisfied band.
 
-**Rule 5 is the load-bearing one.** Restricting auto-capture to the last living foe means it fires at the natural end of a fight, when no other enemy gets a free turn out of it — and it composes with the existing rule that single-target attacks auto-target when one enemy remains. It also means the target has usually been worn down by then, so `hpMult` sits near its 1× floor and auto-capture is naturally close to its cheapest.
+**Rule 5 is the load-bearing one.** Restricting auto-capture to the last living foe means it fires at the natural end of a fight, when no other enemy gets a free turn out of it — and it composes with the existing rule that single-target attacks auto-target when one enemy remains. It also means the target has usually been worn down by then — though with HP capped at a 1.25× nudge that barely matters, which is the point: AUTO gets no discount worth having, because it never satisfies a rite.
 
-**Rule 7: AUTO always buys the guarantee, never gambles.** Legibility beats cleverness. An AI that gambles the player's Obols produces losses that can't be explained after the fact, which is exactly what the auto-combat spec's guiding principle rules out. If the guarantee isn't affordable within the reserve, AUTO skips rather than taking a partial shot — the player can still gamble manually.
+**Rule 7: AUTO bids list price, never gambles.** Legibility beats cleverness — an AI that bids fractions on the player's behalf produces losses that can't be explained afterwards. If list price isn't affordable within the reserve, AUTO skips rather than taking a partial shot. Note that against an unstudied species AUTO is bidding blind at a price it cannot see, which is exactly the wasteful behaviour a player opts into when they set a broad policy.
 
-`obolReserve` is what stops a policy from leaving the player broke at floor 28. Its form is open (§9).
+`obolReserve` is a **player-set absolute floor, defaulting to zero** — surfaced beside the policy. Zero by default is deliberate: auto-capture is meant to cost you, and the reserve exists for players who want a guard rather than as a rail imposed on everyone.
 
 ---
 

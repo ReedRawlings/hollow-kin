@@ -8,6 +8,7 @@ function makeCreature(instanceId: string, speciesId = 'ironjaw', over: Partial<C
     instanceId, speciesId, nickname: null, starRating: 0, currentLevel: 1, levelCap: 5,
     permanentLevel: 1, essenceInvested: 0, abilities: [], traitSlots: [],
     lineage: { parentA: null, parentB: null },
+    statBaseline: { hp: 10, mp: 10, str: 10, def: 10, wis: 10, spd: 10, int: 10 },
     currentStats: { hp: 10, mp: 10, str: 10, def: 10, wis: 10, spd: 10, int: 10 },
     resistances: [], weaknesses: [], isRetired: false, isBreedReady: false, xp: 0,
     tactic: 'fight_wisely',

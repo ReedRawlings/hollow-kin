@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #10121c; }
+  a { color: #6dead6; text-decoration: none; }
+  a:hover { color: #f3a833; }
+  * { box-sizing: border-box; }
+</style>
+</helmet>
+
+<section style="padding: 32px; font-family: 'Silkscreen', monospace; color: #f6e8e0; display: flex; flex-direction: column; gap: 14px;">
+  <div style="display: flex; align-items: baseline; gap: 16px;">
+    <div style="font-family: 'Press Start 2P', monospace; font-size: 14px; color: #f3a833;">CREATURE BOX</div>
+    <div style="font-size: 13px; color: #8c78a5;">every creature you own · three ride with you, the rest wait here · ↑ ↓ ← → moves</div>
+  </div>
+
+  <div style="width: 960px; height: 640px; background: #10121c; border: 4px solid #3e3b65; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+
+    <div style="flex: none; display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #2c1e31; padding-bottom: 10px;">
+      <div style="display: flex; align-items: baseline; gap: 12px;">
+        <div style="font-family: 'Press Start 2P', monospace; font-size: 13px; color: #f7f3b7;">OWNED</div>
+        <div style="font-size: 12px; color: {{ capColor }};">{{ capLine }}</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 9px;">
+        <div style="font-size: 12px; color: #8c78a5;">BREED-READY</div>
+        <div style="display: flex; align-items: baseline; gap: 5px; border: 2px solid #6dead6; background: #2c1e31; padding: 3px 8px;">
+          <div style="font-family: 'Press Start 2P', monospace; font-size: 12px; color: #f7f3b7;">{{ readyCount }}</div>
+          <div style="font-size: 11px; color: #6dead6;">PAIRS POSSIBLE {{ pairCount }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 7px;">
+        <div style="flex: none; width: 78px; font-size: 11px; color: #8c78a5;">ARCHETYPE</div>
+        <sc-for list="{{ archFilters }}" as="f" hint-placeholder-count="5">
+          <div onClick="{{ f.pick }}" style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: {{ f.color }}; background: {{ f.plate }}; border: 2px solid {{ f.border }}; padding: 4px 8px; cursor: pointer;">
+            <div style="width: 9px; height: 9px; background: {{ f.swatch }};"></div>
+            <div>{{ f.label }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div onClick="{{ toggleReady }}" style="font-size: 11px; color: {{ readyOnlyColor }}; border: 2px solid {{ readyOnlyBorder }}; background: {{ readyOnlyPlate }}; padding: 4px 8px; cursor: pointer;">{{ readyOnlyLabel }}</div>
+    </div>
+
+    <div style="flex: none; display: flex; align-items: center; gap: 7px;">
+      <div style="flex: none; width: 78px; font-size: 11px; color: #8c78a5;">SORT</div>
+      <sc-for list="{{ sorts }}" as="s" hint-placeholder-count="4">
+        <div onClick="{{ s.pick }}" style="font-family: 'Press Start 2P', monospace; font-size: 10px; color: {{ s.color }}; background: {{ s.plate }}; border: 2px solid {{ s.border }}; padding: 5px 8px; cursor: pointer;">{{ s.label }}</div>
+      </sc-for>
+      <div style="flex: 1;"></div>
+      <div style="font-size: 11px; color: #8c78a5;">{{ countLine }}</div>
+    </div>
+
+    <div style="flex: 1; min-height: 0; display: flex; gap: 12px;">
+
+      <div style="flex: 1; min-width: 0; border: 3px solid #2c1e31; background: #14141f; padding: 9px; display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: min-content; gap: 8px; overflow-y: auto; align-content: start;">
+        <sc-for list="{{ box }}" as="c" hint-placeholder-count="12">
+          <div onMouseEnter="{{ c.hover }}" onClick="{{ c.hover }}" style="display: flex; cursor: pointer; border: 2px solid {{ c.border }}; background: {{ c.plate }};">
+            <div style="flex: none; width: 6px; background: {{ c.archColor }};"></div>
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; padding: 7px;">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 5px;">
+                <div style="font-size: 10px; color: {{ c.archColor }};">{{ c.arch }}</div>
+                <div style="font-size: 10px; color: {{ c.readyColor }};">{{ c.readyMark }}</div>
+              </div>
+              <div style="height: 52px; border: 2px solid #3e3b65; background-color: #10121c; background-image: repeating-linear-gradient(45deg, {{ c.tint }} 0 5px, rgba(16,18,28,0) 5px 10px);"></div>
+              <div style="font-size: 11px; color: {{ c.nameColor }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.name }}</div>
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 5px;">
+                <div style="font-size: 10px; color: #f3a833;">{{ c.stars }}</div>
+                <div style="font-size: 10px; color: #b0a7b8;">LV{{ c.level }}</div>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+          <div style="grid-column: 1 / -1; padding: 16px 6px; font-size: 12px; color: #5e5b8c;">No creature in the box matches this filter.</div>
+        </sc-if>
+      </div>
+
+      <div style="flex: none; width: 268px; border: 3px solid #5e5b8c; background: #2c1e31; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="flex: none; font-size: 11px; color: #8c78a5;">BRINGING DOWN</div>
+        <div style="flex: none; display: flex; flex-direction: column; gap: 6px;">
+          <sc-for list="{{ slots }}" as="s" hint-placeholder-count="3">
+            <div onClick="{{ s.pick }}" style="display: flex; align-items: center; gap: 8px; padding: 6px; cursor: {{ s.cursor }}; border: 2px solid {{ s.border }}; background: {{ s.plate }};">
+              <div style="flex: none; width: 6px; height: 26px; background: {{ s.archColor }};"></div>
+              <div style="flex: none; width: 26px; height: 26px; border: 2px solid #3e3b65; background-color: #10121c; background-image: repeating-linear-gradient(45deg, {{ s.tint }} 0 4px, rgba(16,18,28,0) 4px 8px);"></div>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+                <div style="font-size: 11px; color: {{ s.nameColor }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ s.name }}</div>
+                <div style="font-size: 10px; color: #b0a7b8;">LV{{ s.level }} · {{ s.statLine }}</div>
+              </div>
+              <div style="flex: none; font-size: 10px; color: {{ s.tagColor }};">{{ s.tag }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="flex: 1; min-height: 0; overflow: hidden; border: 2px solid #3e3b65; background: #10121c; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+            <div style="font-size: 11px; color: #8c78a5;">{{ compareTitle }}</div>
+            <div style="font-size: 11px; color: {{ cur.archColor }};">{{ cur.arch }}</div>
+          </div>
+          <div style="flex: none; display: flex; flex-direction: column; gap: 3px;">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+              <div style="font-family: 'Press Start 2P', monospace; font-size: 11px; color: #f7f3b7; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ cur.name }}</div>
+              <div style="flex: none; font-size: 10px; color: #b0a7b8;">LV {{ cur.level }}</div>
+            </div>
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+              <div style="font-size: 11px; color: #f3a833;">{{ cur.stars }}</div>
+              <div style="flex: 1; min-width: 0; font-size: 10px; color: #dab163; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ cur.markLine }}</div>
+            </div>
+          </div>
+          <div style="flex: none; display: flex; flex-direction: column; gap: 5px;">
+            <sc-for list="{{ deltas }}" as="d" hint-placeholder-count="3">
+              <div style="display: flex; align-items: baseline; gap: 8px;">
+                <div style="flex: none; width: 34px; font-size: 11px; color: #8c78a5;">{{ d.label }}</div>
+                <div style="flex: none; width: 30px; font-size: 11px; color: #deceed; text-align: right;">{{ d.value }}</div>
+                <div style="flex: 1; min-width: 0; font-size: 11px; color: {{ d.color }}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ d.delta }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="flex: none; border: 2px solid {{ cur.breedBorder }}; background: {{ cur.breedPlate }}; padding: 8px 9px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+          <div style="font-size: 11px; color: {{ cur.breedColor }};">{{ cur.breedTitle }}</div>
+          <div style="font-size: 10px; color: #8c78a5;">{{ cur.breedNote }}</div>
+        </div>
+
+        <div style="flex: none; display: flex; gap: 8px;">
+          <div onClick="{{ swap }}" style="flex: 1; border: 3px solid {{ swapBorder }}; background: {{ swapPlate }}; padding: 10px 0; display: flex; align-items: center; justify-content: center; cursor: {{ swapCursor }};">
+            <div style="font-family: 'Press Start 2P', monospace; font-size: 10px; color: {{ swapColor }};">{{ swapLabel }}</div>
+          </div>
+          <div style="flex: none; width: 84px; border: 3px solid {{ pairBorder }}; background: #2c1e31; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+            <div style="font-family: 'Press Start 2P', monospace; font-size: 10px; color: {{ pairColor }};">PAIR</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: none; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #5e5b8c;">
+      <div>↑ ↓ ← → BROWSE · CLICK A SLOT TO REPLACE · ENTER SWAP IN · ESC BACK</div>
+      <div>{{ footerLine }}</div>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1060, &quot;height&quot;: 780}, &quot;archetype&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;ALL&quot;, &quot;BRUTE&quot;, &quot;EMBER&quot;, &quot;TIDE&quot;, &quot;GROVE&quot;, &quot;HOLLOW&quot;], &quot;default&quot;: &quot;ALL&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Box view&quot;}, &quot;sortBy&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;ARCHETYPE&quot;, &quot;STARS&quot;, &quot;LEVEL&quot;, &quot;READY&quot;], &quot;default&quot;: &quot;ARCHETYPE&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Box view&quot;}}">
+class Component extends DCLogic {
+  state = { arch: null, sel: 0, readyOnly: false, sort: null, swapped: null, slot: 0 };
+
+  ARCH = [
+    { key: 'ALL', label: 'ALL', icon: '*', color: '#b0a7b8', border: '#5e5b8c' },
+    { key: 'BRUTE', label: 'BRUTE', icon: 'B', color: '#e98537', border: '#94493a' },
+    { key: 'EMBER', label: 'EMBER', icon: 'E', color: '#ec273f', border: '#94493a' },
+    { key: 'TIDE', label: 'TIDE', icon: 'T', color: '#6dead6', border: '#3e6e6e' },
+    { key: 'GROVE', label: 'GROVE', icon: 'G', color: '#9de64e', border: '#3e6e3e' },
+    { key: 'HOLLOW', label: 'HOLLOW', icon: 'H', color: '#8c78a5', border: '#5e5b8c' },
+  ];
+
+  SORTS = ['ARCHETYPE', 'STARS', 'LEVEL', 'READY'];
+
+  OWNED = [
+    { name: 'Ironjaw', arch: 'BRUTE', stars: 4, level: 22, ready: true, party: true, tint: 'rgba(233,133,55,0.35)', atk: 34, def: 29, spd: 12, mark: 'Gravebound', parents: 'Boarhide × Ironjaw (wild)', eggs: 2 },
+    { name: 'Emberwhelp', arch: 'EMBER', stars: 3, level: 19, ready: true, party: true, tint: 'rgba(236,39,63,0.35)', atk: 31, def: 18, spd: 24, mark: 'Kiln-Kissed', parents: 'unknown — caught floor 4', eggs: 1 },
+    { name: 'Bladeknight', arch: 'HOLLOW', stars: 5, level: 26, ready: false, party: true, tint: 'rgba(218,177,99,0.25)', atk: 40, def: 33, spd: 17, mark: 'Oathkeeper', parents: 'Hollowpage × Wardenwing', eggs: 0 },
+    { name: 'Sablefin', arch: 'TIDE', stars: 3, level: 17, ready: true, party: false, tint: 'rgba(109,234,214,0.3)', atk: 22, def: 24, spd: 30, mark: '—', parents: 'Sablefin × Sablefin', eggs: 3 },
+    { name: 'Thornmoth', arch: 'GROVE', stars: 2, level: 12, ready: false, party: false, tint: 'rgba(147,178,71,0.32)', atk: 16, def: 14, spd: 26, mark: '—', parents: 'unknown — caught floor 2', eggs: 0 },
+    { name: 'Boarhide', arch: 'BRUTE', stars: 3, level: 20, ready: true, party: false, tint: 'rgba(222,93,58,0.35)', atk: 29, def: 31, spd: 9, mark: 'Thickhide', parents: 'unknown — caught floor 3', eggs: 4 },
+    { name: 'Cinderpup', arch: 'EMBER', stars: 1, level: 6, ready: false, party: false, tint: 'rgba(243,168,51,0.3)', atk: 11, def: 8, spd: 19, mark: '—', parents: 'Emberwhelp × Kilnhound', eggs: 0 },
+    { name: 'Wardenwing', arch: 'HOLLOW', stars: 4, level: 24, ready: true, party: false, tint: 'rgba(140,120,165,0.4)', atk: 27, def: 26, spd: 33, mark: 'Gatekeeper', parents: 'unknown — gift at the gate', eggs: 2 },
+    { name: 'Brinehusk', arch: 'TIDE', stars: 2, level: 14, ready: false, party: false, tint: 'rgba(94,145,180,0.32)', atk: 19, def: 27, spd: 11, mark: '—', parents: 'Sablefin × Brinehusk (wild)', eggs: 1 },
+    { name: 'Mossbrace', arch: 'GROVE', stars: 3, level: 18, ready: true, party: false, tint: 'rgba(90,181,82,0.34)', atk: 20, def: 30, spd: 13, mark: 'Rootfast', parents: 'Thornmoth × Mossbrace', eggs: 2 },
+    { name: 'Kilnhound', arch: 'EMBER', stars: 4, level: 23, ready: true, party: false, tint: 'rgba(222,93,58,0.3)', atk: 35, def: 20, spd: 28, mark: 'Kiln-Kissed', parents: 'unknown — caught floor 7', eggs: 1 },
+    { name: 'Hollowpage', arch: 'HOLLOW', stars: 2, level: 11, ready: false, party: false, tint: 'rgba(62,59,101,0.5)', atk: 13, def: 12, spd: 21, mark: '—', parents: 'unknown — caught floor 5', eggs: 0 },
+    { name: 'Slagcalf', arch: 'BRUTE', stars: 1, level: 5, ready: false, party: false, tint: 'rgba(233,133,55,0.25)', atk: 12, def: 15, spd: 7, mark: '—', parents: 'Boarhide × Ironjaw', eggs: 0 },
+    { name: 'Deepmaw', arch: 'TIDE', stars: 5, level: 28, ready: true, party: false, tint: 'rgba(109,234,214,0.22)', atk: 38, def: 34, spd: 25, mark: 'Drownwarden', parents: 'unknown — caught floor 9', eggs: 3 },
+  ];
+
+  componentDidMount() {
+    this._onKey = (e) => {
+      if (e.repeat) return;
+      const n = this.filtered().length;
+      if (!n) return;
+      const step = { ArrowRight: 1, d: 1, ArrowLeft: -1, a: -1, ArrowDown: 4, s: 4, ArrowUp: -4, w: -4 }[e.key];
+      if (step) this.setState(st => ({ sel: (st.sel + step + n * 4) % n }));
+      else if (e.key === 'Enter') { const c = this.filtered()[this.state.sel]; if (c && !c.party) this.setState({ swapped: c.name }); }
+      else if (e.key === 'Escape') this.setState({ swapped: null });
+    };
+    window.addEventListener('keydown', this._onKey);
+  }
+
+  componentWillUnmount() { window.removeEventListener('keydown', this._onKey); }
+
+  activeArch() {
+    if (this.state.arch !== null) return this.state.arch;
+    const p = this.props.archetype ?? 'ALL';
+    const i = this.ARCH.findIndex(a => a.key === p);
+    return i < 0 ? 0 : i;
+  }
+
+  activeSort() {
+    if (this.state.sort !== null) return this.state.sort;
+    const p = this.props.sortBy ?? 'ARCHETYPE';
+    const i = this.SORTS.indexOf(p);
+    return i < 0 ? 0 : i;
+  }
+
+  filtered() {
+    const key = this.ARCH[this.activeArch()].key;
+    let list = key === 'ALL' ? this.OWNED.slice() : this.OWNED.filter(c => c.arch === key);
+    if (this.state.readyOnly) list = list.filter(c => c.ready);
+    const s = this.SORTS[this.activeSort()];
+    const order = this.ARCH.map(a => a.key);
+    if (s === 'STARS') list.sort((a, b) => b.stars - a.stars || b.level - a.level);
+    else if (s === 'LEVEL') list.sort((a, b) => b.level - a.level);
+    else if (s === 'READY') list.sort((a, b) => (b.ready ? 1 : 0) - (a.ready ? 1 : 0) || b.eggs - a.eggs);
+    else list.sort((a, b) => order.indexOf(a.arch) - order.indexOf(b.arch) || b.stars - a.stars);
+    return list;
+  }
+
+  archMeta(key) { return this.ARCH.find(a => a.key === key) || this.ARCH[0]; }
+
+  renderVals() {
+    const archIdx = this.activeArch();
+    const sortIdx = this.activeSort();
+    const list = this.filtered();
+    const sel = Math.min(this.state.sel, Math.max(0, list.length - 1));
+    const d = list[sel];
+    const starStr = n => '★'.repeat(n) + '☆'.repeat(5 - n);
+
+    const archFilters = this.ARCH.map((a, i) => ({
+      label: a.label,
+      swatch: i === archIdx ? '#10121c' : a.color,
+      color: i === archIdx ? '#10121c' : a.color,
+      plate: i === archIdx ? a.color : '#10121c',
+      border: a.color,
+      pick: () => this.setState({ arch: i, sel: 0 }),
+    }));
+
+    const sorts = this.SORTS.map((label, i) => ({
+      label,
+      color: i === sortIdx ? '#10121c' : '#b0a7b8',
+      plate: i === sortIdx ? '#6dead6' : '#10121c',
+      border: i === sortIdx ? '#6dead6' : '#5e5b8c',
+      pick: () => this.setState({ sort: i, sel: 0 }),
+    }));
+
+    const box = list.map((c, i) => {
+      const m = this.archMeta(c.arch);
+      return {
+        name: c.name,
+        arch: c.arch,
+        stars: starStr(c.stars),
+        level: c.level,
+        tint: c.tint,
+        archColor: m.color,
+        readyMark: c.ready ? 'EGG' : c.party ? 'IN' : '',
+        readyColor: c.ready ? '#6dead6' : '#8c78a5',
+        border: i === sel ? '#f3a833' : c.party ? '#5e5b8c' : '#3e3b65',
+        plate: i === sel ? '#3e3b65' : '#10121c',
+        nameColor: i === sel ? '#f7f3b7' : '#f6e8e0',
+        hover: () => this.setState({ sel: i }),
+      };
+    });
+
+    const m = d ? this.archMeta(d.arch) : this.ARCH[0];
+    const cur = d
+      ? {
+          name: d.name,
+          stars: starStr(d.stars),
+          level: d.level,
+          arch: d.arch,
+          archColor: m.color,
+          markLine: d.mark === '—' ? 'NO MARK' : 'MARK · ' + d.mark,
+          breedTitle: d.ready ? 'BREED-READY' : 'NOT BREED-READY',
+          breedNote: d.ready ? d.eggs + ' EGGS LEFT' : 'NEEDS LV 15 + A CLEARED FLOOR',
+          breedBorder: d.ready ? '#3e6e6e' : '#3e3b65',
+          breedPlate: d.ready ? '#14262a' : '#14141f',
+          breedColor: d.ready ? '#6dead6' : '#8c78a5',
+        }
+      : { name: 'NOTHING SELECTED', stars: '', level: '—', arch: '', archColor: '#5e5b8c', markLine: '', breedTitle: '—', breedNote: '', breedBorder: '#3e3b65', breedPlate: '#14141f', breedColor: '#5e5b8c' };
+
+    const partyList = this.OWNED.filter(c => c.party);
+    const slotIdx = Math.min(this.state.slot, partyList.length - 1);
+    const swappedName = this.state.swapped;
+    const inParty = d && d.party;
+
+    const slots = partyList.map((p, i) => {
+      const pm = this.archMeta(p.arch);
+      const on = i === slotIdx && !inParty;
+      const out = swappedName && p.name === partyList[slotIdx].name;
+      return {
+        name: out ? d.name : p.name,
+        level: out ? d.level : p.level,
+        statLine: 'ATK ' + (out ? d.atk : p.atk) + ' DEF ' + (out ? d.def : p.def),
+        tint: out ? d.tint : p.tint,
+        archColor: out ? m.color : pm.color,
+        border: on ? '#f3a833' : '#3e3b65',
+        plate: on ? '#2c1e31' : '#14141f',
+        nameColor: on ? '#f7f3b7' : '#f6e8e0',
+        tag: out ? 'NEW' : on ? 'OUT' : '',
+        tagColor: out ? '#9de64e' : '#ec273f',
+        cursor: inParty ? 'default' : 'pointer',
+        pick: inParty ? () => {} : () => this.setState({ slot: i, swapped: null }),
+      };
+    });
+
+    const rival = partyList[slotIdx];
+    const deltas = d && rival && !inParty
+      ? [['ATK', 'atk'], ['DEF', 'def'], ['SPD', 'spd']].map(([label, k]) => {
+          const diff = d[k] - rival[k];
+          return {
+            label,
+            value: d[k],
+            delta: (diff > 0 ? '+' : '') + diff + ' vs ' + rival.name.slice(0, 8),
+            color: diff > 0 ? '#9de64e' : diff < 0 ? '#ec273f' : '#8c78a5',
+          };
+        })
+      : d
+      ? [
+          { label: 'ATK', value: d.atk, delta: 'in the party', color: '#8c78a5' },
+          { label: 'DEF', value: d.def, delta: '', color: '#8c78a5' },
+          { label: 'SPD', value: d.spd, delta: '', color: '#8c78a5' },
+        ]
+      : [];
+
+    const readyCount = this.OWNED.filter(c => c.ready).length;
+
+    return {
+      archFilters,
+      sorts,
+      box,
+      cur,
+      slots,
+      deltas,
+      compareTitle: d ? (inParty ? 'SELECTED' : 'REPLACES SLOT ' + (slotIdx + 1)) : 'SELECTED',
+      empty: list.length === 0,
+      capLine: this.OWNED.length + ' / 30 KEPT · 3 IN PARTY',
+      capColor: this.OWNED.length >= 27 ? '#f3a833' : '#8c78a5',
+      readyCount,
+      pairCount: Math.floor(readyCount / 2),
+      countLine: list.length + (list.length === 1 ? ' SHOWN' : ' SHOWN'),
+      readyOnlyLabel: this.state.readyOnly ? 'BREED-READY ONLY ✓' : 'BREED-READY ONLY',
+      readyOnlyColor: this.state.readyOnly ? '#10121c' : '#b0a7b8',
+      readyOnlyPlate: this.state.readyOnly ? '#6dead6' : '#10121c',
+      readyOnlyBorder: '#6dead6',
+      toggleReady: () => this.setState(s => ({ readyOnly: !s.readyOnly, sel: 0 })),
+      swap: () => { if (d && !inParty) this.setState({ swapped: d.name }); },
+      swapLabel: inParty ? 'IN PARTY' : swappedName === (d && d.name) ? 'SWAPPED IN' : 'SWAP IN',
+      swapPlate: inParty ? '#14141f' : swappedName === (d && d.name) ? '#f3a833' : '#2c1e31',
+      swapColor: inParty ? '#5e5b8c' : swappedName === (d && d.name) ? '#10121c' : '#f3a833',
+      swapBorder: inParty ? '#3e3b65' : '#f3a833',
+      swapCursor: inParty ? 'default' : 'pointer',
+      pairBorder: d && d.ready ? '#6dead6' : '#3e3b65',
+      pairColor: d && d.ready ? '#6dead6' : '#5e5b8c',
+      footerLine: d ? d.name + ' · ' + d.arch + ' · LV' + d.level : '',
+    };
+  }
+}
+</script>
+</body>
+</html>

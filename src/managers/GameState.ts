@@ -1,10 +1,44 @@
 import {
-  CreatureInstance, RunState, BaseStats,
+  CreatureInstance, RunState, BaseStats, TraitSlot,
   STAR_LEVEL_CAPS, generateId, isBossFloor, TOWER_FLOORS,
   BattleSpeed, TacticId,
 } from '../types';
 import { getTemplate } from '../data/creatures';
 import { convertObolsToEssence, essenceCostForLevel, depthUnlockCost, depthRunFee } from '../systems/Economy';
+import { unlockedSlotCount, applyStatTraitBonuses, MAX_TRAIT_SLOTS } from '../systems/Traits';
+
+const STAT_NAMES: (keyof BaseStats)[] = ['hp', 'mp', 'str', 'def', 'wis', 'spd', 'int'];
+
+/**
+ * Level-scaled stats for `instance`, EXCLUDING trait bonuses — a pure function of the
+ * instance's own fields (statBaseline/currentLevel/levelCap), with no dependency on the
+ * gameState singleton. `calculateStatsForLevel` (the instance method below) is this plus
+ * `applyStatTraitBonuses` as a final, separable step.
+ *
+ * This is the seam Fix 2 needed: `BreedingSystem.calculateOffspringStats` used to average
+ * parents' `currentStats`, which (since stat traits shipped) already has trait bonuses
+ * baked in — inflating the child's heritable baseline on top of the child separately
+ * re-inheriting the trait at L1, compounding every generation. Reading `statBaseline`
+ * directly would have thrown out level scaling too, which is intentionally load-bearing
+ * for inheritance (see breeding-and-inheritance.md — stats are meant to compound with
+ * level across generations, just not with trait strength). This function keeps exactly
+ * the level-scaling half and drops only the trait half, so BreedingSystem can import it
+ * and feed parents' pre-trait, level-scaled stats into the averaging instead.
+ */
+export function calculateLevelScaledStats(instance: CreatureInstance): BaseStats {
+  const template = getTemplate(instance.speciesId);
+  // Protect runtime callers holding a pre-v5 object. Save migration backfills
+  // the field before persisted creatures reach this path.
+  const base = instance.statBaseline ?? template.baseStats;
+  const level = instance.currentLevel;
+  const cap = instance.levelCap;
+  const result: BaseStats = { ...base };
+  for (const stat of STAT_NAMES) {
+    const maxStat = base[stat] * 2.5;
+    result[stat] = Math.floor(base[stat] + (maxStat - base[stat]) * (level / cap));
+  }
+  return result;
+}
 
 class GameStateManager {
   creatureBox: CreatureInstance[] = [];
@@ -34,13 +68,15 @@ class GameStateManager {
       permanentLevel: 1,
       essenceInvested: 0,
       abilities: [...template.defaultAbilities, null, null].slice(0, 4),
-      traitSlots: [
-        { traitId: null, traitLevel: 0, unlocked: false },
-        { traitId: null, traitLevel: 0, unlocked: false },
-        { traitId: null, traitLevel: 0, unlocked: false },
-        { traitId: null, traitLevel: 0, unlocked: false },
-      ],
+      // Built from MAX_TRAIT_SLOTS rather than hardcoded literals: if TRAIT_SLOT_LEVELS
+      // ever grows a fifth threshold, new creatures pick it up automatically instead of
+      // silently getting fewer slots than offspring (resolveInheritedTraitSlots already
+      // sizes itself off MAX_TRAIT_SLOTS).
+      traitSlots: Array.from({ length: MAX_TRAIT_SLOTS }, () => ({
+        traitId: null, traitLevel: 0, unlocked: false,
+      })),
       lineage: { parentA: null, parentB: null },
+      statBaseline: { ...template.baseStats },
       currentStats: { ...template.baseStats },
       resistances: [...template.resistances],
       weaknesses: [...template.weaknesses],
@@ -52,17 +88,13 @@ class GameStateManager {
   }
 
   calculateStatsForLevel(instance: CreatureInstance): BaseStats {
-    const template = getTemplate(instance.speciesId);
-    const base = template.baseStats;
-    const level = instance.currentLevel;
-    const cap = instance.levelCap;
-    const statNames: (keyof BaseStats)[] = ['hp', 'mp', 'str', 'def', 'wis', 'spd', 'int'];
-    const result: BaseStats = { ...base };
-    for (const stat of statNames) {
-      const maxStat = base[stat] * 2.5;
-      result[stat] = Math.floor(base[stat] + (maxStat - base[stat]) * (level / cap));
-    }
-    return result;
+    // Stat traits (unlocked slots with a non-null traitId only) layer on top of the
+    // level-scaled result, as a distinguishable final step. Kept as a separate composable
+    // step in Traits.ts — see its doc comment for why — rather than inlined into the
+    // loop below. calculateLevelScaledStats is exported precisely so a caller that needs
+    // the pre-trait figure (BreedingSystem's inheritance math — see Fix 2) can ask for it
+    // without also pulling in trait inflation.
+    return applyStatTraitBonuses(calculateLevelScaledStats(instance), instance);
   }
 
   xpForLevel(level: number): number {
@@ -76,9 +108,8 @@ class GameStateManager {
       instance.xp -= needed;
       instance.currentLevel++;
       instance.currentStats = this.calculateStatsForLevel(instance);
-      if (instance.currentLevel >= instance.levelCap) {
-        instance.isBreedReady = true;
-      }
+      // Breed-readiness is derived from permanentLevel (see isCreatureBreedReady in
+      // systems/Traits.ts) — in-run levelling must never confer it.
       return true;
     }
     return false;
@@ -94,7 +125,22 @@ class GameStateManager {
     instance.permanentLevel++;
     instance.currentLevel = instance.permanentLevel;
     instance.currentStats = this.calculateStatsForLevel(instance);
+    this.unlockEarnedTraitSlots(instance);
     return true;
+  }
+
+  /**
+   * Unlock any trait slots whose permanentLevel threshold is now met. Slots unlock
+   * EMPTY (unlocked: true, traitId stays null — no random roll anywhere in this
+   * codebase) and unlocking is monotonic: this only ever sets `unlocked` to true,
+   * never back to false, so an already-unlocked slot is never re-locked.
+   */
+  private unlockEarnedTraitSlots(instance: CreatureInstance): void {
+    const earned = unlockedSlotCount(instance.permanentLevel);
+    for (let i = 0; i < earned; i++) {
+      const slot = instance.traitSlots[i];
+      if (slot) slot.unlocked = true;
+    }
   }
 
   /** Record clearing a boss on `floor`. Only boss floors count; keeps the running max. */
@@ -226,7 +272,6 @@ class GameStateManager {
       // Start each run at the permanent essence-bought floor, not level 1
       c.currentLevel = c.permanentLevel;
       c.xp = 0;
-      c.isBreedReady = false;
       c.currentStats = this.calculateStatsForLevel(c);
     }
   }
@@ -265,7 +310,7 @@ class GameStateManager {
 
   saveToLocalStorage(): void {
     const data = {
-      version: 4,
+      version: 5,
       creatureBox: this.creatureBox,
       essence: this.essence,
       deepestBreakCleared: this.deepestBreakCleared,
@@ -320,17 +365,69 @@ class GameStateManager {
       }
       this.creatureBox = (data.creatureBox ?? []).map((c: any) => {
         const { longevity, ...rest } = c; // drop longevity if present
+        const template = getTemplate(c.speciesId);
+        const permanentLevel = c.permanentLevel ?? 1;
         return {
           ...rest,
-          permanentLevel: c.permanentLevel ?? 1,
+          permanentLevel,
           essenceInvested: c.essenceInvested ?? 0,
           tactic: (c.tactic ?? 'fight_wisely') as TacticId,
+          // Trait slots are unlockable purely by permanentLevel (unlockedSlotCount), but
+          // the only place that ever unlocks one — spendEssenceOnLevel — is unreachable
+          // for a creature already sitting at its levelCap on load. Recompute what's
+          // earned here too so a creature bought straight to its cap before this save
+          // ever gets its slots. Also normalizes array length to MAX_TRAIT_SLOTS: an
+          // older/shorter traitSlots array (or one with a hole) would otherwise diverge
+          // from what resolveInheritedTraitSlots always builds for offspring.
+          traitSlots: this.normalizeTraitSlots(c.traitSlots, permanentLevel),
+          // v5: old, freshly-bred creatures still hold their unscaled inherited
+          // stats in currentStats. Preserve those when possible; if an earlier run
+          // already replaced them with template-scaled stats, the species baseline
+          // is the only trustworthy fallback.
+          statBaseline: c.statBaseline
+            ? { ...c.statBaseline }
+            : c.lineage?.parentA && c.currentLevel === (c.permanentLevel ?? 1)
+              && !this.matchesLegacyTemplateScale(c)
+              ? { ...c.currentStats }
+              : { ...template.baseStats },
         } as CreatureInstance;
       });
       return true;
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Normalize a loaded creature's traitSlots to exactly MAX_TRAIT_SLOTS entries,
+   * preserving any stored traitId/traitLevel by position. `unlocked` is the OR of
+   * "the permanent-level threshold for this index is already met" and "the save
+   * already recorded it unlocked" — the OR is what keeps this monotonic: a slot a
+   * player already unlocked can never read back as locked, even if some future
+   * threshold retune would otherwise imply it shouldn't be earned yet at this level.
+   */
+  private normalizeTraitSlots(rawSlots: unknown, permanentLevel: number): TraitSlot[] {
+    const earned = unlockedSlotCount(permanentLevel);
+    const stored = Array.isArray(rawSlots) ? rawSlots : [];
+    return Array.from({ length: MAX_TRAIT_SLOTS }, (_, i) => {
+      const slot = stored[i] as Partial<TraitSlot> | undefined;
+      return {
+        traitId: slot?.traitId ?? null,
+        traitLevel: slot?.traitLevel ?? 0,
+        unlocked: i < earned || slot?.unlocked === true,
+      };
+    });
+  }
+
+  private matchesLegacyTemplateScale(creature: any): boolean {
+    const base = getTemplate(creature.speciesId).baseStats;
+    const level = creature.currentLevel ?? 1;
+    const cap = creature.levelCap ?? 5;
+    const statNames: (keyof BaseStats)[] = ['hp', 'mp', 'str', 'def', 'wis', 'spd', 'int'];
+    return statNames.every(stat => {
+      const expected = Math.floor(base[stat] + (base[stat] * 2.5 - base[stat]) * (level / cap));
+      return creature.currentStats?.[stat] === expected;
+    });
   }
 }
 
