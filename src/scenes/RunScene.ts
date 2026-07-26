@@ -23,9 +23,10 @@ export class RunScene extends Phaser.Scene {
 
   init(data?: { continueRun?: boolean }): void {
     if (!data?.continueRun || !gameState.currentRun) {
-      // Start a new run
-      gameState.startRun();
+      // Start a new run. Resolve the (possibly throwing) start floor before mutating
+      // any party state, so a throw here leaves nothing half-applied.
       const startFloor = gameState.resolveRunStartFloor();
+      gameState.startRun();
       const encounters = generateDescent(startFloor);
       gameState.currentRun = {
         startFloor,

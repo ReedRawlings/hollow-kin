@@ -4,7 +4,7 @@ import {
   BattleSpeed, TacticId,
 } from '../types';
 import { getTemplate } from '../data/creatures';
-import { convertObolsToEssence, essenceCostForLevel, depthJumpCost } from '../systems/Economy';
+import { convertObolsToEssence, essenceCostForLevel, depthUnlockCost, depthRunFee } from '../systems/Economy';
 
 class GameStateManager {
   creatureBox: CreatureInstance[] = [];
@@ -16,6 +16,10 @@ class GameStateManager {
   hasCompletedFirstRun = false;
   seenSpecies: Set<string> = new Set();
   battleSpeed: BattleSpeed = 1;
+  /** Instance ids of the standing party. Persisted; resolved via resolvePartyStatus. */
+  defaultParty: string[] = [];
+  /** Floors purchased from the Gatekeeper. Floor 1 is always available and never stored. */
+  unlockedFloors: number[] = [];
 
   createCreatureInstance(speciesId: string, starRating = 0): CreatureInstance {
     const template = getTemplate(speciesId);
@@ -110,14 +114,66 @@ class GameStateManager {
     return this.battleSpeed;
   }
 
-  /** Floors a run may start on: floor 1, plus the floor after each cleared 5-floor break. */
-  unlockedStartFloors(): number[] {
-    const floors = [1];
-    for (let f = 5; f <= this.deepestBreakCleared && f + 1 <= TOWER_FLOORS; f += 5) floors.push(f + 1);
-    return floors;
+  setDefaultParty(instanceIds: string[]): void {
+    this.defaultParty = [...instanceIds];
   }
 
-  /** Choose a start floor for the next run. Only floors unlocked by cleared breaks are accepted. */
+  /**
+   * Floors a run may start on: floor 1, plus every floor purchased at the Gatekeeper.
+   * Clearing a break no longer grants a deep start on its own — it makes one purchasable.
+   */
+  unlockedStartFloors(): number[] {
+    return [1, ...this.unlockedFloors].sort((a, b) => a - b);
+  }
+
+  /**
+   * Floors granted by clearing breaks up to `deepestBreakCleared`, under the current
+   * 5-floor cadence (clear the break at f -> floor f+1 is earned). Single source of
+   * truth for this mapping — used both to compute what's purchasable now and, in the
+   * v3->v4 migration, to grant what a returning player already earned under the old
+   * rules. Keeping this in one place means retuning the break cadence can't make the
+   * two drift apart.
+   */
+  private floorsEarnedByBreaks(): number[] {
+    const out: number[] = [];
+    for (let f = 5; f <= this.deepestBreakCleared && f + 1 <= TOWER_FLOORS; f += 5) {
+      out.push(f + 1);
+    }
+    return out;
+  }
+
+  /** Floors whose break is cleared but which have not been bought yet. */
+  purchasableFloors(): number[] {
+    return this.floorsEarnedByBreaks().filter(floor => !this.unlockedFloors.includes(floor));
+  }
+
+  /** Buy a permanent unlock. Returns false if not purchasable, already owned, or unaffordable. */
+  purchaseFloorUnlock(floor: number): boolean {
+    if (!this.purchasableFloors().includes(floor)) return false;
+    const cost = depthUnlockCost(floor);
+    if (this.essence < cost) return false;
+    this.essence -= cost;
+    this.unlockedFloors.push(floor);
+    this.unlockedFloors.sort((a, b) => a - b);
+    return true;
+  }
+
+  /** Whether the per-run fee for `floor` is affordable right now. Floor 1 is always true. */
+  canAffordStartFloor(floor: number): boolean {
+    return this.essence >= depthRunFee(floor);
+  }
+
+  /**
+   * Whether departing from `floor` will succeed. This is the exact precondition of
+   * resolveRunStartFloor(), expressed once so the UI gate and the charge cannot
+   * drift apart — the same reason resolvePartyStatus exists for the party half.
+   */
+  canDepartFrom(floor: number): boolean {
+    if (floor <= 1) return true;
+    return this.unlockedStartFloors().includes(floor) && this.canAffordStartFloor(floor);
+  }
+
+  /** Choose a start floor for the next run. Only floors unlocked (purchased) are accepted. */
   setSelectedStartFloor(floor: number): boolean {
     if (!this.unlockedStartFloors().includes(floor)) return false;
     this.selectedStartFloor = floor;
@@ -125,19 +181,24 @@ class GameStateManager {
   }
 
   /**
-   * Resolve the floor a starting run begins on. If a deep start is selected, still unlocked,
-   * and affordable, deducts its Essence cost and returns it; otherwise returns 1 (free).
+   * Charge for and return the floor this run begins on.
+   *
+   * Deliberately throws rather than falling back. Departing from a floor the player did
+   * not choose reads as a bug, so an unaffordable or unowned selection is a programming
+   * error here — DepartureScene is the gate that must prevent it reaching this point.
    */
   resolveRunStartFloor(): number {
     const chosen = this.selectedStartFloor;
-    if (chosen > 1 && this.unlockedStartFloors().includes(chosen)) {
-      const cost = depthJumpCost(chosen);
-      if (this.essence >= cost) {
-        this.essence -= cost;
-        return chosen;
-      }
+    if (chosen <= 1) return 1;
+    if (!this.unlockedStartFloors().includes(chosen)) {
+      throw new Error(`Start floor ${chosen} is not unlocked`);
     }
-    return 1;
+    const fee = depthRunFee(chosen);
+    if (this.essence < fee) {
+      throw new Error(`Cannot afford the ${fee} Essence fee for floor ${chosen}`);
+    }
+    this.essence -= fee;
+    return chosen;
   }
 
   addToBox(instance: CreatureInstance): void {
@@ -198,11 +259,13 @@ class GameStateManager {
     this.hasCompletedFirstRun = false;
     this.seenSpecies = new Set();
     this.battleSpeed = 1;
+    this.defaultParty = [];
+    this.unlockedFloors = [];
   }
 
   saveToLocalStorage(): void {
     const data = {
-      version: 3,
+      version: 4,
       creatureBox: this.creatureBox,
       essence: this.essence,
       deepestBreakCleared: this.deepestBreakCleared,
@@ -210,6 +273,8 @@ class GameStateManager {
       hasCompletedFirstRun: this.hasCompletedFirstRun,
       seenSpecies: [...this.seenSpecies],
       battleSpeed: this.battleSpeed,
+      defaultParty: this.defaultParty,
+      unlockedFloors: this.unlockedFloors,
     };
     localStorage.setItem('hollow_kin_save', JSON.stringify(data));
   }
@@ -222,11 +287,37 @@ class GameStateManager {
       // Essence: new field, else migrate old townResources, else 0
       this.essence = data.essence ?? data.townResources ?? 0;
       this.deepestBreakCleared = data.deepestBreakCleared ?? 0;
-      this.selectedStartFloor = data.selectedStartFloor ?? 1;
       this.hasCompletedFirstRun = data.hasCompletedFirstRun ?? false;
       // v3 additions — absent on v2 saves, so default safely.
       this.seenSpecies = new Set<string>(data.seenSpecies ?? []);
       this.battleSpeed = (data.battleSpeed ?? 1) as BattleSpeed;
+      // v4 additions.
+      // `defaultParty` has no old-semantics value to preserve when absent — there was
+      // nothing like it pre-v4 — so a plain `?? []` is correct as-is. Unlike
+      // `unlockedFloors` below, presence-checking here would buy nothing; don't "fix"
+      // this into an Array.isArray check.
+      this.defaultParty = data.defaultParty ?? [];
+      if (Array.isArray(data.unlockedFloors)) {
+        this.unlockedFloors = [...data.unlockedFloors];
+        // v4 save: this is the player's own current choice — preserve it verbatim.
+        this.selectedStartFloor = data.selectedStartFloor ?? 1;
+      } else {
+        // v3 save: cleared breaks already granted deep starts under the old rules.
+        // Grant them outright so nobody is asked to re-buy depth they earned.
+        // Presence, not emptiness, is the test — a v4 player who owns nothing must stay that way.
+        this.unlockedFloors = this.floorsEarnedByBreaks();
+        // A v3 save's selectedStartFloor was chosen under the old rules: a different
+        // per-run fee formula ((floor-1)*15 vs the new (floor-1)*5) and floors that
+        // auto-unlocked on clearing a break rather than being purchased. That value is
+        // not meaningful under the new contract, so we don't carry it forward — this is
+        // true independent of the fact that a stale deep value here would otherwise reach
+        // resolveRunStartFloor()'s throw the moment an ordinary returning player's Essence
+        // falls short of the new fee. Declining to carry forward a *migrated* setting whose
+        // meaning changed is not the same as substituting the player's live choice at
+        // departure time, which remains forbidden — resolveRunStartFloor() keeps throwing
+        // for a v4 save's genuinely unaffordable/unowned selection.
+        this.selectedStartFloor = 1;
+      }
       this.creatureBox = (data.creatureBox ?? []).map((c: any) => {
         const { longevity, ...rest } = c; // drop longevity if present
         return {

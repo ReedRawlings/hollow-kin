@@ -16,6 +16,7 @@ import { gameState } from './GameState';
 import { estimateDamage, NO_KNOWLEDGE } from '../systems/TacticsAI';
 import { makeTestCreature } from '../systems/testFixtures';
 import { getAbility } from '../data/abilities';
+import { depthUnlockCost, depthRunFee } from '../systems/Economy';
 
 beforeEach(() => {
   gameState.initializeNewGame(['ironjaw', 'stoneguard', 'voltarc']);
@@ -153,15 +154,16 @@ describe('deepest-break tracking', () => {
     expect(gameState.deepestBreakCleared).toBe(0);
   });
 
-  it('unlockedStartFloors returns floor 1 plus the floor after each cleared break', () => {
+  it('clearing a break makes its floor purchasable, not unlocked outright', () => {
     expect(gameState.unlockedStartFloors()).toEqual([1]);
     gameState.recordBreakCleared(10);
-    expect(gameState.unlockedStartFloors()).toEqual([1, 6, 11]);
+    expect(gameState.purchasableFloors()).toEqual([6, 11]);
+    expect(gameState.unlockedStartFloors()).toEqual([1]);
   });
 
-  it('caps unlockedStartFloors at the tower top when the tower is fully cleared', () => {
+  it('caps purchasableFloors at the tower top when the tower is fully cleared', () => {
     gameState.deepestBreakCleared = 30;
-    expect(gameState.unlockedStartFloors()).toEqual([1, 6, 11, 16, 21, 26]);
+    expect(gameState.purchasableFloors()).toEqual([6, 11, 16, 21, 26]);
   });
 
   it('persists deepestBreakCleared across save/load', () => {
@@ -186,30 +188,36 @@ describe('depth-jump start floor', () => {
     expect(gameState.selectedStartFloor).toBe(1);
   });
 
-  it('setSelectedStartFloor only accepts unlocked floors', () => {
-    gameState.recordBreakCleared(10); // unlocks [1,6,11]
+  it('setSelectedStartFloor only accepts purchased floors, not merely cleared-break floors', () => {
+    gameState.recordBreakCleared(10); // makes [6,11] purchasable, not unlocked
+    expect(gameState.setSelectedStartFloor(11)).toBe(false); // not bought yet
+    gameState.essence = 10_000;
+    gameState.purchaseFloorUnlock(11);
     expect(gameState.setSelectedStartFloor(11)).toBe(true);
     expect(gameState.selectedStartFloor).toBe(11);
-    expect(gameState.setSelectedStartFloor(16)).toBe(false); // not unlocked
+    expect(gameState.setSelectedStartFloor(16)).toBe(false); // never purchased
     expect(gameState.selectedStartFloor).toBe(11);           // unchanged
   });
 
-  it('resolveRunStartFloor deducts essence and returns the chosen floor when affordable', () => {
+  it('resolveRunStartFloor deducts the per-run fee and returns the chosen floor when affordable', () => {
     gameState.recordBreakCleared(10);
+    gameState.essence = 10_000;
+    gameState.purchaseFloorUnlock(11);
     gameState.setSelectedStartFloor(11);
-    gameState.essence = 200;
-    const floor = gameState.resolveRunStartFloor(); // cost (11-1)*15 = 150
+    const before = gameState.essence;
+    const floor = gameState.resolveRunStartFloor();
     expect(floor).toBe(11);
-    expect(gameState.essence).toBe(50);
+    expect(gameState.essence).toBe(before - depthRunFee(11));
   });
 
-  it('resolveRunStartFloor falls back to floor 1 when unaffordable (no deduction)', () => {
+  it('throws rather than falling back to floor 1 when the selected floor is unaffordable', () => {
     gameState.recordBreakCleared(10);
+    gameState.essence = 10_000;
+    gameState.purchaseFloorUnlock(11);
     gameState.setSelectedStartFloor(11);
-    gameState.essence = 100; // < 150
-    const floor = gameState.resolveRunStartFloor();
-    expect(floor).toBe(1);
-    expect(gameState.essence).toBe(100);
+    gameState.essence = 1; // below depthRunFee(11)
+    expect(() => gameState.resolveRunStartFloor()).toThrow();
+    expect(gameState.essence).toBe(1);
   });
 
   it('resolveRunStartFloor returns 1 (free) when selection is floor 1', () => {
@@ -220,6 +228,8 @@ describe('depth-jump start floor', () => {
 
   it('persists selectedStartFloor across save/load', () => {
     gameState.recordBreakCleared(10);
+    gameState.essence = 10_000;
+    gameState.purchaseFloorUnlock(6);
     gameState.setSelectedStartFloor(6);
     gameState.saveToLocalStorage();
     gameState.selectedStartFloor = 1;
@@ -327,5 +337,328 @@ describe('seenSpecies fog timing (finding 2 regression)', () => {
     expect(gameState.seenSpecies.has(foe.instance.speciesId)).toBe(true);
     const nextBattleDamage = estimateDamage(attacker, foe, ability, gameState.seenSpecies);
     expect(nextBattleDamage).toBeGreaterThan(blindDamage);
+  });
+});
+
+describe('default party', () => {
+  it('is empty on a new game', () => {
+    gameState.initializeNewGame(['ironjaw']);
+    expect(gameState.defaultParty).toEqual([]);
+  });
+
+  it('stores a copy, so later edits to the caller array do not leak in', () => {
+    const ids = ['a', 'b', 'c'];
+    gameState.setDefaultParty(ids);
+    ids.push('d');
+    expect(gameState.defaultParty).toEqual(['a', 'b', 'c']);
+  });
+
+  it('round-trips through save and load', () => {
+    gameState.initializeNewGame(['ironjaw']);
+    gameState.setDefaultParty(['x', 'y', 'z']);
+    gameState.saveToLocalStorage();
+    gameState.defaultParty = [];
+    expect(gameState.loadFromLocalStorage()).toBe(true);
+    expect(gameState.defaultParty).toEqual(['x', 'y', 'z']);
+  });
+});
+
+describe('floor unlocks', () => {
+  beforeEach(() => {
+    gameState.initializeNewGame(['ironjaw']);
+  });
+
+  it('offers nothing to buy before any break is cleared', () => {
+    expect(gameState.purchasableFloors()).toEqual([]);
+  });
+
+  it('offers floor 6 once the floor-5 break is cleared', () => {
+    gameState.recordBreakCleared(5);
+    expect(gameState.purchasableFloors()).toEqual([6]);
+  });
+
+  it('starts with only floor 1 available even after clearing a break', () => {
+    gameState.recordBreakCleared(5);
+    expect(gameState.unlockedStartFloors()).toEqual([1]);
+  });
+
+  it('adds a floor to the available list once bought, and stops offering it', () => {
+    gameState.recordBreakCleared(5);
+    gameState.essence = 10_000;
+    expect(gameState.purchaseFloorUnlock(6)).toBe(true);
+    expect(gameState.unlockedStartFloors()).toEqual([1, 6]);
+    expect(gameState.purchasableFloors()).toEqual([]);
+  });
+
+  it('deducts the unlock cost', () => {
+    gameState.recordBreakCleared(5);
+    gameState.essence = 10_000;
+    const before = gameState.essence;
+    gameState.purchaseFloorUnlock(6);
+    expect(gameState.essence).toBe(before - depthUnlockCost(6));
+  });
+
+  it('refuses a floor whose break has not been cleared', () => {
+    gameState.essence = 10_000;
+    expect(gameState.purchaseFloorUnlock(6)).toBe(false);
+    expect(gameState.unlockedStartFloors()).toEqual([1]);
+  });
+
+  it('refuses when the player cannot afford it, without deducting', () => {
+    gameState.recordBreakCleared(5);
+    gameState.essence = 1;
+    expect(gameState.purchaseFloorUnlock(6)).toBe(false);
+    expect(gameState.essence).toBe(1);
+  });
+
+  it('does not double-charge for a floor already owned', () => {
+    gameState.recordBreakCleared(5);
+    gameState.essence = 10_000;
+    gameState.purchaseFloorUnlock(6);
+    const after = gameState.essence;
+    expect(gameState.purchaseFloorUnlock(6)).toBe(false);
+    expect(gameState.essence).toBe(after);
+    expect(gameState.unlockedStartFloors()).toEqual([1, 6]);
+  });
+
+  it('keeps available floors sorted regardless of purchase order', () => {
+    gameState.recordBreakCleared(10);
+    gameState.essence = 10_000;
+    gameState.purchaseFloorUnlock(11);
+    gameState.purchaseFloorUnlock(6);
+    expect(gameState.unlockedStartFloors()).toEqual([1, 6, 11]);
+  });
+
+  it('round-trips unlocked floors through save and load', () => {
+    gameState.recordBreakCleared(10);
+    gameState.essence = 10_000;
+    gameState.purchaseFloorUnlock(6);
+    gameState.saveToLocalStorage();
+    gameState.unlockedFloors = [];
+    expect(gameState.loadFromLocalStorage()).toBe(true);
+    expect(gameState.unlockedStartFloors()).toEqual([1, 6]);
+  });
+});
+
+describe('resolveRunStartFloor', () => {
+  beforeEach(() => {
+    gameState.initializeNewGame(['ironjaw']);
+  });
+
+  it('is free at floor 1 and deducts nothing', () => {
+    gameState.essence = 100;
+    gameState.selectedStartFloor = 1;
+    expect(gameState.resolveRunStartFloor()).toBe(1);
+    expect(gameState.essence).toBe(100);
+  });
+
+  it('returns the selected floor and deducts exactly its fee', () => {
+    gameState.recordBreakCleared(5);
+    gameState.essence = 10_000;
+    gameState.purchaseFloorUnlock(6);
+    gameState.setSelectedStartFloor(6);
+    const before = gameState.essence;
+    expect(gameState.resolveRunStartFloor()).toBe(6);
+    expect(gameState.essence).toBe(before - depthRunFee(6));
+  });
+
+  it('throws rather than departing from a floor the player cannot afford', () => {
+    // Never substitute: picking floor 6 and silently starting on floor 1 reads as a bug.
+    gameState.recordBreakCleared(5);
+    gameState.essence = 10_000;
+    gameState.purchaseFloorUnlock(6);
+    gameState.setSelectedStartFloor(6);
+    gameState.essence = 0;
+    expect(() => gameState.resolveRunStartFloor()).toThrow();
+  });
+
+  it('throws rather than departing from a floor that was never unlocked', () => {
+    gameState.selectedStartFloor = 11; // forced past setSelectedStartFloor's guard
+    gameState.essence = 10_000;
+    expect(() => gameState.resolveRunStartFloor()).toThrow();
+  });
+
+  it('does not deduct essence when it throws', () => {
+    gameState.selectedStartFloor = 11;
+    gameState.essence = 10_000;
+    expect(() => gameState.resolveRunStartFloor()).toThrow();
+    expect(gameState.essence).toBe(10_000);
+  });
+});
+
+describe('canAffordStartFloor', () => {
+  it('is always true for floor 1, even with no essence', () => {
+    gameState.initializeNewGame(['ironjaw']);
+    gameState.essence = 0;
+    expect(gameState.canAffordStartFloor(1)).toBe(true);
+  });
+
+  it('tracks the per-run fee for deeper floors', () => {
+    gameState.initializeNewGame(['ironjaw']);
+    gameState.essence = depthRunFee(6);
+    expect(gameState.canAffordStartFloor(6)).toBe(true);
+    gameState.essence = depthRunFee(6) - 1;
+    expect(gameState.canAffordStartFloor(6)).toBe(false);
+  });
+});
+
+describe('canDepartFrom', () => {
+  // The point of this suite is the equivalence itself — canDepartFrom(f) must return
+  // true exactly when resolveRunStartFloor() (run against the same state) would not
+  // throw. A test that only asserted canDepartFrom's own return value in isolation
+  // would not catch the two drifting apart (finding 2); this checks them together,
+  // across a spread of states, every time.
+  function resolveRunStartFloorThrows(): boolean {
+    try {
+      gameState.resolveRunStartFloor();
+      return false;
+    } catch {
+      return true;
+    }
+  }
+
+  function assertEquivalence(floor: number): void {
+    const before = gameState.essence;
+    gameState.selectedStartFloor = floor;
+    const departable = gameState.canDepartFrom(floor);
+    const threw = resolveRunStartFloorThrows();
+    gameState.essence = before; // undo any charge resolveRunStartFloor may have taken
+    expect(departable).toBe(!threw);
+  }
+
+  it('floor 1 is always departable, even with no essence and nothing unlocked', () => {
+    gameState.initializeNewGame(['ironjaw']);
+    gameState.essence = 0;
+    assertEquivalence(1);
+    expect(gameState.canDepartFrom(1)).toBe(true);
+  });
+
+  it('a floor that is unlocked and affordable is departable', () => {
+    gameState.initializeNewGame(['ironjaw']);
+    gameState.recordBreakCleared(5);
+    gameState.essence = 10_000;
+    gameState.purchaseFloorUnlock(6);
+    gameState.essence = depthRunFee(6);
+    assertEquivalence(6);
+    expect(gameState.canDepartFrom(6)).toBe(true);
+  });
+
+  it('a floor that is unlocked but unaffordable is not departable', () => {
+    gameState.initializeNewGame(['ironjaw']);
+    gameState.recordBreakCleared(5);
+    gameState.essence = 10_000;
+    gameState.purchaseFloorUnlock(6);
+    gameState.essence = depthRunFee(6) - 1;
+    assertEquivalence(6);
+    expect(gameState.canDepartFrom(6)).toBe(false);
+  });
+
+  it('a floor that was never unlocked is not departable, even flush with essence', () => {
+    gameState.initializeNewGame(['ironjaw']);
+    gameState.essence = 10_000;
+    // Never unlocked floor 6 — set selectedStartFloor directly, bypassing the guard
+    // in setSelectedStartFloor, the same way a stale/forced value could reach here.
+    assertEquivalence(6);
+    expect(gameState.canDepartFrom(6)).toBe(false);
+  });
+});
+
+describe('save v3 -> v4 migration', () => {
+  it('grants unlocked floors for breaks already cleared, so no depth is lost', () => {
+    localStorage.setItem('hollow_kin_save', JSON.stringify({
+      version: 3,
+      essence: 500,
+      deepestBreakCleared: 10,
+      selectedStartFloor: 1,
+      hasCompletedFirstRun: true,
+      creatureBox: [],
+      seenSpecies: [],
+      battleSpeed: 1,
+    }));
+    expect(gameState.loadFromLocalStorage()).toBe(true);
+    expect(gameState.unlockedStartFloors()).toEqual([1, 6, 11]);
+    expect(gameState.defaultParty).toEqual([]);
+    expect(gameState.essence).toBe(500);
+  });
+
+  it('grants nothing when no break was cleared', () => {
+    localStorage.setItem('hollow_kin_save', JSON.stringify({
+      version: 3, essence: 0, deepestBreakCleared: 0,
+      selectedStartFloor: 1, hasCompletedFirstRun: false,
+      creatureBox: [], seenSpecies: [], battleSpeed: 1,
+    }));
+    expect(gameState.loadFromLocalStorage()).toBe(true);
+    expect(gameState.unlockedStartFloors()).toEqual([1]);
+  });
+
+  it('does not re-grant on a v4 save that deliberately owns nothing', () => {
+    // A v4 player who cleared breaks but chose not to buy must stay unbought.
+    localStorage.setItem('hollow_kin_save', JSON.stringify({
+      version: 4, essence: 0, deepestBreakCleared: 10,
+      selectedStartFloor: 1, hasCompletedFirstRun: true,
+      creatureBox: [], seenSpecies: [], battleSpeed: 1,
+      defaultParty: [], unlockedFloors: [],
+    }));
+    expect(gameState.loadFromLocalStorage()).toBe(true);
+    expect(gameState.unlockedStartFloors()).toEqual([1]);
+  });
+
+  it('resets a v3 save\'s selectedStartFloor to 1 while still granting the earned unlocks', () => {
+    // v3's selectedStartFloor: 11 was chosen under the old rules (auto-unlock + a
+    // different fee formula). It must not survive the migration verbatim, but the
+    // unlocked-floor grant (tested above) must still happen.
+    // Poison the in-memory field to something other than 1 first: gameState is a
+    // singleton and beforeEach happens to already leave it at 1, so without this the
+    // assertion below would pass by coincidence even if load() stopped touching the
+    // field entirely — it must be load() actively normalizing it, not an accident of
+    // prior state.
+    gameState.selectedStartFloor = 999;
+    localStorage.setItem('hollow_kin_save', JSON.stringify({
+      version: 3,
+      essence: 500,
+      deepestBreakCleared: 10,
+      selectedStartFloor: 11,
+      hasCompletedFirstRun: true,
+      creatureBox: [], seenSpecies: [], battleSpeed: 1,
+    }));
+    expect(gameState.loadFromLocalStorage()).toBe(true);
+    expect(gameState.selectedStartFloor).toBe(1);
+    expect(gameState.unlockedStartFloors()).toEqual([1, 6, 11]);
+  });
+
+  it('regression: a v3 save with low Essence no longer crashes resolveRunStartFloor on load', () => {
+    // Before the fix, selectedStartFloor: 11 carried over verbatim. A returning player
+    // whose Essence didn't cover the new (floor-1)*5 fee for floor 11 would hit an
+    // uncaught throw the moment RunScene.init() called resolveRunStartFloor() — no dev
+    // tools or manual state poking required, just an ordinary low-Essence returning player.
+    // Poisoned for the same reason as above: gameState is a singleton and beforeEach
+    // already leaves selectedStartFloor at 1, so this write is what makes the assertions
+    // below actually exercise load()'s migration logic instead of passing by coincidence.
+    gameState.selectedStartFloor = 999;
+    localStorage.setItem('hollow_kin_save', JSON.stringify({
+      version: 3,
+      essence: 1, // far below the fee for floor 11 under the new formula
+      deepestBreakCleared: 10,
+      selectedStartFloor: 11,
+      hasCompletedFirstRun: true,
+      creatureBox: [], seenSpecies: [], battleSpeed: 1,
+    }));
+    expect(gameState.loadFromLocalStorage()).toBe(true);
+    expect(() => gameState.resolveRunStartFloor()).not.toThrow();
+    expect(gameState.resolveRunStartFloor()).toBe(1);
+  });
+
+  it('preserves a v4 save\'s selectedStartFloor as-is (migration reset does not apply)', () => {
+    // A v4 save's selectedStartFloor is the player's own current, live choice and must
+    // not be clobbered — the reset is a migration-only decision for v3 saves.
+    gameState.selectedStartFloor = 999; // poison, see above
+    localStorage.setItem('hollow_kin_save', JSON.stringify({
+      version: 4, essence: 10_000, deepestBreakCleared: 10,
+      selectedStartFloor: 6, hasCompletedFirstRun: true,
+      creatureBox: [], seenSpecies: [], battleSpeed: 1,
+      defaultParty: [], unlockedFloors: [6],
+    }));
+    expect(gameState.loadFromLocalStorage()).toBe(true);
+    expect(gameState.selectedStartFloor).toBe(6);
   });
 });

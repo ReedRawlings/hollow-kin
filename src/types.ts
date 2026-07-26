@@ -222,6 +222,16 @@ export function bossTierForFloor(floor: number): 'mini' | 'major' {
   return floor % 10 === 0 ? 'major' : 'mini';
 }
 export const WIPE_OBOL_PENALTY = 0.5; // fraction of leftover Obols lost on a full wipe
+
+/**
+ * Depth cost is split in two: a large one-time Gatekeeper purchase that permanently
+ * unlocks a floor as a start point, plus a small fee charged each run you actually
+ * depart from it. Both are alpha placeholders — see the note at the top of CLAUDE.md.
+ * The unlock must stay meaningfully larger than the fee or the purchase is pointless.
+ */
+export const DEPTH_UNLOCK_COST_PER_FLOOR = 40;
+export const DEPTH_RUN_FEE_PER_FLOOR = 5;
+
 export const LEVEL_COST_BASE = 10;
 export const LEVEL_COST_EXPONENT = 1.5;
 

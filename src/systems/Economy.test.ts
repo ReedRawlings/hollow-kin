@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { convertObolsToEssence, essenceCostForLevel, depthJumpCost, levelFromEssence } from './Economy';
+import { convertObolsToEssence, essenceCostForLevel, depthUnlockCost, depthRunFee, levelFromEssence } from './Economy';
+import { DEPTH_UNLOCK_COST_PER_FLOOR, DEPTH_RUN_FEE_PER_FLOOR } from '../types';
 
 // obolsForEncounter is unbranching arithmetic over two tunable constants, and the
 // exponent is derived in types.ts rather than asserted here. Nothing to test.
@@ -40,17 +41,6 @@ describe('essenceCostForLevel', () => {
   });
 });
 
-describe('depthJumpCost', () => {
-  it('is free to start at floor 1', () => {
-    expect(depthJumpCost(1)).toBe(0);
-  });
-  it('scales with the start floor', () => {
-    expect(depthJumpCost(6)).toBe(75);   // (6-1)*15
-    expect(depthJumpCost(11)).toBe(150); // (11-1)*15
-    expect(depthJumpCost(26)).toBe(375); // (26-1)*15
-  });
-});
-
 describe('levelFromEssence', () => {
   it('stays at level 1 with no essence', () => {
     expect(levelFromEssence(0, 50)).toEqual({ level: 1, invested: 0 });
@@ -70,5 +60,46 @@ describe('levelFromEssence', () => {
   it('never exceeds the level cap (invested is only what was spent to reach the cap)', () => {
     // cap 3: cost(1)=10, cost(2)=28 -> invested 38 reaches level 3, stops even with essence to spare
     expect(levelFromEssence(100000, 3)).toEqual({ level: 3, invested: 38 });
+  });
+});
+
+describe('depth costs', () => {
+  it('are both free at floor 1', () => {
+    expect(depthUnlockCost(1)).toBe(0);
+    expect(depthRunFee(1)).toBe(0);
+  });
+
+  it('never go negative for a nonsensical floor', () => {
+    expect(depthUnlockCost(0)).toBe(0);
+    expect(depthRunFee(0)).toBe(0);
+  });
+
+  it('both rise with depth', () => {
+    expect(depthUnlockCost(11)).toBeGreaterThan(depthUnlockCost(6));
+    expect(depthRunFee(11)).toBeGreaterThan(depthRunFee(6));
+  });
+
+  it('pins the unlock-vs-fee margin, not just the ordering', () => {
+    // The split's whole point: a large one-time gate, a small recurring fee. Comparing
+    // only depthUnlockCost(f) > depthRunFee(f) would let a 6-vs-5-per-floor retune pass
+    // while violating that intent — pin the ratio at the constant level instead.
+    expect(DEPTH_UNLOCK_COST_PER_FLOOR).toBeGreaterThanOrEqual(DEPTH_RUN_FEE_PER_FLOOR * 4);
+  });
+
+  it('keeps the per-run fee below the old flat per-run cost at every depth', () => {
+    // The old (pre-split) model charged a flat (floor - 1) * OLD_FLAT_PER_RUN_COST every
+    // single run — this was depthJumpCost, since deleted. OLD_FLAT_PER_RUN_COST is a
+    // historical baseline recorded here, not a live constant to keep in sync with
+    // anything: the split is only an improvement for the player if the recurring part
+    // actually got cheaper than that baseline.
+    const OLD_FLAT_PER_RUN_COST = 15;
+    for (const floor of [6, 11, 16, 21, 26]) {
+      expect(depthRunFee(floor)).toBeLessThan((floor - 1) * OLD_FLAT_PER_RUN_COST);
+    }
+  });
+
+  it('derives both from their constants, so retuning a constant retunes the curve', () => {
+    expect(depthUnlockCost(6)).toBe(5 * DEPTH_UNLOCK_COST_PER_FLOOR);
+    expect(depthRunFee(6)).toBe(5 * DEPTH_RUN_FEE_PER_FLOOR);
   });
 });

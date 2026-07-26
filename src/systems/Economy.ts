@@ -2,6 +2,7 @@ import {
   OBOL_REWARDS, OBOL_TO_ESSENCE_RATE, WIPE_OBOL_PENALTY,
   LEVEL_COST_BASE, LEVEL_COST_EXPONENT,
   OBOL_REWARD_EXPONENT, OBOL_REWARD_SCALAR,
+  DEPTH_UNLOCK_COST_PER_FLOOR, DEPTH_RUN_FEE_PER_FLOOR,
 } from '../types';
 
 /**
@@ -36,9 +37,14 @@ export function essenceCostForLevel(level: number): number {
   return Math.floor(LEVEL_COST_BASE * Math.pow(level, LEVEL_COST_EXPONENT));
 }
 
-/** Essence cost to start a run at `startFloor` (a cleared depth-jump). Floor 1 is free. */
-export function depthJumpCost(startFloor: number): number {
-  return Math.max(0, (startFloor - 1) * 15);
+/** One-time Essence cost to permanently unlock `floor` as a start point. Floor 1 is free. */
+export function depthUnlockCost(floor: number): number {
+  return Math.max(0, (floor - 1) * DEPTH_UNLOCK_COST_PER_FLOOR);
+}
+
+/** Per-run Essence fee for departing from an already-unlocked `floor`. Floor 1 is free. */
+export function depthRunFee(floor: number): number {
+  return Math.max(0, (floor - 1) * DEPTH_RUN_FEE_PER_FLOOR);
 }
 
 /**
