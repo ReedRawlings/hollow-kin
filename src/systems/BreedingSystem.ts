@@ -2,6 +2,7 @@ import { CreatureInstance, STAR_LEVEL_CAPS, TraitSlot, generateId, BaseStats, BR
 import { getTemplate } from '../data/creatures';
 import { levelFromEssence } from './Economy';
 import { isCreatureBreedReady, unlockedSlotCount, MAX_TRAIT_SLOTS } from './Traits';
+import { calculateLevelScaledStats } from '../managers/GameState';
 
 /** Which parent's trait wins a contested slot (both parents hold a trait there). */
 export type ParentChoice = 'A' | 'B';
@@ -26,9 +27,21 @@ export function calculateOffspringStats(
   const base = template.baseStats;
   const statNames: (keyof BaseStats)[] = ['hp', 'mp', 'str', 'def', 'wis', 'spd', 'int'];
 
+  // Read each parent's LEVEL-SCALED stats, excluding trait bonuses — not `currentStats`
+  // directly. `currentStats` is `calculateStatsForLevel`'s output, which (since stat
+  // traits shipped) already has trait bonuses baked in on top of level scaling. Averaging
+  // that would inflate the offspring's heritable statBaseline with the parent's trait
+  // strength — on top of the offspring separately re-inheriting the trait itself at L1
+  // (resolveInheritedTraitSlots) — compounding every generation. Level scaling itself is
+  // intentionally still here: breeding-and-inheritance.md is explicit that stats compound
+  // with level across generations, which is exactly why breeding too early founds a weak
+  // line. calculateLevelScaledStats (GameState.ts) is the level-scaling half alone.
+  const scaledA = calculateLevelScaledStats(parentA);
+  const scaledB = calculateLevelScaledStats(parentB);
+
   const result: BaseStats = { ...base };
   for (const stat of statNames) {
-    const inherited = Math.floor((parentA.currentStats[stat] + parentB.currentStats[stat]) / 6);
+    const inherited = Math.floor((scaledA[stat] + scaledB[stat]) / 6);
     result[stat] = Math.max(base[stat], inherited);
   }
   return result;

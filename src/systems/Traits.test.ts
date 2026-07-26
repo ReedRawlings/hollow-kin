@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   TRAIT_SLOT_LEVELS, MAX_TRAIT_SLOTS, unlockedSlotCount,
   traitUpgradeCost, duplicateSellValue, canSpeciesTakeTrait, getTrait,
+  contestedSlotIndices,
 } from './Traits';
-import { STAR_LEVEL_CAPS } from '../types';
+import { CreatureInstance, STAR_LEVEL_CAPS, TraitSlot } from '../types';
 import { TRAIT_LIBRARY } from '../data/traits';
 import { CREATURE_TEMPLATES } from '../data/creatures';
 
@@ -146,9 +147,9 @@ describe('naturalTraitPool authoring invariants (CREATURE_TEMPLATES)', () => {
     }
   });
 
-  it('no species pool contains the entire trait library', () => {
+  it('pools stay narrow — no species pool exceeds half the trait library (curated, not a dump of everything)', () => {
     for (const t of templates) {
-      expect(t.naturalTraitPool.length).toBeLessThan(libraryIds.length);
+      expect(t.naturalTraitPool.length).toBeLessThanOrEqual(libraryIds.length / 2);
     }
   });
 
@@ -165,12 +166,17 @@ describe('naturalTraitPool authoring invariants (CREATURE_TEMPLATES)', () => {
   });
 
   it('a resistance trait is only granted to a species that actually resists that damage type (reinforce, not patch)', () => {
-    const resistTraitToDamageType: Record<string, string> = {
-      resist_fire: 'Fire',
-      resist_ice: 'Ice',
-      resist_lightning: 'Electric',
-      resist_physical: 'Fighting',
-    };
+    // Derived from TRAIT_LIBRARY itself (category === 'resistance' && target) rather than
+    // a hand-rolled list of ids someone remembered to type — so a newly added resistance
+    // trait (e.g. resist_wind) is automatically covered by this invariant, not silently
+    // skipped. resist_status has no `target` (it isn't tied to a damage type) and is
+    // correctly excluded by the `t.target` filter.
+    const resistTraitToDamageType: Record<string, string> = Object.fromEntries(
+      Object.values(TRAIT_LIBRARY)
+        .filter((t) => t.category === 'resistance' && t.target)
+        .map((t) => [t.id, t.target as string]),
+    );
+    expect(Object.keys(resistTraitToDamageType).length).toBeGreaterThan(0);
     for (const t of templates) {
       for (const traitId of t.naturalTraitPool) {
         const damageType = resistTraitToDamageType[traitId];
@@ -232,5 +238,68 @@ describe('TRAIT_LIBRARY data integrity', () => {
 
   it('has at least two battle_start traits', () => {
     expect(traits.filter((t) => t.category === 'battle_start').length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('contestedSlotIndices', () => {
+  // Minimal creature-instance factory — only the fields contestedSlotIndices reads.
+  function makeCreature(traitSlots: TraitSlot[]): CreatureInstance {
+    return {
+      instanceId: 'c', speciesId: 'ironjaw', nickname: null, starRating: 0,
+      currentLevel: 1, levelCap: 5, permanentLevel: 1, essenceInvested: 0,
+      abilities: [], traitSlots, lineage: { parentA: null, parentB: null },
+      statBaseline: { hp: 1, mp: 1, str: 1, def: 1, wis: 1, spd: 1, int: 1 },
+      currentStats: { hp: 1, mp: 1, str: 1, def: 1, wis: 1, spd: 1, int: 1 },
+      resistances: [], weaknesses: [], isRetired: false, isBreedReady: false, xp: 0,
+      tactic: 'fight_wisely',
+    };
+  }
+
+  function emptySlots(): TraitSlot[] {
+    return Array.from({ length: MAX_TRAIT_SLOTS }, () => ({ traitId: null, traitLevel: 0, unlocked: false }));
+  }
+
+  function slotsWith(overrides: Record<number, Partial<TraitSlot>>): TraitSlot[] {
+    const slots = emptySlots();
+    for (const [i, o] of Object.entries(overrides)) {
+      slots[Number(i)] = { ...slots[Number(i)], ...o };
+    }
+    return slots;
+  }
+
+  it('returns an empty array when neither parent holds any traits', () => {
+    const a = makeCreature(emptySlots());
+    const b = makeCreature(emptySlots());
+    expect(contestedSlotIndices(a, b)).toEqual([]);
+  });
+
+  it('does not flag a slot where only one parent holds a trait', () => {
+    const a = makeCreature(slotsWith({ 0: { traitId: 'sturdy', traitLevel: 1, unlocked: true } }));
+    const b = makeCreature(emptySlots());
+    expect(contestedSlotIndices(a, b)).toEqual([]);
+  });
+
+  it('flags a slot where both parents hold a (possibly different) trait', () => {
+    const a = makeCreature(slotsWith({ 0: { traitId: 'sturdy', traitLevel: 1, unlocked: true } }));
+    const b = makeCreature(slotsWith({ 0: { traitId: 'swift', traitLevel: 1, unlocked: true } }));
+    expect(contestedSlotIndices(a, b)).toEqual([0]);
+  });
+
+  it('reports every contested index, not just the first', () => {
+    const a = makeCreature(slotsWith({
+      0: { traitId: 't0a', traitLevel: 1, unlocked: true },
+      2: { traitId: 't2a', traitLevel: 1, unlocked: true },
+    }));
+    const b = makeCreature(slotsWith({
+      0: { traitId: 't0b', traitLevel: 1, unlocked: true },
+      2: { traitId: 't2b', traitLevel: 1, unlocked: true },
+    }));
+    expect(contestedSlotIndices(a, b)).toEqual([0, 2]);
+  });
+
+  it('is not gated on unlocked — an escrowed (locked) slot on both sides still contests', () => {
+    const a = makeCreature(slotsWith({ 1: { traitId: 'deep-a', traitLevel: 1, unlocked: false } }));
+    const b = makeCreature(slotsWith({ 1: { traitId: 'deep-b', traitLevel: 1, unlocked: false } }));
+    expect(contestedSlotIndices(a, b)).toEqual([1]);
   });
 });

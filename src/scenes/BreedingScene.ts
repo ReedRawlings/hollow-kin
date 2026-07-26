@@ -194,6 +194,13 @@ export class BreedingScene extends Phaser.Scene {
     const uniqueAbilities = [...new Set(parentAbilities)];
     const chosenAbilities = uniqueAbilities.slice(0, 4);
 
+    // NOTE: no traitChoices passed here. Per spec §5 case 1, a slot where BOTH parents
+    // hold a trait is supposed to be the PLAYER's choice — but that choice UI belongs to
+    // the not-yet-built Trait-keeper task and doesn't exist yet. Until it lands, every
+    // contested slot silently ships as "parent A wins" (resolveInheritedTraitSlots'
+    // default), and parent B's trait there is destroyed along with the retired parent.
+    // Do not mistake this for finished; see Traits.ts' contestedSlotIndices(), which the
+    // future UI will use to know what to prompt about.
     const offspring = breed(this.parentA, this.parentB, offspringSpecies, chosenAbilities);
 
     // Parents stay in the box as tombstones (isRetired = true, set by breed()) rather

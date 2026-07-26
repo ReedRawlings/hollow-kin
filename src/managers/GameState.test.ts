@@ -18,8 +18,9 @@ import { makeTestCreature } from '../systems/testFixtures';
 import { getAbility } from '../data/abilities';
 import { depthUnlockCost, depthRunFee } from '../systems/Economy';
 import { breed } from '../systems/BreedingSystem';
-import { isCreatureBreedReady, TRAIT_SLOT_LEVELS } from '../systems/Traits';
+import { isCreatureBreedReady, TRAIT_SLOT_LEVELS, MAX_TRAIT_SLOTS, unlockedSlotCount } from '../systems/Traits';
 import { STAR_LEVEL_CAPS } from '../types';
+import { getTemplate } from '../data/creatures';
 
 beforeEach(() => {
   gameState.initializeNewGame(['ironjaw', 'stoneguard', 'voltarc']);
@@ -47,19 +48,28 @@ describe('startRun', () => {
   it('scales a real offspring from its inherited baseline instead of its species template', () => {
     const parentA = gameState.createCreatureInstance('ironjaw');
     const parentB = gameState.createCreatureInstance('ironjaw');
-    const strongStats = { hp: 300, mp: 300, str: 300, def: 300, wis: 300, spd: 300, int: 300 };
-    parentA.currentStats = { ...strongStats };
-    parentB.currentStats = { ...strongStats };
+    // calculateOffspringStats (Fix 2) reads statBaseline/currentLevel/levelCap, not
+    // currentStats directly — give both parents a strong, fully-leveled baseline instead
+    // of forcing currentStats the way this test used to.
+    const strongBaseline = { hp: 240, mp: 240, str: 240, def: 240, wis: 240, spd: 240, int: 240 };
+    parentA.statBaseline = { ...strongBaseline };
+    parentB.statBaseline = { ...strongBaseline };
+    parentA.currentLevel = parentA.levelCap; // level === cap -> level-scaled stat is base * 2.5 (max)
+    parentB.currentLevel = parentB.levelCap;
+
     const child = breed(parentA, parentB, 'ironjaw', []);
     const inheritedHp = child.statBaseline!.hp;
+
+    // Inherited baseline comes from the parents' strong stats, not the ironjaw species
+    // template floor.
+    expect(inheritedHp).toBeGreaterThan(getTemplate('ironjaw').baseStats.hp);
 
     gameState.creatureBox = [child];
     gameState.setRunParty([child.instanceId]);
     gameState.startRun();
 
-    expect(inheritedHp).toBe(100);
-    expect(child.currentStats.hp).toBe(130);
-    expect(child.currentStats.hp).toBeGreaterThan(52); // legacy template-derived Lv1 HP
+    // startRun scales the child up from its own inherited statBaseline, not the template.
+    expect(child.currentStats.hp).toBeGreaterThan(inheritedHp);
     expect(child.statBaseline!.hp).toBe(inheritedHp);
   });
 });
@@ -170,6 +180,78 @@ describe('save/load migration', () => {
     expect(c.essenceInvested).toBe(0);             // backfilled
     expect(c.statBaseline!.hp).toBe(40);             // species baseline backfilled
     expect('longevity' in c).toBe(false);          // dropped
+    // Fix 1: the loaded traitSlots array is normalized to MAX_TRAIT_SLOTS entries, even
+    // though this save only stored one.
+    expect(c.traitSlots.length).toBe(MAX_TRAIT_SLOTS);
+  });
+
+  describe('trait slot normalization on load (Fix 1)', () => {
+    function saveWith(creatureOverrides: Record<string, unknown>) {
+      return {
+        version: 5,
+        creatureBox: [{
+          instanceId: 'c1', speciesId: 'ironjaw', nickname: null, starRating: 0,
+          currentLevel: 1, levelCap: 5, permanentLevel: 1, essenceInvested: 0,
+          abilities: [], lineage: { parentA: null, parentB: null },
+          statBaseline: { hp: 40, mp: 20, str: 18, def: 8, wis: 7, spd: 16, int: 6 },
+          currentStats: { hp: 40, mp: 20, str: 18, def: 8, wis: 7, spd: 16, int: 6 },
+          resistances: [], weaknesses: [], isRetired: false, isBreedReady: false, xp: 0,
+          ...creatureOverrides,
+        }],
+        essence: 0,
+      };
+    }
+
+    it('unlocks the earned slots for a creature saved already sitting at its levelCap (the unreachable-unlock bug)', () => {
+      // spendEssenceOnLevel — the only other place that unlocks a slot — early-returns at
+      // the level cap, so a creature saved already at its cap could otherwise never have
+      // its earned slots unlocked. Loading must recompute this directly from permanentLevel.
+      localStorage.setItem('hollow_kin_save', JSON.stringify(saveWith({
+        permanentLevel: TRAIT_SLOT_LEVELS[1], levelCap: TRAIT_SLOT_LEVELS[1],
+        traitSlots: [],
+      })));
+      expect(gameState.loadFromLocalStorage()).toBe(true);
+      const c = gameState.creatureBox[0];
+      expect(c.traitSlots.length).toBe(MAX_TRAIT_SLOTS);
+      expect(unlockedSlotCount(TRAIT_SLOT_LEVELS[1])).toBe(2);
+      expect(c.traitSlots.filter(s => s.unlocked).length).toBe(unlockedSlotCount(TRAIT_SLOT_LEVELS[1]));
+      expect(c.traitSlots[0].unlocked).toBe(true);
+      expect(c.traitSlots[1].unlocked).toBe(true);
+      expect(c.traitSlots[2].unlocked).toBe(false);
+    });
+
+    it('normalizes a short traitSlots array to MAX_TRAIT_SLOTS, preserving the stored slot by position', () => {
+      localStorage.setItem('hollow_kin_save', JSON.stringify(saveWith({
+        traitSlots: [{ traitId: 'sturdy', traitLevel: 3, unlocked: true }],
+      })));
+      expect(gameState.loadFromLocalStorage()).toBe(true);
+      const c = gameState.creatureBox[0];
+      expect(c.traitSlots.length).toBe(MAX_TRAIT_SLOTS);
+      expect(c.traitSlots[0].traitId).toBe('sturdy');
+      expect(c.traitSlots[0].traitLevel).toBe(3);
+      expect(c.traitSlots[0].unlocked).toBe(true);
+      // The rest are backfilled empty, not left undefined.
+      for (let i = 1; i < MAX_TRAIT_SLOTS; i++) {
+        expect(c.traitSlots[i].traitId).toBeNull();
+      }
+    });
+
+    it('keeps a stored unlocked:true slot unlocked even when permanentLevel is below its threshold (monotonic OR)', () => {
+      localStorage.setItem('hollow_kin_save', JSON.stringify(saveWith({
+        permanentLevel: 1, levelCap: TRAIT_SLOT_LEVELS[3],
+        traitSlots: [
+          { traitId: null, traitLevel: 0, unlocked: false },
+          { traitId: null, traitLevel: 0, unlocked: false },
+          { traitId: null, traitLevel: 0, unlocked: false },
+          { traitId: 'deep-trait', traitLevel: 1, unlocked: true }, // stored unlocked beyond threshold
+        ],
+      })));
+      expect(gameState.loadFromLocalStorage()).toBe(true);
+      const c = gameState.creatureBox[0];
+      expect(unlockedSlotCount(1)).toBe(0); // permanentLevel alone would unlock nothing
+      expect(c.traitSlots[3].unlocked).toBe(true); // but the stored flag is preserved
+      expect(c.traitSlots[3].traitId).toBe('deep-trait');
+    });
   });
 
   it('preserves unscaled inherited stats when migrating a freshly-bred pre-v5 creature', () => {

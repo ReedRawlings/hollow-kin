@@ -92,6 +92,25 @@ export function getTrait(traitId: string): TraitDefinition | undefined {
   return TRAIT_LIBRARY[traitId];
 }
 
+/**
+ * Slot indices where BOTH parents hold a non-null `traitId` — a contested slot per
+ * spec §5 case 1, which the player is meant to choose between. `resolveInheritedTraitSlots`
+ * (BreedingSystem.ts) currently defaults every contested slot to parent A because the
+ * choice UI hasn't been built yet (see the call site in BreedingScene.ts). This helper is
+ * what that future UI will use to know which slots to prompt about; nothing else exposes
+ * this today. Positional only — deliberately NOT gated on either slot's `unlocked` flag,
+ * matching resolveInheritedTraitSlots' own treatment of escrowed slots.
+ */
+export function contestedSlotIndices(parentA: CreatureInstance, parentB: CreatureInstance): number[] {
+  const indices: number[] = [];
+  for (let i = 0; i < MAX_TRAIT_SLOTS; i++) {
+    const traitA = parentA.traitSlots[i]?.traitId ?? null;
+    const traitB = parentB.traitSlots[i]?.traitId ?? null;
+    if (traitA && traitB) indices.push(i);
+  }
+  return indices;
+}
+
 const STAT_NAMES: (keyof BaseStats)[] = ['hp', 'mp', 'str', 'def', 'wis', 'spd', 'int'];
 
 /**

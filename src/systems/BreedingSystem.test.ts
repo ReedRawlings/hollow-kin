@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { breed, carryoverForParents, calculateOffspringStar, resolveInheritedTraitSlots } from './BreedingSystem';
+import {
+  breed, carryoverForParents, calculateOffspringStar, calculateOffspringStats,
+  resolveInheritedTraitSlots,
+} from './BreedingSystem';
 import { CreatureInstance, TraitSlot } from '../types';
-import { unlockedSlotCount, MAX_TRAIT_SLOTS, TRAIT_SLOT_LEVELS } from './Traits';
+import { unlockedSlotCount, MAX_TRAIT_SLOTS, TRAIT_SLOT_LEVELS, applyStatTraitBonuses } from './Traits';
+import { calculateLevelScaledStats } from '../managers/GameState';
 
 // Minimal creature-instance factory for tests (only fields breeding reads).
 function makeParent(overrides: Partial<CreatureInstance>): CreatureInstance {
@@ -90,17 +94,77 @@ describe('breed applies carry-over to the offspring', () => {
     expect(b.isRetired).toBe(true);
   });
 
-  it('stores inherited stats as the offspring permanent baseline', () => {
-    const inherited = { hp: 120, mp: 90, str: 72, def: 66, wis: 60, spd: 54, int: 48 };
-    const a = makeParent({ instanceId: 'a', currentStats: inherited });
-    const b = makeParent({ instanceId: 'b', currentStats: inherited });
+  it('stores inherited stats as the offspring permanent baseline (matches calculateOffspringStats)', () => {
+    // Fix 2: calculateOffspringStats derives from statBaseline/currentLevel/levelCap now,
+    // not raw currentStats — see the describe block below for why. This test only checks
+    // breed()'s wiring: it stores exactly what calculateOffspringStats computes.
+    const a = makeParent({
+      instanceId: 'a',
+      statBaseline: { hp: 48, mp: 36, str: 28, def: 26, wis: 24, spd: 22, int: 20 },
+      currentLevel: 10, levelCap: 10,
+    });
+    const b = makeParent({
+      instanceId: 'b',
+      statBaseline: { hp: 48, mp: 36, str: 28, def: 26, wis: 24, spd: 22, int: 20 },
+      currentLevel: 10, levelCap: 10,
+    });
+    const expected = calculateOffspringStats(a, b, 'ironjaw');
     const child = breed(a, b, 'ironjaw', []);
 
-    expect(child.statBaseline).toEqual({
-      hp: 40, mp: 30, str: 24, def: 22, wis: 20, spd: 18, int: 16,
-    });
+    expect(child.statBaseline).toEqual(expected);
     expect(child.currentStats).toEqual(child.statBaseline);
     expect(child.currentStats).not.toBe(child.statBaseline);
+  });
+});
+
+describe('calculateOffspringStats excludes trait bonuses from the heritable baseline (Fix 2)', () => {
+  const baseline = { hp: 40, mp: 20, str: 20, def: 16, wis: 12, spd: 12, int: 12 };
+
+  it('produces the same offspring statBaseline for a parent with vs without a high-level stat trait, given identical statBaseline/currentLevel/levelCap', () => {
+    const untraited = makeParent({
+      instanceId: 'untraited', statBaseline: { ...baseline }, currentLevel: 10, levelCap: 10,
+      traitSlots: emptySlots(),
+    });
+    untraited.currentStats = calculateLevelScaledStats(untraited);
+
+    const traited = makeParent({
+      instanceId: 'traited', statBaseline: { ...baseline }, currentLevel: 10, levelCap: 10,
+      traitSlots: slotsWith({ 0: { traitId: 'str_up', traitLevel: 4, unlocked: true } }),
+    });
+    // currentStats as GameState would actually produce it: level-scaled stats with the
+    // stat trait's bonus already layered on top (calculateStatsForLevel's real behavior).
+    traited.currentStats = applyStatTraitBonuses(calculateLevelScaledStats(traited), traited);
+    // Sanity check the leak vector is real: the trait really does inflate currentStats.
+    expect(traited.currentStats.str).toBeGreaterThan(untraited.currentStats.str);
+
+    const other = makeParent({
+      instanceId: 'other', statBaseline: { ...baseline }, currentLevel: 10, levelCap: 10,
+      traitSlots: emptySlots(),
+    });
+    other.currentStats = calculateLevelScaledStats(other);
+
+    const fromUntraited = calculateOffspringStats(untraited, other, 'ironjaw');
+    const fromTraited = calculateOffspringStats(traited, other, 'ironjaw');
+
+    expect(fromTraited).toEqual(fromUntraited);
+  });
+
+  it('still produces a stronger offspring baseline from higher-LEVEL parents (level scaling survives)', () => {
+    // A baseline well above the ironjaw template floor (40 hp), so Math.max's floor
+    // clamp in calculateOffspringStats can't mask the level-scaling difference this
+    // test is checking for.
+    const highBaseline = { hp: 300, mp: 200, str: 200, def: 160, wis: 120, spd: 120, int: 120 };
+    const low = makeParent({
+      instanceId: 'low', statBaseline: { ...highBaseline }, currentLevel: 1, levelCap: 50,
+    });
+    const high = makeParent({
+      instanceId: 'high', statBaseline: { ...highBaseline }, currentLevel: 50, levelCap: 50,
+    });
+
+    const fromLow = calculateOffspringStats(low, low, 'ironjaw');
+    const fromHigh = calculateOffspringStats(high, high, 'ironjaw');
+
+    expect(fromHigh.hp).toBeGreaterThan(fromLow.hp);
   });
 });
 
