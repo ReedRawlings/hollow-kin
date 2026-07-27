@@ -94,8 +94,10 @@ export class RunScene extends Phaser.Scene {
 
     button(this, 700, 42, 106, 34, run.autoCombat ? 'AUTO ON' : 'AUTO OFF',
       () => this.toggleAuto(), run.autoCombat ? UI.green : UI.lineBright);
+    // Label stays 'BAG' at the designed width — a count here overruns the button and
+    // collides with the OBOLS readout. The count belongs inside the bag screen.
     const carried = usedSlots(gameState.backpack);
-    button(this, 812, 42, 92, 34, `BAG ${carried}/${capacity(gameState.backpack)}`,
+    button(this, 812, 42, 92, 34, 'BAG',
       () => { this.showingBag = true; this.draw(); },
       carried > 0 ? UI.gold : UI.lineBright);
 
@@ -145,14 +147,15 @@ export class RunScene extends Phaser.Scene {
     this.add.text(480, 138, 'THE BAG', {
       fontFamily: DISPLAY_FONT, fontSize: '16px', color: UI.hi,
     }).setOrigin(0.5);
-    this.add.text(480, 174, `${run.obols} OBOLS CARRIED`, {
+    const bag = gameState.backpack;
+    this.add.text(480, 174, `${run.obols} OBOLS  ·  ${usedSlots(bag)}/${capacity(bag)} SLOTS USED`, {
       fontFamily: DISPLAY_FONT, fontSize: '8px', color: UI.goldCss,
     }).setOrigin(0.5);
 
-    gameState.backpack.slots.forEach((slot, i) => {
+    bag.slots.forEach((slot, i) => {
       const x = 260 + (i % 3) * 148;
       const y = 232 + Math.floor(i / 3) * 84;
-      const safe = isProtected(gameState.backpack, i);
+      const safe = isProtected(bag, i);
       this.add.rectangle(x, y, 136, 72, UI.panel)
         .setStrokeStyle(2, slot ? (safe ? UI.teal : UI.line) : UI.line);
       if (safe) {

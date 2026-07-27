@@ -14,8 +14,8 @@ import { BestiaryScene } from './scenes/BestiaryScene';
 import { DepartureScene } from './scenes/DepartureScene';
 import { PostCombatScene } from './scenes/PostCombatScene';
 import { gameState } from './managers/GameState';
+import { capacity, usedSlots } from './systems/Backpack';
 
-// Fix blurry text on HiDPI displays.
 const GAME_WIDTH = 960;
 const GAME_HEIGHT = 640;
 
@@ -49,25 +49,19 @@ function integerDeviceScale(): number {
 /** Whole device pixels per game pixel. The number that must stay an integer. */
 const DEVICE_SCALE = integerDeviceScale();
 
-/**
- * Both UI faces are 8px-grid bitmap fonts — Press Start 2P is documented as
- * "8px, 16px and other multiples of 8", and Silkscreen is drawn on the same grid.
- * A bitmap font has no curves to re-fit, so at any size that is not an integer
- * multiple of its grid the rasterizer invents partial pixels and the glyphs turn
- * to mush.
+/*
+ * NOTE: an automatic font-size snap used to live here and has been removed.
  *
- * Sizes are hardcoded at ~190 call sites across the scenes, so this snaps them
- * centrally at the one chokepoint every Text object passes through. Scenes may
- * still ask for 11px; they just get 8px. Fixing the call sites to use a real type
- * scale is the proper cleanup — this keeps the render correct meanwhile.
+ * Both faces are 8px-grid bitmap fonts, so off-grid sizes are not perfectly crisp.
+ * But rewriting sizes centrally breaks layouts either way: rounding pushed 12-15px
+ * up to 16px and grew that text by a third (it shoved CombatScene's turn-order chip
+ * into the title), and flooring shrank every heading instead.
+ *
+ * Sizes belong to the layouts that were tuned around them. Making them grid-valid is
+ * a per-call-site job with layout adjustments alongside — not something a global
+ * interceptor can do blind. Integer device-pixel scaling below is what actually
+ * carries crispness, and it costs no layout.
  */
-const FONT_GRID = 8;
-function snapToGrid(fontSize: unknown): string | undefined {
-  if (typeof fontSize !== 'string') return undefined;
-  const px = parseFloat(fontSize);
-  if (!Number.isFinite(px)) return undefined;
-  return `${Math.max(FONT_GRID, Math.round(px / FONT_GRID) * FONT_GRID)}px`;
-}
 
 const origTextFactory = Phaser.GameObjects.GameObjectFactory.prototype.text;
 (Phaser.GameObjects.GameObjectFactory.prototype as any).text = function (
@@ -79,11 +73,9 @@ const origTextFactory = Phaser.GameObjects.GameObjectFactory.prototype.text;
   // no resampling at any stage. Using `dpr` here instead would only be correct when
   // DEVICE_SCALE happens to equal dpr.
   if (DEVICE_SCALE > 1) s.resolution = DEVICE_SCALE;
-  if (s.fontFamily === 'monospace' || s.fontFamily === undefined) {
-    s.fontFamily = 'Silkscreen, monospace';
-  }
-  const snapped = snapToGrid(s.fontSize);
-  if (snapped) s.fontSize = snapped;
+  // Only rewrite an explicit 'monospace'. Substituting for an unset family changed
+  // the metrics of text that never asked for a pixel font, which moved layouts.
+  if (s.fontFamily === 'monospace') s.fontFamily = 'Silkscreen, monospace';
   return origTextFactory.call(this, x, y, text, s);
 };
 
@@ -142,6 +134,12 @@ Promise.all([
       coordinateSystem: 'origin top-left; x right; y down; 960x640',
       scene: active?.scene.key ?? 'loading',
       essence: gameState.essence,
+      backpack: {
+        used: usedSlots(gameState.backpack),
+        capacity: capacity(gameState.backpack),
+        contents: gameState.backpack.slots.map(slot =>
+          slot?.kind === 'item' ? slot.itemId : slot?.kind ?? null),
+      },
       run: gameState.currentRun ? {
         floor: gameState.currentRun.currentEncounterIndex >= 0
           ? gameState.currentRun.encounters[gameState.currentRun.currentEncounterIndex]?.floor
@@ -154,6 +152,57 @@ Promise.all([
       } : null,
     });
   };
+
+  // Narrow, opt-in test controls for reaching stateful screens without playing
+  // through a random tower seed. They are never installed in the normal game.
+  const testParams = new URLSearchParams(window.location.search);
+  if (testParams.has('test')) {
+    const stopActiveScenes = () => {
+      game.scene.getScenes(true).forEach(scene => game.scene.stop(scene.scene.key));
+    };
+    const testControls = {
+      openProvisioner: (essence = 24) => {
+        gameState.essence = essence;
+        stopActiveScenes();
+        game.scene.start('TownShopScene');
+      },
+      openMerchant: (obols = 80) => {
+        stopActiveScenes();
+        gameState.setRunParty(gameState.defaultParty);
+        game.scene.start('RunScene');
+        if (gameState.currentRun) {
+          const run = gameState.currentRun;
+          run.obols = obols;
+          const [first, second, third] = gameState.runParty;
+          if (first) run.partyHp[first.instanceId] = Math.floor(first.currentStats.hp * 0.5);
+          if (second) run.partyMp[second.instanceId] = 0;
+          if (third) run.partyKO[third.instanceId] = true;
+        }
+        game.scene.stop('RunScene');
+        game.scene.start('ShopScene', {});
+      },
+    };
+    (window as any).hollowKinTest = testControls;
+    window.addEventListener('hollow-kin-test', ((event: CustomEvent<{
+      screen: 'provisioner' | 'merchant';
+      funds?: number;
+    }>) => {
+      if (event.detail.screen === 'provisioner') {
+        testControls.openProvisioner(event.detail.funds);
+      } else if (event.detail.screen === 'merchant') {
+        testControls.openMerchant(event.detail.funds);
+      }
+    }) as EventListener);
+    const requestedScreen = testParams.get('screen');
+    const requestedFunds = Number(testParams.get('funds'));
+    if (requestedScreen === 'provisioner' || requestedScreen === 'merchant') {
+      window.setTimeout(() => {
+        const funds = Number.isFinite(requestedFunds) ? requestedFunds : undefined;
+        if (requestedScreen === 'provisioner') testControls.openProvisioner(funds);
+        else testControls.openMerchant(funds);
+      }, 100);
+    }
+  }
 
   // The Playwright harness installs a deterministic version before this module
   // runs. Keep it when present; this fallback makes the hook available in normal
