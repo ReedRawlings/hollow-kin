@@ -2,8 +2,9 @@ import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
 import { generateDescent, generatePickNextChoices } from '../systems/RunGenerator';
+import { createBackpack, usedSlots, capacity, isProtected } from '../systems/Backpack';
 import { convertObolsToEssence } from '../systems/Economy';
-import { Encounter, RunState, TOWER_FLOORS } from '../types';
+import { BackpackSlot, Encounter, RunState, TOWER_FLOORS } from '../types';
 import {
   UI, BODY_FONT, DISPLAY_FONT, archetypeColor, button, compactPartyCard,
   footer, header, hpColor, panel, screenFrame, spritePlate,
@@ -15,6 +16,7 @@ export class RunScene extends Phaser.Scene {
   private ending = false;
   private confirmingFlee = false;
   private resultIsWipe = false;
+  private showingBag = false;
 
   constructor() {
     super({ key: 'RunScene' });
@@ -23,13 +25,14 @@ export class RunScene extends Phaser.Scene {
   init(data?: { continueRun?: boolean }): void {
     this.ending = false;
     this.confirmingFlee = false;
+    this.showingBag = false;
     if (!data?.continueRun || !gameState.currentRun) {
       const startFloor = gameState.resolveRunStartFloor();
       gameState.startRun();
       const encounters = generateDescent(startFloor);
       gameState.currentRun = {
         startFloor, currentEncounterIndex: -1, encounters, choices: [],
-        obols: 0, capturedCreatures: [], partyHp: {}, partyMp: {}, partyKO: {},
+        obols: 0, backpack: createBackpack(), partyHp: {}, partyMp: {}, partyKO: {},
         xpEarned: 0, autoCombat: false,
       };
       for (const c of gameState.runParty) {
@@ -56,6 +59,7 @@ export class RunScene extends Phaser.Scene {
       this.input.keyboard?.on('keydown-TAB', (e: KeyboardEvent) => { e.preventDefault(); this.toggleAuto(); });
       this.input.keyboard?.on('keydown-ESC', () => {
         if (this.ending) return;
+        if (this.showingBag) { this.showingBag = false; this.draw(); return; }
         if (this.confirmingFlee) {
           this.confirmingFlee = false;
           this.draw();
@@ -89,7 +93,10 @@ export class RunScene extends Phaser.Scene {
 
     button(this, 700, 42, 106, 34, run.autoCombat ? 'AUTO ON' : 'AUTO OFF',
       () => this.toggleAuto(), run.autoCombat ? UI.green : UI.lineBright);
-    button(this, 812, 42, 92, 34, 'BAG —', null, UI.lineBright, false);
+    const carried = usedSlots(run.backpack);
+    button(this, 812, 42, 92, 34, `BAG ${carried}/${capacity(run.backpack)}`,
+      () => { this.showingBag = true; this.draw(); },
+      carried > 0 ? UI.gold : UI.lineBright);
 
     this.drawTrail(run);
     this.add.text(24, 143, 'CHOOSE THE NEXT ROOM', {
@@ -119,7 +126,61 @@ export class RunScene extends Phaser.Scene {
     button(this, 874, 573, 100, 28, 'FLEE', () => this.requestFlee(), UI.red);
     footer(this, '← → CHOOSE  ·  ENTER COMMIT  ·  TAB AUTO  ·  ESC FLEE',
       this.offerName(run.choices[this.selected]));
+    if (this.showingBag) this.drawBag(run);
     if (this.confirmingFlee) this.drawFleeConfirmation();
+  }
+
+  /**
+   * The bag. Shows Obols alongside the carried slots because offering Obols to an enemy
+   * will happen from here during the combat pass, rather than as a separate action.
+   *
+   * Guaranteed slots are drawn distinctly: their contents survive a wipe, and that is
+   * the only thing the player can do about the single random loss.
+   */
+  private drawBag(run: RunState): void {
+    this.add.rectangle(480, 320, 952, 632, UI.void, 0.82).setInteractive();
+    panel(this, 480, 320, 620, 420, true);
+
+    this.add.text(480, 138, 'THE BAG', {
+      fontFamily: DISPLAY_FONT, fontSize: '16px', color: UI.hi,
+    }).setOrigin(0.5);
+    this.add.text(480, 174, `${run.obols} OBOLS CARRIED`, {
+      fontFamily: DISPLAY_FONT, fontSize: '8px', color: UI.goldCss,
+    }).setOrigin(0.5);
+
+    run.backpack.slots.forEach((slot, i) => {
+      const x = 260 + (i % 3) * 148;
+      const y = 232 + Math.floor(i / 3) * 84;
+      const safe = isProtected(run.backpack, i);
+      this.add.rectangle(x, y, 136, 72, UI.panel)
+        .setStrokeStyle(2, slot ? (safe ? UI.teal : UI.line) : UI.line);
+      if (safe) {
+        this.add.text(x, y - 26, 'SECURED', {
+          fontFamily: BODY_FONT, fontSize: '8px', color: UI.tealCss,
+        }).setOrigin(0.5);
+      }
+      this.add.text(x, y + 6, this.slotLabel(slot), {
+        fontFamily: BODY_FONT, fontSize: '8px',
+        color: slot ? UI.body : UI.muted, align: 'center', wordWrap: { width: 124 },
+      }).setOrigin(0.5);
+    });
+
+    this.add.text(480, 452,
+      'SECURED SLOTS SURVIVE A WIPE. EVERYTHING ELSE RISKS ONE RANDOM LOSS.', {
+        fontFamily: BODY_FONT, fontSize: '8px', color: UI.mutedBright, align: 'center',
+      }).setOrigin(0.5);
+    button(this, 480, 500, 170, 44, 'CLOSE',
+      () => { this.showingBag = false; this.draw(); }, UI.lineBright);
+  }
+
+  private slotLabel(slot: BackpackSlot): string {
+    if (!slot) return 'empty';
+    switch (slot.kind) {
+      case 'creature': return getTemplate(slot.instance.speciesId).name.toUpperCase();
+      case 'item': return slot.itemId.toUpperCase();
+      case 'mark': return `MARK · ${slot.markId.toUpperCase()}`;
+      case 'trait': return `${slot.traitId.toUpperCase()} L${slot.traitLevel}`;
+    }
   }
 
   private drawTrail(run: RunState): void {
@@ -168,11 +229,11 @@ export class RunScene extends Phaser.Scene {
     // which destroys and rebuilds every object in the scene, including the modal button
     // the player is currently reaching for.
     bg.on('pointerover', () => {
-      if (this.confirmingFlee || this.ending) return;
+      if (this.confirmingFlee || this.ending || this.showingBag) return;
       if (this.selected !== index) { this.selected = index; this.draw(); }
     });
     bg.on('pointerdown', () => {
-      if (this.confirmingFlee || this.ending) return;
+      if (this.confirmingFlee || this.ending || this.showingBag) return;
       this.selected = index;
       this.commitSelected();
     });
@@ -207,7 +268,7 @@ export class RunScene extends Phaser.Scene {
     // `confirmingFlee` matters as much as `ending`: while the leave-the-tower modal is
     // open, entering a room is never what the player meant.
     const encounter = gameState.currentRun?.choices[this.selected];
-    if (!encounter || this.ending || this.confirmingFlee) return;
+    if (!encounter || this.ending || this.confirmingFlee || this.showingBag) return;
     this.selectEncounter(encounter);
   }
 

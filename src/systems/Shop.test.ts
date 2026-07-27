@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createBackpack } from './Backpack';
 import { CreatureInstance, RunState } from '../types';
 import {
   SHOP_ITEMS, ShopItemId, canBenefitFromShopItem, tryPurchaseShopItem,
@@ -35,7 +36,7 @@ function runFor(party: CreatureInstance[], obols = 100): RunState {
     encounters: [],
     choices: [],
     obols,
-    capturedCreatures: [],
+    backpack: createBackpack(),
     partyHp: Object.fromEntries(party.map(c => [c.instanceId, c.currentStats.hp])),
     partyMp: Object.fromEntries(party.map(c => [c.instanceId, c.currentStats.mp])),
     partyKO: Object.fromEntries(party.map(c => [c.instanceId, false])),

@@ -88,6 +88,14 @@ export interface CreatureTemplate {
   spriteColor: number;
   /** Trait ids this species may be imbued with. Compatibility is curated, never random. */
   naturalTraitPool: string[];
+  /**
+   * Base Obol price before depth, band and HP. Omitted falls back to
+   * DEFAULT_CAPTURE_BASE_PRICE; an explicit 0 means uncapturable in the wild,
+   * which is how boss-exclusive and breed-only species are expressed.
+   */
+  captureBasePrice?: number;
+  /** Rites that discount this species. Omitted means it can only be bought at full freight. */
+  rites?: RiteDef[];
 }
 
 export interface TraitSlot {
@@ -175,7 +183,9 @@ export interface RunState {
   encounters: Encounter[];
   choices: Encounter[];       // current pick-next choices
   obols: number;
-  capturedCreatures: CreatureInstance[];
+  /** Everything carried on the descent. Captures, consumables, marks and traits all
+   *  compete for the same slots — see BackpackSlot. */
+  backpack: Backpack;
   partyHp: Record<string, number>;
   partyMp: Record<string, number>;
   partyKO: Record<string, boolean>;
@@ -287,3 +297,135 @@ export const COMBAT_DELAY_FLOOR = 100;        // never go below this, or tweens 
 export function scaledDelay(baseMs: number, speed: BattleSpeed): number {
   return Math.max(COMBAT_DELAY_FLOOR, Math.round(baseMs / speed));
 }
+
+// --- Backpack ---
+
+/**
+ * One thing carried on the descent. Everything the player brings home shares these
+ * slots, which is what makes carrying capacity a real decision rather than a number:
+ * a captured creature and the consumable that might have saved the run compete for
+ * the same space.
+ *
+ * `creature` is live today. The others are declared now because each is already
+ * specified elsewhere and each must be wipe-eligible when it arrives — consumables
+ * bought at shops and used in battle, marks earned in-run and carried out to be
+ * bound with Essence in town, and traits dropped by bosses and events.
+ */
+export type BackpackContents =
+  | { kind: 'creature'; instance: CreatureInstance }
+  | { kind: 'item'; itemId: string }
+  | { kind: 'mark'; markId: string; earnedBy: string }
+  | { kind: 'trait'; traitId: string; traitLevel: number };
+
+/** A slot is empty (`null`) or holds exactly one thing. */
+export type BackpackSlot = BackpackContents | null;
+
+export interface Backpack {
+  slots: BackpackSlot[];
+  /**
+   * The first `guaranteedSlots` slots survive a wipe. This is the hedge the design
+   * rules promise, and what Quartermaster upgrades will eventually sell — capacity
+   * buys room, guaranteed capacity buys certainty.
+   */
+  guaranteedSlots: number;
+}
+
+/** Placeholders. Capacity and guaranteed count both become Quartermaster-purchasable. */
+export const BACKPACK_START_CAPACITY = 6;
+export const BACKPACK_START_GUARANTEED = 2;
+
+// --- Capture: rites and pricing ---
+
+/**
+ * Which price band a rite unlocks. Bands REPLACE rather than stack — if a family
+ * and a signature rite are both satisfied, the better band applies.
+ */
+export type RiteBand = 'family' | 'signature';
+
+/**
+ * When a rite counts. `sticky` latches the first time it is true and stays true
+ * for the rest of the battle; `volatile` must be true at the instant of the bid.
+ * Common species get sticky rites, rare ones volatile.
+ */
+export type RitePersistence = 'volatile' | 'sticky';
+
+/**
+ * The grammar rites are written in. Bespoke rites are combinations of these
+ * primitives rather than bespoke code, so every rite is evaluable from battle
+ * state and none of them need a special case.
+ */
+export type RiteCondition =
+  | { kind: 'damage_type_taken'; damageType: DamageType }
+  | { kind: 'status_active'; status: StatusType }
+  | { kind: 'status_applied'; status: StatusType }
+  | { kind: 'stat_stage_at_most'; stat: StatName; stage: number }
+  | { kind: 'stat_stage_at_least'; stat: StatName; stage: number }
+  | { kind: 'hp_above'; fraction: number }
+  | { kind: 'hp_below'; fraction: number }
+  | { kind: 'has_not_acted' }
+  | { kind: 'survived_turns'; turns: number }
+  | { kind: 'ally_knocked_out' }
+  | { kind: 'solo_actor' };
+
+/** All conditions must hold for the rite to be satisfied. */
+export interface RiteDef {
+  id: string;
+  band: RiteBand;
+  persistence: RitePersistence;
+  conditions: RiteCondition[];
+}
+
+/**
+ * Per-enemy battle record the rite conditions are evaluated against. Owned by the
+ * combat scene for the duration of one battle, keyed by instance id. Never
+ * persisted — runs are not saved.
+ */
+export interface RiteLog {
+  damageTypesTaken: DamageType[];
+  statusesApplied: StatusType[];
+  hasActed: boolean;
+  turnsAlive: number;
+  /** Sticky rites that have latched this battle. */
+  latchedRites: string[];
+  /** Bids this creature has rejected. At CAPTURE_ENRAGE_AFTER it enrages. */
+  rejectedBids: number;
+  isEnraged: boolean;
+}
+
+/** Facts about the player's side that some rites key off. */
+export interface CaptureParty {
+  anyKnockedOut: boolean;
+  /** How many of the player's creatures have acted this battle. */
+  actorCount: number;
+}
+
+/** What a rejected bid tells the player. Never a number. */
+export type BidReaction = 'insulted' | 'wavers';
+
+/**
+ * Capture price = base * floor^CAPTURE_DEPTH_EXPONENT * bandMultiplier * hpNudge.
+ *
+ * The depth exponent tracks OBOL_REWARD_EXPONENT deliberately: Obol income grows
+ * as floor^0.5, so a price growing more slowly would make captures relatively
+ * cheaper with depth and turn deep floors into the farmable ones. Move them together.
+ */
+export const CAPTURE_DEPTH_EXPONENT = OBOL_REWARD_EXPONENT;
+
+/** Band multipliers on the base price. Unsatisfied is full freight. */
+export const CAPTURE_BAND_MULTIPLIER: Record<'unsatisfied' | RiteBand, number> = {
+  unsatisfied: 1.0,
+  family: 0.4,
+  signature: 0.1,
+};
+
+/** HP is a nudge, not a lever: at most this much extra at full HP. */
+export const CAPTURE_HP_NUDGE = 0.25;
+
+/** Rejected bids before the creature enrages and refuses everything. */
+export const CAPTURE_ENRAGE_AFTER = 3;
+
+/** A bid below this fraction of the price insults rather than tempts. */
+export const CAPTURE_INSULT_FRACTION = 0.5;
+
+/** Used when a species has no authored price yet. 0 on a template means uncapturable. */
+export const DEFAULT_CAPTURE_BASE_PRICE = 20;

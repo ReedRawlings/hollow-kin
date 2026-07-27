@@ -6,6 +6,7 @@ import {
 import { getTemplate } from '../data/creatures';
 import { convertObolsToEssence, essenceCostForLevel, depthUnlockCost, depthRunFee } from '../systems/Economy';
 import { unlockedSlotCount, applyStatTraitBonuses, MAX_TRAIT_SLOTS } from '../systems/Traits';
+import { applyWipeLoss, unloadCapturesToBox } from '../systems/Backpack';
 
 const STAT_NAMES: (keyof BaseStats)[] = ['hp', 'mp', 'str', 'def', 'wis', 'spd', 'int'];
 
@@ -251,6 +252,16 @@ class GameStateManager {
     this.creatureBox.push(instance);
   }
 
+  /**
+   * How many creatures the Box can still take. The Box is unbounded today, so this is
+   * effectively infinite — it exists as the seam for the bounded, Essence-expandable
+   * capacity the capture spec calls for. When that lands, only this method changes;
+   * the box-full behaviour on exit is already handled by `unloadCapturesToBox`.
+   */
+  boxSpaceRemaining(): number {
+    return Number.POSITIVE_INFINITY;
+  }
+
   removeFromBox(instanceId: string): CreatureInstance | undefined {
     const idx = this.creatureBox.findIndex(c => c.instanceId === instanceId);
     if (idx === -1) return undefined;
@@ -286,9 +297,17 @@ class GameStateManager {
       c.currentStats = this.calculateStatsForLevel(c);
     }
     if (this.currentRun) {
-      for (const captured of this.currentRun.capturedCreatures) {
-        if (success) this.addToBox(captured);
+      // A wipe takes exactly one unprotected thing before anything comes home — never
+      // the whole bag, and never a party creature. Everything else is carried out.
+      if (!success) {
+        const { bag } = applyWipeLoss(this.currentRun.backpack, Math.random);
+        this.currentRun.backpack = bag;
       }
+      // Captures move to the Box up to the space available; anything that does not fit
+      // stays in the bag for next time rather than being destroyed.
+      const { bag, moved } = unloadCapturesToBox(this.currentRun.backpack, this.boxSpaceRemaining());
+      this.currentRun.backpack = bag;
+      for (const entry of moved) this.addToBox(entry.instance);
     }
     this.currentRun = null;
   }
