@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
+import { getItem } from '../data/items';
 import { generateDescent, generatePickNextChoices } from '../systems/RunGenerator';
-import { createBackpack, usedSlots, capacity, isProtected } from '../systems/Backpack';
+import { usedSlots, capacity, isProtected } from '../systems/Backpack';
 import { convertObolsToEssence } from '../systems/Economy';
 import { BackpackSlot, Encounter, RunState, TOWER_FLOORS } from '../types';
 import {
@@ -32,7 +33,7 @@ export class RunScene extends Phaser.Scene {
       const encounters = generateDescent(startFloor);
       gameState.currentRun = {
         startFloor, currentEncounterIndex: -1, encounters, choices: [],
-        obols: 0, backpack: createBackpack(), partyHp: {}, partyMp: {}, partyKO: {},
+        obols: 0, partyHp: {}, partyMp: {}, partyKO: {},
         xpEarned: 0, autoCombat: false,
       };
       for (const c of gameState.runParty) {
@@ -93,8 +94,8 @@ export class RunScene extends Phaser.Scene {
 
     button(this, 700, 42, 106, 34, run.autoCombat ? 'AUTO ON' : 'AUTO OFF',
       () => this.toggleAuto(), run.autoCombat ? UI.green : UI.lineBright);
-    const carried = usedSlots(run.backpack);
-    button(this, 812, 42, 92, 34, `BAG ${carried}/${capacity(run.backpack)}`,
+    const carried = usedSlots(gameState.backpack);
+    button(this, 812, 42, 92, 34, `BAG ${carried}/${capacity(gameState.backpack)}`,
       () => { this.showingBag = true; this.draw(); },
       carried > 0 ? UI.gold : UI.lineBright);
 
@@ -148,10 +149,10 @@ export class RunScene extends Phaser.Scene {
       fontFamily: DISPLAY_FONT, fontSize: '8px', color: UI.goldCss,
     }).setOrigin(0.5);
 
-    run.backpack.slots.forEach((slot, i) => {
+    gameState.backpack.slots.forEach((slot, i) => {
       const x = 260 + (i % 3) * 148;
       const y = 232 + Math.floor(i / 3) * 84;
-      const safe = isProtected(run.backpack, i);
+      const safe = isProtected(gameState.backpack, i);
       this.add.rectangle(x, y, 136, 72, UI.panel)
         .setStrokeStyle(2, slot ? (safe ? UI.teal : UI.line) : UI.line);
       if (safe) {
@@ -177,7 +178,7 @@ export class RunScene extends Phaser.Scene {
     if (!slot) return 'empty';
     switch (slot.kind) {
       case 'creature': return getTemplate(slot.instance.speciesId).name.toUpperCase();
-      case 'item': return slot.itemId.toUpperCase();
+      case 'item': return getItem(slot.itemId).name.toUpperCase();
       case 'mark': return `MARK · ${slot.markId.toUpperCase()}`;
       case 'trait': return `${slot.traitId.toUpperCase()} L${slot.traitLevel}`;
     }

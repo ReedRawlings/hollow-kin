@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createBackpack } from './Backpack';
 import { CreatureInstance, RunState } from '../types';
 import {
   SHOP_ITEMS, ShopItemId, canBenefitFromShopItem, tryPurchaseShopItem,
+  MERCHANT_ITEM_OFFERS, TOWN_ITEM_OFFERS, tryBuyItem,
 } from './Shop';
+import { createBackpack, isFull, usedSlots } from './Backpack';
 
 function creature(instanceId: string): CreatureInstance {
   return {
@@ -36,7 +37,6 @@ function runFor(party: CreatureInstance[], obols = 100): RunState {
     encounters: [],
     choices: [],
     obols,
-    backpack: createBackpack(),
     partyHp: Object.fromEntries(party.map(c => [c.instanceId, c.currentStats.hp])),
     partyMp: Object.fromEntries(party.map(c => [c.instanceId, c.currentStats.mp])),
     partyKO: Object.fromEntries(party.map(c => [c.instanceId, false])),
@@ -120,5 +120,44 @@ describe('tryPurchaseShopItem', () => {
     expect(run.partyHp.b).toBe(25);
     expect(run.partyMp.b).toBe(5);
     expect(run.obols).toBe(60);
+  });
+});
+
+describe('tryBuyItem', () => {
+  it('puts the item in the bag and reports bought when funds and room are both there', () => {
+    const offer = MERCHANT_ITEM_OFFERS[0];
+    const bag = createBackpack();
+
+    const result = tryBuyItem(offer, offer.cost, bag);
+
+    expect(result.bought).toBe(true);
+    expect(usedSlots(result.backpack)).toBe(usedSlots(bag) + 1);
+  });
+
+  it('refuses and leaves the bag untouched when funds are short — never takes a partial payment', () => {
+    const offer = MERCHANT_ITEM_OFFERS[0];
+    const bag = createBackpack();
+
+    const result = tryBuyItem(offer, offer.cost - 1, bag);
+
+    expect(result.bought).toBe(false);
+    expect(result.backpack).toBe(bag);
+    expect(usedSlots(result.backpack)).toBe(usedSlots(bag));
+  });
+
+  it('refuses on a full bag even with ample funds — never takes payment for nothing', () => {
+    const offer = MERCHANT_ITEM_OFFERS[0];
+    const bag = createBackpack(0, 0); // zero capacity: always full
+
+    const result = tryBuyItem(offer, offer.cost * 100, bag);
+
+    expect(result.bought).toBe(false);
+    expect(isFull(result.backpack)).toBe(true);
+  });
+
+  it('offers the same item catalog shape at both the tower merchant and the town shop', () => {
+    const merchantIds = new Set(MERCHANT_ITEM_OFFERS.map(o => o.itemId));
+    const townIds = new Set(TOWN_ITEM_OFFERS.map(o => o.itemId));
+    expect(townIds).toEqual(merchantIds);
   });
 });

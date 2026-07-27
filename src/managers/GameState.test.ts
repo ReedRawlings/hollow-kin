@@ -21,6 +21,7 @@ import { breed } from '../systems/BreedingSystem';
 import { isCreatureBreedReady, TRAIT_SLOT_LEVELS, MAX_TRAIT_SLOTS, unlockedSlotCount } from '../systems/Traits';
 import { STAR_LEVEL_CAPS } from '../types';
 import { getTemplate } from '../data/creatures';
+import { add as addToBackpack, createBackpack, usedSlots } from '../systems/Backpack';
 
 beforeEach(() => {
   gameState.initializeNewGame(['ironjaw', 'stoneguard', 'voltarc']);
@@ -269,6 +270,44 @@ describe('save/load migration', () => {
 
     expect(gameState.loadFromLocalStorage()).toBe(true);
     expect(gameState.creatureBox[0].statBaseline).toEqual(inherited);
+  });
+
+  describe('backpack — v6: moved from RunState, now persists on GameState', () => {
+    it('round-trips bag contents through save/load', () => {
+      const added = addToBackpack(gameState.backpack, { kind: 'item', itemId: 'mending_draught' });
+      expect(added).not.toBeNull();
+      gameState.backpack = added!.bag;
+      gameState.saveToLocalStorage();
+
+      gameState.backpack = createBackpack(); // simulate a fresh process reloading the save
+      expect(gameState.loadFromLocalStorage()).toBe(true);
+      expect(usedSlots(gameState.backpack)).toBe(1);
+    });
+
+    it('gives a pre-v6 save (no backpack field) a fresh bag instead of failing to load', () => {
+      localStorage.setItem('hollow_kin_save', JSON.stringify({
+        version: 5, essence: 10, creatureBox: [], hasCompletedFirstRun: false,
+      }));
+      expect(gameState.loadFromLocalStorage()).toBe(true);
+      expect(usedSlots(gameState.backpack)).toBe(0);
+    });
+  });
+});
+
+describe('endRun — persistent backpack', () => {
+  it('applies wipe loss and unloads captures via gameState.backpack, independent of currentRun', () => {
+    gameState.setRunParty([gameState.creatureBox[0].instanceId]);
+    gameState.startRun();
+    const captured = gameState.createCreatureInstance('ironjaw');
+    const added = addToBackpack(gameState.backpack, { kind: 'creature', instance: captured });
+    gameState.backpack = added!.bag;
+    const boxSizeBefore = gameState.creatureBox.length;
+
+    gameState.currentRun = null; // endRun no longer needs a live run to reach the bag
+    gameState.endRun(true, 0);
+
+    expect(gameState.creatureBox.length).toBe(boxSizeBefore + 1);
+    expect(usedSlots(gameState.backpack)).toBe(0);
   });
 });
 

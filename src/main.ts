@@ -5,6 +5,7 @@ import { PartySelectScene } from './scenes/PartySelectScene';
 import { RunScene } from './scenes/RunScene';
 import { CombatScene } from './scenes/CombatScene';
 import { ShopScene } from './scenes/ShopScene';
+import { TownShopScene } from './scenes/TownShopScene';
 import { RestScene } from './scenes/RestScene';
 import { BreedingScene } from './scenes/BreedingScene';
 import { LevelerScene } from './scenes/LevelerScene';
@@ -92,7 +93,7 @@ const config: Phaser.Types.Core.GameConfig = {
   height: 640,
   backgroundColor: '#10121c',
   parent: document.body,
-  scene: [BootScene, TownScene, PartySelectScene, RunScene, CombatScene, PostCombatScene, ShopScene, RestScene, BreedingScene, LevelerScene, GatekeeperScene, BestiaryScene, DepartureScene],
+  scene: [BootScene, TownScene, PartySelectScene, RunScene, CombatScene, PostCombatScene, ShopScene, TownShopScene, RestScene, BreedingScene, LevelerScene, GatekeeperScene, BestiaryScene, DepartureScene],
   // Bitmap fonts and pixel art need the renderer to stop smoothing. `pixelArt: true`
   // is Phaser's shortcut for antialias:false + antialiasGL:false + roundPixels:true.
   render: {

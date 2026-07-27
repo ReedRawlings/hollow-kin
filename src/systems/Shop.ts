@@ -1,4 +1,5 @@
-import { CreatureInstance, RunState } from '../types';
+import { Backpack, CreatureInstance, RunState } from '../types';
+import { add as addToBackpack, isFull } from './Backpack';
 
 export type ShopItemId = 'heal_party' | 'restore_mp' | 'revive_creature';
 
@@ -77,4 +78,48 @@ export function tryPurchaseShopItem(
 
   run.obols -= item.cost;
   return true;
+}
+
+// --- Carryable items: bought into the backpack, used later in battle. ---
+//
+// Two catalogs, same offer shape, different ledger: the tower merchant charges
+// Obols (the in-run currency), the town shop charges Essence (the permanent one) —
+// see ShopScene and TownShopScene respectively. `tryBuyItem` below is deliberately
+// currency-agnostic so both scenes share one purchase path.
+
+export interface ItemOffer {
+  itemId: string;
+  cost: number;
+}
+
+export const MERCHANT_ITEM_OFFERS: readonly ItemOffer[] = [
+  { itemId: 'power_increase', cost: 15 },
+  { itemId: 'mending_draught', cost: 15 },
+];
+
+export const TOWN_ITEM_OFFERS: readonly ItemOffer[] = [
+  { itemId: 'power_increase', cost: 8 },
+  { itemId: 'mending_draught', cost: 8 },
+];
+
+/**
+ * Buy `offer` into `backpack`, paid from a wallet holding `available` currency.
+ *
+ * Pure and side-effect-free: on success it returns the new backpack and `bought:
+ * true`; the caller is the one who actually owns the wallet (RunState.obols or
+ * GameStateManager.essence), so it deducts `offer.cost` itself only when `bought`
+ * is true. Fails gracefully — insufficient funds or a full bag — without taking
+ * payment either way, per the "don't take the Obols if the bag can't hold it" rule.
+ */
+export function tryBuyItem(
+  offer: ItemOffer,
+  available: number,
+  backpack: Backpack,
+): { backpack: Backpack; bought: boolean } {
+  if (available < offer.cost || isFull(backpack)) {
+    return { backpack, bought: false };
+  }
+  const result = addToBackpack(backpack, { kind: 'item', itemId: offer.itemId });
+  if (!result) return { backpack, bought: false }; // guards a race with the isFull check above
+  return { backpack: result.bag, bought: true };
 }

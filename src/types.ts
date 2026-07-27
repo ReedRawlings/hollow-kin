@@ -183,9 +183,6 @@ export interface RunState {
   encounters: Encounter[];
   choices: Encounter[];       // current pick-next choices
   obols: number;
-  /** Everything carried on the descent. Captures, consumables, marks and traits all
-   *  compete for the same slots — see BackpackSlot. */
-  backpack: Backpack;
   partyHp: Record<string, number>;
   partyMp: Record<string, number>;
   partyKO: Record<string, boolean>;
@@ -306,10 +303,15 @@ export function scaledDelay(baseMs: number, speed: BattleSpeed): number {
  * a captured creature and the consumable that might have saved the run compete for
  * the same space.
  *
- * `creature` is live today. The others are declared now because each is already
- * specified elsewhere and each must be wipe-eligible when it arrives — consumables
- * bought at shops and used in battle, marks earned in-run and carried out to be
- * bound with Essence in town, and traits dropped by bosses and events.
+ * `creature` and `item` are both live today. `mark` and `trait` are declared now
+ * because each is already specified elsewhere and each must be wipe-eligible when
+ * it arrives — marks earned in-run and carried out to be bound with Essence in
+ * town, and traits dropped by bosses and events.
+ *
+ * The bag itself lives on `GameStateManager.backpack`, not on `RunState` — it is
+ * carried cargo, not run-scoped state, so it persists across runs (town purchases
+ * sit in it until the next descent; a capture that doesn't fit the Box waits in it
+ * for room). It is included in the save.
  */
 export type BackpackContents =
   | { kind: 'creature'; instance: CreatureInstance }

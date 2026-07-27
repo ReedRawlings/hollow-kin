@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
 import { getAbility } from '../data/abilities';
+import { getItem } from '../data/items';
 import {
   CombatCreature, BattlePhase, Encounter, CreatureInstance,
   generateId, STAR_LEVEL_CAPS, TacticId, COMBAT_DELAY_AUTO_THINK,
@@ -10,11 +11,11 @@ import {
 import {
   calculateTurnOrder, calculateDamage, applyDamage,
   applyAbilityEffects, tickStatusEffects, isSkipTurn,
-  createCombatCreature, resolveNonDamagingAbility,
+  createCombatCreature, resolveNonDamagingAbility, applyHeal, applyBuffDebuff,
 } from '../systems/CombatEngine';
 import { getEnemyAction, chooseAction } from '../systems/TacticsAI';
 import { obolsForEncounter } from '../systems/Economy';
-import { usedSlots } from '../systems/Backpack';
+import { usedSlots, removeAt } from '../systems/Backpack';
 import {
   renderBattlefield, ChipSpec, CommandPanelView, RootCommandSpec, SubRowSpec,
 } from './combat/BattlefieldRenderer';
@@ -55,8 +56,15 @@ export class CombatScene extends Phaser.Scene {
   private cmdIndex = 0;
   private subOpen: 'MAGIC' | 'ITEM' | null = null;
   private subRowIndex = 0;
-  /** Ability id awaiting a click on a living ally (single_ally targeting, >1 candidate). */
-  private pendingAllyAbility: string | null = null;
+  /**
+   * What's awaiting a click on a living ally: an ability (single_ally targeting,
+   * >1 candidate) or a bag item (both of today's item effects target one ally) —
+   * both funnel through the same ally-picker UI, so one field covers either.
+   */
+  private pendingAllyAction:
+    | { kind: 'ability'; abilityId: string }
+    | { kind: 'item'; itemId: string; slotIndex: number }
+    | null = null;
 
   private onEscKey = () => this.handleEscape();
   private onLeftKey = () => this.cycleTarget(-1);
@@ -93,7 +101,7 @@ export class CombatScene extends Phaser.Scene {
     this.cmdIndex = 0;
     this.subOpen = null;
     this.subRowIndex = 0;
-    this.pendingAllyAbility = null;
+    this.pendingAllyAction = null;
   }
 
   create(): void {
@@ -244,7 +252,7 @@ export class CombatScene extends Phaser.Scene {
     this.cmdIndex = 0;
     this.subOpen = null;
     this.subRowIndex = 0;
-    this.pendingAllyAbility = null;
+    this.pendingAllyAction = null;
     this.ensureValidTarget();
     this.phase = BattlePhase.PLAYER_CHOOSING;
     this.redraw();
@@ -256,7 +264,7 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private cycleTarget(dir: 1 | -1): void {
-    if (this.phase !== BattlePhase.PLAYER_CHOOSING || this.pendingAllyAbility) return;
+    if (this.phase !== BattlePhase.PLAYER_CHOOSING || this.pendingAllyAction) return;
     const alive = this.enemyParty.filter(e => !e.isKnockedOut);
     if (alive.length === 0) return;
     const idx = this.currentTarget ? alive.indexOf(this.currentTarget) : -1;
@@ -266,8 +274,8 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private handleEscape(): void {
-    if (this.pendingAllyAbility) {
-      this.pendingAllyAbility = null;
+    if (this.pendingAllyAction) {
+      this.pendingAllyAction = null;
       this.phase = BattlePhase.PLAYER_CHOOSING;
       this.redraw();
     } else if (this.subOpen) {
@@ -315,7 +323,7 @@ export class CombatScene extends Phaser.Scene {
       if (livingAllies.length === 1) {
         this.executePlayerAction(caster, abilityId, livingAllies[0]);
       } else {
-        this.pendingAllyAbility = abilityId;
+        this.pendingAllyAction = { kind: 'ability', abilityId };
         this.phase = BattlePhase.PLAYER_TARGETING;
         this.redraw();
       }
@@ -354,6 +362,56 @@ export class CombatScene extends Phaser.Scene {
 
     this.redraw();
     this.time.delayedCall(scaledDelay(COMBAT_DELAY_ACTION, gameState.battleSpeed), () => this.finishTurn(attacker));
+  }
+
+  /**
+   * Selecting an ITEM row. Both item effects today (heal, buff) target a single
+   * ally — same auto-target-when-unambiguous rule as a single_ally ability.
+   */
+  private selectItem(itemId: string): void {
+    const slotIndex = gameState.backpack.slots.findIndex(
+      s => s !== null && s.kind === 'item' && s.itemId === itemId,
+    );
+    if (slotIndex === -1) return; // bag changed under us (shouldn't happen mid-turn) — no-op
+
+    const livingAllies = this.playerParty.filter(p => !p.isKnockedOut);
+    if (livingAllies.length === 1) {
+      this.useItem(itemId, slotIndex, livingAllies[0]);
+    } else {
+      this.pendingAllyAction = { kind: 'item', itemId, slotIndex };
+      this.phase = BattlePhase.PLAYER_TARGETING;
+      this.redraw();
+    }
+  }
+
+  /**
+   * Apply a bag item's effect to `target` and consume the acting creature's turn —
+   * same shape as executePlayerAction, minus MP cost. Reuses CombatEngine's existing
+   * heal/buff paths rather than a second implementation. The item is removed from
+   * `slotIndex` on use, which is the exact slot the row was built from at selection
+   * time (selectItem re-resolves it fresh, so a stale index here would be a bug).
+   */
+  private useItem(itemId: string, slotIndex: number, target: CombatCreature): void {
+    const actor = this.turnOrder[this.currentTurnIndex];
+    if (!actor) return;
+    this.phase = BattlePhase.EXECUTING;
+    const def = getItem(itemId);
+    actor.isDefending = false;
+
+    if (def.effect.kind === 'heal') {
+      const healed = applyHeal(target, def.effect.amount);
+      this.addMessage(`${actor.template.name} used ${def.name} on ${target.template.name} — recovered ${healed} HP!`);
+    } else {
+      applyBuffDebuff(target, def.effect.stat, def.effect.stages);
+      const dir = def.effect.stages > 0 ? 'rose' : 'fell';
+      this.addMessage(`${actor.template.name} used ${def.name} — ${target.template.name}'s ${def.effect.stat.toUpperCase()} ${dir}!`);
+    }
+
+    gameState.backpack = removeAt(gameState.backpack, slotIndex);
+    gameState.saveToLocalStorage();
+
+    this.redraw();
+    this.time.delayedCall(scaledDelay(COMBAT_DELAY_ACTION, gameState.battleSpeed), () => this.finishTurn(actor));
   }
 
   private executeAutoTurn(creature: CombatCreature): void {
@@ -519,9 +577,27 @@ export class CombatScene extends Phaser.Scene {
     return `FLOOR ${floor} — AMBUSH`;
   }
 
+  /** Unique item ids in the bag, in slot order — the same order both the footer
+   *  detail and the ITEM row list read from, so hovering row N always describes
+   *  the item row N will act on. */
+  private bagItemIds(): string[] {
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    for (const slot of gameState.backpack.slots) {
+      if (slot && slot.kind === 'item' && !seen.has(slot.itemId)) {
+        seen.add(slot.itemId);
+        ids.push(slot.itemId);
+      }
+    }
+    return ids;
+  }
+
   private computeFooterDetail(): string {
-    if (this.pendingAllyAbility) {
-      return `Select an ally for ${getAbility(this.pendingAllyAbility).name}.`;
+    if (this.pendingAllyAction) {
+      const name = this.pendingAllyAction.kind === 'ability'
+        ? getAbility(this.pendingAllyAction.abilityId).name
+        : getItem(this.pendingAllyAction.itemId).name;
+      return `Select an ally for ${name}.`;
     }
     if (this.phase !== BattlePhase.PLAYER_CHOOSING) {
       return this.messageLog[this.messageLog.length - 1] ?? '';
@@ -533,19 +609,23 @@ export class CombatScene extends Phaser.Scene {
       return id ? getAbility(id).description : '';
     }
     if (this.subOpen === 'ITEM') {
-      return 'Nothing can be done with bag contents yet.';
+      const ids = this.bagItemIds();
+      const id = ids[this.subRowIndex];
+      return id ? getItem(id).description : 'The bag holds no usable items.';
     }
     return ROOT_DETAIL[this.cmdIndex] ?? '';
   }
 
   private buildCommandPanel(actor: CombatCreature | undefined): CommandPanelView {
-    if (this.pendingAllyAbility && actor) {
-      const ability = getAbility(this.pendingAllyAbility);
+    if (this.pendingAllyAction && actor) {
+      const name = this.pendingAllyAction.kind === 'ability'
+        ? getAbility(this.pendingAllyAction.abilityId).name
+        : getItem(this.pendingAllyAction.itemId).name;
       const disabledRoot: RootCommandSpec[] = ROOT_LABELS.map(label => ({
         label, selected: false, disabled: true, onHover: () => {}, onClick: () => {},
       }));
       return {
-        headline: `SELECT ALLY — ${ability.name.toUpperCase()}`,
+        headline: `SELECT ALLY — ${name.toUpperCase()}`,
         showBack: true,
         onBack: () => { this.handleEscape(); },
         rootOpen: true,
@@ -600,19 +680,23 @@ export class CombatScene extends Phaser.Scene {
     }
 
     if (this.subOpen === 'ITEM') {
-      const bag = gameState.currentRun!.backpack;
+      const bag = gameState.backpack;
       const counts = new Map<string, number>();
       for (const slot of bag.slots) {
         if (slot && slot.kind === 'item') counts.set(slot.itemId, (counts.get(slot.itemId) ?? 0) + 1);
       }
-      const rows: SubRowSpec[] = [...counts.entries()].slice(0, 4).map(([itemId, count]) => ({
-        label: itemId.toUpperCase(),
-        meta: `×${count}`,
-        selected: false,
-        disabled: true, // no use-item system exists yet — presentational only, per spec
-        onHover: () => {},
-        onClick: () => {},
-      }));
+      const entries = this.bagItemIds().map(id => [id, counts.get(id)!] as const);
+      const rows: SubRowSpec[] = entries.slice(0, 4).map(([itemId, count], i) => {
+        const def = getItem(itemId);
+        return {
+          label: def.name.toUpperCase(),
+          meta: `×${count}`,
+          selected: i === this.subRowIndex,
+          disabled: false,
+          onHover: () => { this.subRowIndex = i; this.redraw(); },
+          onClick: () => { this.subRowIndex = i; this.selectItem(itemId); },
+        };
+      });
       if (rows.length === 0) {
         rows.push({
           label: 'EMPTY', meta: '', selected: false, disabled: true, onHover: () => {}, onClick: () => {},
@@ -669,9 +753,9 @@ export class CombatScene extends Phaser.Scene {
       ? `TARGET — ${this.currentTarget.template.name.toUpperCase()} ${this.currentTarget.currentHp}/${this.currentTarget.maxHp}`
       : '';
 
-    const enemyInteractive = this.phase === BattlePhase.PLAYER_CHOOSING && !this.pendingAllyAbility
+    const enemyInteractive = this.phase === BattlePhase.PLAYER_CHOOSING && !this.pendingAllyAction
       && !!actor?.isPlayerOwned;
-    const allyInteractive = this.phase === BattlePhase.PLAYER_TARGETING && !!this.pendingAllyAbility;
+    const allyInteractive = this.phase === BattlePhase.PLAYER_TARGETING && !!this.pendingAllyAction;
 
     renderBattlefield(this, {
       floorLabel: this.floorLabel(),
@@ -687,11 +771,16 @@ export class CombatScene extends Phaser.Scene {
       allyInteractive,
       onAllyHover: () => {},
       onAllyClick: (ally) => {
-        if (!this.pendingAllyAbility) return;
+        if (!this.pendingAllyAction) return;
         const caster = this.turnOrder[this.currentTurnIndex];
-        const abilityId = this.pendingAllyAbility;
-        this.pendingAllyAbility = null;
-        if (caster) this.executePlayerAction(caster, abilityId, ally);
+        const action = this.pendingAllyAction;
+        this.pendingAllyAction = null;
+        if (!caster) return;
+        if (action.kind === 'ability') {
+          this.executePlayerAction(caster, action.abilityId, ally);
+        } else {
+          this.useItem(action.itemId, action.slotIndex, ally);
+        }
       },
       command,
       footerDetail,
@@ -741,7 +830,7 @@ export class CombatScene extends Phaser.Scene {
       && (this.phase === BattlePhase.PLAYER_CHOOSING || this.phase === BattlePhase.PLAYER_TARGETING)
       && current?.isPlayerOwned
       && current.instance.tactic !== 'follow_orders') {
-      this.pendingAllyAbility = null;
+      this.pendingAllyAction = null;
       this.phase = BattlePhase.EXECUTING;
       this.redraw();
       this.time.delayedCall(scaledDelay(COMBAT_DELAY_AUTO_THINK, gameState.battleSpeed), () => this.executeAutoTurn(current));

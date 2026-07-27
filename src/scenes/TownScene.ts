@@ -24,6 +24,7 @@ export class TownScene extends Phaser.Scene {
     { name: 'THE TOWER', tag: 'ENTER TOWER', pitch: 'Choose a depth and begin the next descent.', x: 460, y: 132, w: 170, h: 72, color: UI.gold, scene: 'DepartureScene' },
     { name: 'THE LEVELER', tag: 'PERMANENT LEVELS', pitch: 'Turn essence into strength that survives every run.', x: 104, y: 222, w: 148, h: 78, color: 0x5e91b4, scene: 'LevelerScene' },
     { name: 'GATEKEEPER', tag: 'DEPTH JUMPS', pitch: 'Unlock a deeper place to begin future descents.', x: 264, y: 222, w: 140, h: 78, color: UI.gold, scene: 'GatekeeperScene' },
+    { name: 'PROVISIONER', tag: 'SUPPLIES', pitch: 'Buy carryable items — used later, in the tower.', x: 460, y: 222, w: 140, h: 78, color: 0x8fae55, scene: 'TownShopScene' },
     { name: 'MARK-BINDER', tag: 'SHUTTERED', pitch: 'Marks are not available in this build yet.', x: 656, y: 222, w: 148, h: 78, color: UI.amber, enabled: () => false },
     { name: 'TRAIT-KEEPER', tag: 'SHUTTERED', pitch: 'Trait imbuing is not available in this build yet.', x: 816, y: 222, w: 142, h: 78, color: UI.teal, enabled: () => false },
     { name: 'THE ROOST', tag: 'PARTY', pitch: 'Review the box and choose the three going down.', x: 100, y: 342, w: 140, h: 86, color: 0xe98537, scene: 'PartySelectScene' },

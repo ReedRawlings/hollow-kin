@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { createBackpack } from './Backpack';
 import { CreatureInstance, RunState } from '../types';
 import {
   applyTargetedRecovery, canReceiveRecovery, eligibleRecoveryTargets,
@@ -36,7 +35,6 @@ function runFor(party: CreatureInstance[]): RunState {
     encounters: [],
     choices: [],
     obols: 0,
-    backpack: createBackpack(),
     partyHp: Object.fromEntries(party.map(c => [c.instanceId, c.currentStats.hp])),
     partyMp: Object.fromEntries(party.map(c => [c.instanceId, c.currentStats.mp])),
     partyKO: Object.fromEntries(party.map(c => [c.instanceId, false])),

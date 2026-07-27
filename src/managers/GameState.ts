@@ -1,12 +1,12 @@
 import {
-  CreatureInstance, RunState, BaseStats, TraitSlot,
+  CreatureInstance, RunState, BaseStats, TraitSlot, Backpack,
   STAR_LEVEL_CAPS, generateId, isBossFloor, TOWER_FLOORS,
-  BattleSpeed, TacticId,
+  BattleSpeed, TacticId, BACKPACK_START_GUARANTEED,
 } from '../types';
 import { getTemplate } from '../data/creatures';
 import { convertObolsToEssence, essenceCostForLevel, depthUnlockCost, depthRunFee } from '../systems/Economy';
 import { unlockedSlotCount, applyStatTraitBonuses, MAX_TRAIT_SLOTS } from '../systems/Traits';
-import { applyWipeLoss, unloadCapturesToBox } from '../systems/Backpack';
+import { createBackpack, applyWipeLoss, unloadCapturesToBox } from '../systems/Backpack';
 
 const STAT_NAMES: (keyof BaseStats)[] = ['hp', 'mp', 'str', 'def', 'wis', 'spd', 'int'];
 
@@ -55,6 +55,13 @@ class GameStateManager {
   defaultParty: string[] = [];
   /** Floors purchased from the Gatekeeper. Floor 1 is always available and never stored. */
   unlockedFloors: number[] = [];
+  /**
+   * Carried cargo — captures, consumables, marks, traits. Persistent, not run-scoped:
+   * a town purchase sits here until the next descent, and a capture that doesn't fit
+   * the Box on exit waits here for room rather than being destroyed. Used to live on
+   * RunState and be recreated every run; v6 moved it here so it survives between them.
+   */
+  backpack: Backpack = createBackpack();
 
   createCreatureInstance(speciesId: string, starRating = 0): CreatureInstance {
     const template = getTemplate(speciesId);
@@ -296,19 +303,17 @@ class GameStateManager {
       c.xp = 0;
       c.currentStats = this.calculateStatsForLevel(c);
     }
-    if (this.currentRun) {
-      // A wipe takes exactly one unprotected thing before anything comes home — never
-      // the whole bag, and never a party creature. Everything else is carried out.
-      if (!success) {
-        const { bag } = applyWipeLoss(this.currentRun.backpack, Math.random);
-        this.currentRun.backpack = bag;
-      }
-      // Captures move to the Box up to the space available; anything that does not fit
-      // stays in the bag for next time rather than being destroyed.
-      const { bag, moved } = unloadCapturesToBox(this.currentRun.backpack, this.boxSpaceRemaining());
-      this.currentRun.backpack = bag;
-      for (const entry of moved) this.addToBox(entry.instance);
+    // A wipe takes exactly one unprotected thing before anything comes home — never
+    // the whole bag, and never a party creature. Everything else is carried out.
+    if (!success) {
+      const { bag } = applyWipeLoss(this.backpack, Math.random);
+      this.backpack = bag;
     }
+    // Captures move to the Box up to the space available; anything that does not fit
+    // stays in the bag for next time rather than being destroyed.
+    const { bag, moved } = unloadCapturesToBox(this.backpack, this.boxSpaceRemaining());
+    this.backpack = bag;
+    for (const entry of moved) this.addToBox(entry.instance);
     this.currentRun = null;
   }
 
@@ -325,11 +330,12 @@ class GameStateManager {
     this.battleSpeed = 1;
     this.defaultParty = [];
     this.unlockedFloors = [];
+    this.backpack = createBackpack();
   }
 
   saveToLocalStorage(): void {
     const data = {
-      version: 5,
+      version: 6,
       creatureBox: this.creatureBox,
       essence: this.essence,
       deepestBreakCleared: this.deepestBreakCleared,
@@ -339,6 +345,7 @@ class GameStateManager {
       battleSpeed: this.battleSpeed,
       defaultParty: this.defaultParty,
       unlockedFloors: this.unlockedFloors,
+      backpack: this.backpack,
     };
     localStorage.setItem('hollow_kin_save', JSON.stringify(data));
   }
@@ -355,6 +362,15 @@ class GameStateManager {
       // v3 additions — absent on v2 saves, so default safely.
       this.seenSpecies = new Set<string>(data.seenSpecies ?? []);
       this.battleSpeed = (data.battleSpeed ?? 1) as BattleSpeed;
+      // v6: backpack moved from RunState to here. A pre-v6 save (or one saved mid-run,
+      // pre-migration, with no backpack field at all) has nothing to restore — hand it
+      // a fresh bag rather than leaving it undefined.
+      this.backpack = (data.backpack && Array.isArray(data.backpack.slots))
+        ? {
+          slots: [...data.backpack.slots],
+          guaranteedSlots: data.backpack.guaranteedSlots ?? BACKPACK_START_GUARANTEED,
+        }
+        : createBackpack();
       // v4 additions.
       // `defaultParty` has no old-semantics value to preserve when absent — there was
       // nothing like it pre-v4 — so a plain `?? []` is correct as-is. Unlike
