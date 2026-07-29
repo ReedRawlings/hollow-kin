@@ -149,7 +149,13 @@ export class RunScene extends Phaser.Scene {
     } else if (waystone) {
       button(this, 862, 573, 124, 28, 'USE WAYSTONE', () => this.requestDeparture(), UI.teal);
     } else {
-      button(this, 862, 573, 124, 28, 'NO WAY OUT', () => this.flashLock(), UI.line, false);
+      // `button()` only wires a click handler when `enabled` is true, so a disabled
+      // button is dead to the mouse. This control must still respond: it is the
+      // player's explanation for why they cannot leave, and it is on screen for the
+      // whole early game. Keep the disabled look, attach the handler ourselves.
+      const locked = button(this, 862, 573, 124, 28, 'NO WAY OUT', null, UI.line, false);
+      locked.setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => this.flashLock());
     }
 
     this.add.text(24, 573,
