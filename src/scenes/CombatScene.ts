@@ -459,7 +459,30 @@ export class CombatScene extends Phaser.Scene {
       () => this.finishTurn(actor));
   }
 
-  private escapeBattle(): void { /* Task 9 */ }
+  /**
+   * Leave a fight at once, with nothing to show for it.
+   *
+   * A free action by design: the battle ends the instant the husk breaks, so no
+   * enemy acts in response. It is still only reachable on a player turn, because
+   * that is the only time the ITEM menu exists — so no change to the turn loop is
+   * needed to make it "free".
+   *
+   * Deliberately does NOT call showBattleEnd(): that records every enemy species
+   * into the knowledge fog, and a no-cost escape that did so would turn this item
+   * into free reconnaissance ("enter, read them, leave, come back informed").
+   * Forfeiting the encounter must also forfeit what you learned in it.
+   *
+   * No Obols and no XP are awarded, and `recordBreakCleared` is never reached —
+   * `usableIn: 'combat_non_boss'` keeps this off boss floors entirely, so an
+   * escape can never bank a break the party did not earn.
+   */
+  private escapeBattle(): void {
+    this.destroyAll();
+    const run = gameState.currentRun!;
+    this.savePartyState(run);
+    gameState.saveToLocalStorage();
+    this.scene.start('RunScene', { continueRun: true });
+  }
 
   private executeAutoTurn(creature: CombatCreature): void {
     // tactic is narrowed to TacticProfile — 'follow_orders' never reaches here.
