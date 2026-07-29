@@ -401,10 +401,19 @@ export class CombatScene extends Phaser.Scene {
     if (def.effect.kind === 'heal') {
       const healed = applyHeal(target, def.effect.amount);
       this.addMessage(`${actor.template.name} used ${def.name} on ${target.template.name} — recovered ${healed} HP!`);
-    } else {
+    } else if (def.effect.kind === 'buff') {
       applyBuffDebuff(target, def.effect.stat, def.effect.stages);
       const dir = def.effect.stages > 0 ? 'rose' : 'fell';
       this.addMessage(`${actor.template.name} used ${def.name} — ${target.template.name}'s ${def.effect.stat.toUpperCase()} ${dir}!`);
+    } else {
+      // BRIDGE — delete in Task 8. The catalog now carries seven effect kinds this
+      // scene cannot resolve yet; Task 8 replaces this whole method with a call to
+      // Items.applyItemInCombat. Until then, refuse rather than mis-apply, and
+      // return BEFORE the slot is consumed so nothing is destroyed for no effect.
+      this.addMessage(`${def.name} cannot be used here yet.`);
+      this.phase = BattlePhase.PLAYER_CHOOSING;
+      this.redraw();
+      return;
     }
 
     gameState.backpack = removeAt(gameState.backpack, slotIndex);
