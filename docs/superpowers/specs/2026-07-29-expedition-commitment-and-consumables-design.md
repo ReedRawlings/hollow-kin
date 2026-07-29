@@ -184,17 +184,29 @@ Eight from the pitch, plus `power_increase`, which already exists and is already
 in both shops. It is kept rather than removed — it works, and dropping a stocked item is
 churn this slice does not need.
 
-`power_increase` is **combat-only** even though the other recovery items are usable on the
-map: buff stages live on `CombatCreature` and do not survive a battle, so a map use would
-silently do nothing. The same reasoning makes Grave Ash and Null Salt combat-only — they
-target an enemy, and there is no enemy on the run map.
+**Only three items are usable on the map: Mending Draught, Moonwater and Hollow Candle.**
+`RunState` tracks exactly `partyHp`, `partyMp` and `partyKO` — nothing else about a
+creature survives a battle — so those three are the only effects that have anything to
+act on outside combat.
+
+Everything else is combat-only for a concrete reason, not by preference:
+
+- **Clearroot and Power Increase** — `statusEffects` and `buffStages` live on
+  `CombatCreature` and are discarded when a battle ends. A map use would consume the item
+  and silently do nothing.
+- **Grave Ash and Null Salt** — they target an enemy, and there is no enemy on the run map.
+- **Smoke Husk** — it ends a battle, and outside one there is nothing to end.
+
+The rule the player learns is therefore "the bag heals, revives and gets you out; the rest
+is for fights" — which is teachable, and which the `usableIn` field enforces rather than
+relying on each scene to remember.
 
 | Item | Effect kind | `usableIn` | `targeting` | Answers |
 |---|---|---|---|---|
 | Mending Draught | `heal` *(exists)* | both | living ally | HP recovery |
 | Moonwater | `restore_mp` | both | living ally | MP recovery |
 | Hollow Candle | `revive` | both | downed ally | a knockout |
-| Clearroot | `cure_status` | both | living ally | any negative status |
+| Clearroot | `cure_status` | combat | living ally | any negative status |
 | Power Increase | `buff` *(exists)* | combat | living ally | a stat stage |
 | Grave Ash | `percent_damage` | combat | enemy | MP-free emergency damage |
 | Null Salt | `strip_buffs` | combat | enemy | a buffed elite |
@@ -300,7 +312,13 @@ follows the same "don't take payment if it can't be delivered" rule, and this mi
 ### The interactive bag
 
 `RunScene`'s bag modal is currently read-only. It gains, per slot holding a map-usable
-item, a `USE` button, then a target picker for targeted effects.
+item, a `USE` button, then a target picker for targeted effects. In practice that is
+Mending Draught, Moonwater, Hollow Candle and Waystone; every other slot renders exactly
+as it does today, with a short reason in place of the button so the player learns the
+rule rather than wondering whether it is a bug.
+
+`applyItemOnMap` must **refuse** every combat-only effect kind rather than falling through
+to a no-op. A refusal is a bug caught; a silent no-op is an item consumed for nothing.
 
 The modal moves to **`src/scenes/run/BagPanel.ts`**, following the existing
 `src/scenes/combat/BattlefieldRenderer.ts` precedent. `RunScene` is 425 lines and this
@@ -377,6 +395,9 @@ Per the alpha rule, tests assert **shape and relationships**, never placeholder 
 - A refused outcome reports a reason and signals no consumption.
 - Smoke Husk is refused in a boss encounter and permitted otherwise.
 - Waystone is refused in combat and permitted on the map.
+- Every combat-only effect kind is refused by `applyItemOnMap` — no effect kind may reach
+  a silent no-op that consumes the item. This is the regression test for the trap that
+  Clearroot originally fell into.
 - Grave Ash deals strictly less to a boss than to a non-boss of identical max HP.
 - Revive is refused on a living target and succeeds on a downed one.
 
