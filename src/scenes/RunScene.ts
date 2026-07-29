@@ -3,8 +3,9 @@ import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
 import { getItem } from '../data/items';
 import { generateDescent, generatePickNextChoices } from '../systems/RunGenerator';
-import { usedSlots, capacity, isProtected } from '../systems/Backpack';
+import { usedSlots, capacity, isProtected, removeAt } from '../systems/Backpack';
 import { convertObolsToEssence } from '../systems/Economy';
+import { canDepart, hasWaystone, nextDepartureFloor } from '../systems/Departure';
 import { BackpackSlot, Encounter, RunState, TOWER_FLOORS } from '../types';
 import {
   UI, BODY_FONT, DISPLAY_FONT, archetypeColor, button, compactPartyCard,
@@ -15,7 +16,9 @@ export class RunScene extends Phaser.Scene {
   private selected = 0;
   private keyboardBound = false;
   private ending = false;
-  private confirmingFlee = false;
+  private confirmingDeparture = false;
+  /** Set when the player picked a room while departure was open — the commit modal. */
+  private confirmingCommit: Encounter | null = null;
   private resultIsWipe = false;
   private showingBag = false;
 
@@ -25,7 +28,8 @@ export class RunScene extends Phaser.Scene {
 
   init(data?: { continueRun?: boolean }): void {
     this.ending = false;
-    this.confirmingFlee = false;
+    this.confirmingDeparture = false;
+    this.confirmingCommit = null;
     this.showingBag = false;
     if (!data?.continueRun || !gameState.currentRun) {
       const startFloor = gameState.resolveRunStartFloor();
@@ -54,18 +58,26 @@ export class RunScene extends Phaser.Scene {
       this.input.keyboard?.on('keydown-RIGHT', () => this.move(1));
       this.input.keyboard?.on('keydown-ENTER', () => {
         if (this.ending) this.returnToTown();
-        else if (this.confirmingFlee) this.showRunEnd('fled');
+        else if (this.confirmingCommit) {
+          const staged = this.confirmingCommit;
+          this.confirmingCommit = null;
+          this.selectEncounter(staged);
+        }
+        else if (this.confirmingDeparture) this.confirmDeparture();
         else this.commitSelected();
       });
       this.input.keyboard?.on('keydown-TAB', (e: KeyboardEvent) => { e.preventDefault(); this.toggleAuto(); });
       this.input.keyboard?.on('keydown-ESC', () => {
         if (this.ending) return;
         if (this.showingBag) { this.showingBag = false; this.draw(); return; }
-        if (this.confirmingFlee) {
-          this.confirmingFlee = false;
+        if (this.confirmingCommit) {
+          this.confirmingCommit = null;
+          this.draw();
+        } else if (this.confirmingDeparture) {
+          this.confirmingDeparture = false;
           this.draw();
         } else {
-          this.requestFlee();
+          this.requestDeparture();
         }
       });
     }
@@ -126,11 +138,31 @@ export class RunScene extends Phaser.Scene {
     this.add.text(836, 535, `${standing} OF ${gameState.runParty.length} STANDING`, {
       fontFamily: BODY_FONT, fontSize: '8px', color: UI.muted,
     }).setOrigin(0.5);
-    button(this, 874, 573, 100, 28, 'FLEE', () => this.requestFlee(), UI.red);
-    footer(this, '← → CHOOSE  ·  ENTER COMMIT  ·  TAB AUTO  ·  ESC FLEE',
+    const open = canDepart(run);
+    const waystone = hasWaystone(gameState.backpack);
+    const nextFloor = nextDepartureFloor(run);
+    const nextText = nextFloor === null ? 'NONE — THE BOTTOM IS THE ONLY WAY OUT' : `FLOOR ${nextFloor}`;
+
+    if (open) {
+      button(this, 862, 573, 124, 28, 'DEPART', () => this.requestDeparture(), UI.gold);
+    } else if (waystone) {
+      button(this, 862, 573, 124, 28, 'USE WAYSTONE', () => this.requestDeparture(), UI.teal);
+    } else {
+      button(this, 862, 573, 124, 28, 'NO WAY OUT', () => this.flashLock(), UI.line, false);
+    }
+
+    this.add.text(24, 573,
+      open ? 'SAFE PASSAGE OUT — TAKE IT OR PRESS ON'
+        : waystone ? `WAYSTONE READY  ·  NEXT FREE EXIT: ${nextText}`
+          : `NO WAYSTONE  ·  NEXT GUARANTEED DEPARTURE: ${nextText}`, {
+      fontFamily: BODY_FONT, fontSize: '9px',
+      color: open ? UI.goldCss : waystone ? UI.tealCss : UI.mutedBright,
+    }).setOrigin(0, 0.5);
+    footer(this, '← → CHOOSE  ·  ENTER COMMIT  ·  TAB AUTO  ·  ESC DEPART',
       this.offerName(run.choices[this.selected]));
     if (this.showingBag) this.drawBag(run);
-    if (this.confirmingFlee) this.drawFleeConfirmation();
+    if (this.confirmingDeparture) this.drawDepartureConfirmation();
+    if (this.confirmingCommit) this.drawCommitConfirmation(this.confirmingCommit);
   }
 
   /**
@@ -226,18 +258,18 @@ export class RunScene extends Phaser.Scene {
       align: 'center', wordWrap: { width: w - 40 },
     }).setOrigin(0.5);
     bg.setInteractive({ useHandCursor: true });
-    // The flee modal and the run-end screen draw over these cards, but the cards stay
-    // interactive underneath. Without these guards a click that reaches a card while the
-    // modal is open commits the encounter instead — which looks exactly like "flee did
-    // nothing and put me back on the map". `pointerover` is guarded too: it calls draw(),
-    // which destroys and rebuilds every object in the scene, including the modal button
-    // the player is currently reaching for.
+    // The departure/commit modals and the run-end screen draw over these cards, but the
+    // cards stay interactive underneath. Without these guards a click that reaches a card
+    // while a modal is open commits the encounter instead — which looks exactly like
+    // "depart did nothing and put me back on the map". `pointerover` is guarded too: it
+    // calls draw(), which destroys and rebuilds every object in the scene, including the
+    // modal button the player is currently reaching for.
     bg.on('pointerover', () => {
-      if (this.confirmingFlee || this.ending || this.showingBag) return;
+      if (this.confirmingDeparture || this.confirmingCommit !== null || this.ending || this.showingBag) return;
       if (this.selected !== index) { this.selected = index; this.draw(); }
     });
     bg.on('pointerdown', () => {
-      if (this.confirmingFlee || this.ending || this.showingBag) return;
+      if (this.confirmingDeparture || this.confirmingCommit !== null || this.ending || this.showingBag) return;
       this.selected = index;
       this.commitSelected();
     });
@@ -269,40 +301,113 @@ export class RunScene extends Phaser.Scene {
   }
 
   private commitSelected(): void {
-    // `confirmingFlee` matters as much as `ending`: while the leave-the-tower modal is
-    // open, entering a room is never what the player meant.
+    // `confirmingDeparture`/`confirmingCommit` matter as much as `ending`: while a modal
+    // is open, entering a room is never what the player meant.
     const encounter = gameState.currentRun?.choices[this.selected];
-    if (!encounter || this.ending || this.confirmingFlee || this.showingBag) return;
+    if (!encounter || this.ending || this.confirmingDeparture || this.showingBag) return;
+    if (this.confirmingCommit) return;
+    if (canDepart(gameState.currentRun!)) {
+      this.confirmingCommit = encounter;
+      this.draw();
+      return;
+    }
     this.selectEncounter(encounter);
   }
 
-  private requestFlee(): void {
+  private requestDeparture(): void {
     if (this.ending) return;
-    this.confirmingFlee = true;
+    if (!canDepart(gameState.currentRun!) && !hasWaystone(gameState.backpack)) {
+      this.flashLock();
+      return;
+    }
+    this.confirmingDeparture = true;
     this.draw();
   }
 
-  private drawFleeConfirmation(): void {
-    const blocker = this.add.rectangle(480, 320, 952, 632, UI.void, 0.82)
-      .setInteractive();
+  /**
+   * Departure is locked and there is no waystone. Flash the header line rather
+   * than opening a modal whose only button is "never mind" — an unusable modal
+   * reads as a broken button.
+   */
+  private flashLock(): void {
+    const line = this.add.text(480, 300, 'THE WAY BACK IS SHUT', {
+      fontFamily: DISPLAY_FONT, fontSize: '13px', color: UI.redCss,
+    }).setOrigin(0.5).setDepth(50);
+    this.tweens.add({ targets: line, alpha: 0, duration: 900, onComplete: () => line.destroy() });
+  }
+
+  private confirmDeparture(): void {
+    const run = gameState.currentRun!;
+    if (!canDepart(run)) {
+      // Only a waystone can be paying for this exit — spend it before the results
+      // screen renders the bag, or the ledger shows an item the player no longer has.
+      const i = gameState.backpack.slots.findIndex(
+        s => s !== null && s.kind === 'item' && s.itemId === 'waystone');
+      if (i === -1) { this.confirmingDeparture = false; this.draw(); return; }
+      gameState.backpack = removeAt(gameState.backpack, i);
+    }
+    this.showRunEnd('fled');
+  }
+
+  private drawDepartureConfirmation(): void {
+    const run = gameState.currentRun!;
+    const open = canDepart(run);
+    this.add.rectangle(480, 320, 952, 632, UI.void, 0.82).setInteractive();
     const modal = panel(this, 480, 320, 540, 250, true);
     this.add.text(480, 245, 'LEAVE THE TOWER?', {
       fontFamily: DISPLAY_FONT, fontSize: '13px', color: UI.hi,
     }).setOrigin(0.5);
     this.add.text(480, 292,
-      'The run ends here. Your leftover Obols convert to Essence at the full rate.', {
+      open
+        ? 'The run ends here. Your leftover Obols convert to Essence at the full rate.'
+        : 'The waystone breaks. The run ends here, at the full rate.', {
         fontFamily: BODY_FONT, fontSize: '11px', color: UI.body,
         align: 'center', wordWrap: { width: 450 },
       }).setOrigin(0.5);
-    button(this, 385, 370, 170, 50, 'LEAVE TOWER', () => this.showRunEnd('fled'), UI.red);
+    button(this, 385, 370, 170, 50, 'LEAVE TOWER', () => this.confirmDeparture(), UI.red);
     button(this, 575, 370, 170, 50, 'KEEP GOING', () => {
-      this.confirmingFlee = false;
+      this.confirmingDeparture = false;
       this.draw();
     }, UI.teal);
     this.add.text(480, 423, 'ENTER LEAVE  ·  ESC STAY', {
       fontFamily: BODY_FONT, fontSize: '10px', color: UI.mutedBright,
     }).setOrigin(0.5);
     modal.setInteractive();
+  }
+
+  private drawCommitConfirmation(encounter: Encounter): void {
+    const run = gameState.currentRun!;
+    const nextFloor = nextDepartureFloor(run);
+    const carrying = hasWaystone(gameState.backpack);
+    this.add.rectangle(480, 320, 952, 632, UI.void, 0.82).setInteractive();
+    panel(this, 480, 320, 560, 262, true);
+    this.add.text(480, 240, 'PRESS ON?', {
+      fontFamily: DISPLAY_FONT, fontSize: '13px', color: UI.hi,
+    }).setOrigin(0.5);
+    this.add.text(480, 292,
+      nextFloor === null
+        ? `Committing to floor ${encounter.floor}. There is no guaranteed way out below this.`
+        : `Committing to floor ${encounter.floor}. The next guaranteed way out is floor ${nextFloor}.`, {
+        fontFamily: BODY_FONT, fontSize: '11px', color: UI.body,
+        align: 'center', wordWrap: { width: 470 },
+      }).setOrigin(0.5);
+    if (carrying) {
+      this.add.text(480, 336, 'You carry a waystone — one exit, any time.', {
+        fontFamily: BODY_FONT, fontSize: '10px', color: UI.tealCss,
+      }).setOrigin(0.5);
+    }
+    button(this, 385, 382, 170, 50, 'PRESS ON', () => {
+      const staged = this.confirmingCommit!;
+      this.confirmingCommit = null;
+      this.selectEncounter(staged);
+    }, UI.gold);
+    button(this, 575, 382, 170, 50, 'DEPART INSTEAD', () => {
+      this.confirmingCommit = null;
+      this.confirmDeparture();
+    }, UI.teal);
+    this.add.text(480, 432, 'ENTER PRESS ON  ·  ESC BACK', {
+      fontFamily: BODY_FONT, fontSize: '10px', color: UI.mutedBright,
+    }).setOrigin(0.5);
   }
 
   private selectEncounter(encounter: Encounter): void {
@@ -341,7 +446,8 @@ export class RunScene extends Phaser.Scene {
     const run = gameState.currentRun!;
     const isWipe = outcome === 'wiped';
     this.resultIsWipe = isWipe;
-    this.confirmingFlee = false;
+    this.confirmingDeparture = false;
+    this.confirmingCommit = null;
     const deepest = run.currentEncounterIndex >= 0
       ? run.encounters[run.currentEncounterIndex].floor : run.startFloor;
     const gain = convertObolsToEssence(run.obols, { isWipe });
