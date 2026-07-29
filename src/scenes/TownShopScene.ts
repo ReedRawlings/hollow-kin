@@ -49,7 +49,7 @@ export class TownShopScene extends Phaser.Scene {
       });
 
     TOWN_ITEM_OFFERS.forEach((offer, i) => {
-      this.drawOffer(200 + (i % 3) * 280, 200 + Math.floor(i / 3) * 130, 260, 116, offer, i);
+      this.drawOffer(200 + (i % 3) * 280, 200 + Math.floor(i / 3) * 112, 260, 100, offer, i);
     });
 
     this.drawBagStrip();
