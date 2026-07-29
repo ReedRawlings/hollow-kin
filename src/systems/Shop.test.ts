@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { CreatureInstance, RunState } from '../types';
+import { CreatureInstance, Encounter, RunState } from '../types';
 import {
   SHOP_ITEMS, ShopItemId, canBenefitFromShopItem, tryPurchaseShopItem,
-  MERCHANT_ITEM_OFFERS, TOWN_ITEM_OFFERS, tryBuyItem,
+  MERCHANT_ITEM_OFFERS, TOWN_ITEM_OFFERS, tryBuyItem, merchantStockFor,
 } from './Shop';
 import { createBackpack, isFull, usedSlots } from './Backpack';
+import { ITEMS } from '../data/items';
 
 function creature(instanceId: string): CreatureInstance {
   return {
@@ -159,5 +160,72 @@ describe('tryBuyItem', () => {
     const merchantIds = new Set(MERCHANT_ITEM_OFFERS.map(o => o.itemId));
     const townIds = new Set(TOWN_ITEM_OFFERS.map(o => o.itemId));
     expect(townIds).toEqual(merchantIds);
+  });
+});
+
+describe('item catalogs', () => {
+  it('sells only items that exist', () => {
+    for (const offer of [...MERCHANT_ITEM_OFFERS, ...TOWN_ITEM_OFFERS]) {
+      expect(ITEMS[offer.itemId]).toBeDefined();
+    }
+  });
+
+  it('stocks the whole pool in town, so a waystone is always buyable', () => {
+    const townIds = new Set(TOWN_ITEM_OFFERS.map(o => o.itemId));
+    for (const id of Object.keys(ITEMS)) expect(townIds.has(id)).toBe(true);
+  });
+
+  it('charges more in the tower than in town for the same item', () => {
+    // Preparation should beat improvisation; the exact gap is a tuning matter.
+    for (const tower of MERCHANT_ITEM_OFFERS) {
+      const town = TOWN_ITEM_OFFERS.find(o => o.itemId === tower.itemId)!;
+      expect(tower.cost).toBeGreaterThan(town.cost);
+    }
+  });
+
+  it('prices the two ways out above every other item', () => {
+    const price = (id: string) => TOWN_ITEM_OFFERS.find(o => o.itemId === id)!.cost;
+    const others = TOWN_ITEM_OFFERS
+      .filter(o => o.itemId !== 'waystone' && o.itemId !== 'smoke_husk')
+      .map(o => o.cost);
+    expect(price('waystone')).toBeGreaterThan(Math.max(...others));
+    expect(price('smoke_husk')).toBeGreaterThan(Math.max(...others));
+  });
+});
+
+describe('merchantStockFor', () => {
+  const shop = (floor: number, index: number): Encounter => ({ type: 'shop', floor, index });
+
+  it('offers the requested number of items', () => {
+    expect(merchantStockFor(shop(3, 2), 3)).toHaveLength(3);
+  });
+
+  it('never repeats an item within one shop', () => {
+    const ids = merchantStockFor(shop(3, 2), 3).map(o => o.itemId);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('only stocks things the merchant catalog actually sells', () => {
+    const sold = new Set(MERCHANT_ITEM_OFFERS.map(o => o.itemId));
+    for (const offer of merchantStockFor(shop(7, 5), 3)) {
+      expect(sold.has(offer.itemId)).toBe(true);
+    }
+  });
+
+  it('is stable for the same shop, so redrawing the scene never reshuffles it', () => {
+    const a = merchantStockFor(shop(7, 5), 3).map(o => o.itemId);
+    const b = merchantStockFor(shop(7, 5), 3).map(o => o.itemId);
+    expect(a).toEqual(b);
+  });
+
+  it('differs between shops, so two markets are not the same market', () => {
+    const seen = new Set(
+      [0, 1, 2, 3, 4, 5, 6, 7].map(i => merchantStockFor(shop(i + 1, i), 3).map(o => o.itemId).join()),
+    );
+    expect(seen.size).toBeGreaterThan(1);
+  });
+
+  it('cannot ask for more than the catalog holds', () => {
+    expect(merchantStockFor(shop(1, 0), 99)).toHaveLength(MERCHANT_ITEM_OFFERS.length);
   });
 });

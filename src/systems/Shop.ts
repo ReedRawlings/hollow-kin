@@ -1,4 +1,4 @@
-import { Backpack, CreatureInstance, RunState } from '../types';
+import { Backpack, CreatureInstance, Encounter, RunState } from '../types';
 import { add as addToBackpack, isFull } from './Backpack';
 
 export type ShopItemId = 'heal_party' | 'restore_mp' | 'revive_creature';
@@ -92,15 +92,68 @@ export interface ItemOffer {
   cost: number;
 }
 
+/**
+ * Alpha placeholder prices. Two relationships are real design and are pinned by
+ * tests: the tower always charges more than town (preparation should beat
+ * improvisation), and the two ways out are the most expensive things sold
+ * (they buy safety, which is the scarcest thing in the tower).
+ */
 export const MERCHANT_ITEM_OFFERS: readonly ItemOffer[] = [
-  { itemId: 'power_increase', cost: 15 },
   { itemId: 'mending_draught', cost: 15 },
+  { itemId: 'moonwater', cost: 15 },
+  { itemId: 'power_increase', cost: 15 },
+  { itemId: 'clearroot', cost: 20 },
+  { itemId: 'grave_ash', cost: 25 },
+  { itemId: 'null_salt', cost: 30 },
+  { itemId: 'hollow_candle', cost: 45 },
+  { itemId: 'smoke_husk', cost: 60 },
+  { itemId: 'waystone', cost: 80 },
 ];
 
 export const TOWN_ITEM_OFFERS: readonly ItemOffer[] = [
-  { itemId: 'power_increase', cost: 8 },
   { itemId: 'mending_draught', cost: 8 },
+  { itemId: 'moonwater', cost: 8 },
+  { itemId: 'power_increase', cost: 8 },
+  { itemId: 'clearroot', cost: 10 },
+  { itemId: 'grave_ash', cost: 12 },
+  { itemId: 'null_salt', cost: 15 },
+  { itemId: 'hollow_candle', cost: 22 },
+  { itemId: 'smoke_husk', cost: 30 },
+  { itemId: 'waystone', cost: 40 },
 ];
+
+/**
+ * What this particular tower merchant has in stock.
+ *
+ * A subset rather than the whole catalog, for two reasons: nine offers overflow
+ * the shop scene's fixed layout, and a market worth finding should not be the
+ * same market every time. Town always stocks everything, so a player who
+ * prepares is never at the mercy of this draw.
+ *
+ * The draw is a pure function of the encounter's `floor` and `index` rather than
+ * `Math.random()`. `Encounter` carries no seed field and adding one would touch
+ * the save-free run state for no gain; deriving from two values the encounter
+ * already has means the scene can redraw as often as it likes without the stock
+ * shuffling under the player's cursor.
+ */
+export function merchantStockFor(encounter: Encounter, count = 3): ItemOffer[] {
+  const pool = [...MERCHANT_ITEM_OFFERS];
+  const wanted = Math.min(count, pool.length);
+  const picked: ItemOffer[] = [];
+
+  // A small deterministic mixer — enough to decorrelate neighbouring shops
+  // without pulling in a seeded-RNG dependency for nine items.
+  let seed = (encounter.floor * 73856093) ^ (encounter.index * 19349663);
+  const next = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed;
+  };
+
+  while (picked.length < wanted) {
+    picked.push(...pool.splice(next() % pool.length, 1));
+  }
+  return picked;
+}
 
 /**
  * Buy `offer` into `backpack`, paid from a wallet holding `available` currency.
