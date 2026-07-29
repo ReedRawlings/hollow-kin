@@ -1,10 +1,28 @@
-import { Encounter, EncounterType, TOWER_FLOORS, isBossFloor, bossTierForFloor } from '../types';
-import { ZONE_CREATURE_POOLS } from '../data/creatures';
+import {
+  Encounter, EncounterType, TOWER_FLOORS, bandForFloor, isBossFloor, bossTierForFloor,
+} from '../types';
+import { poolForBand } from '../data/creatures';
 
-/** Depth band pool: floors 1-10 -> band 1, 11-20 -> band 2, 21-30 -> band 3. */
+/**
+ * Wild pool for a floor, via its tower band. Bands with no creatures authored
+ * yet fall back to band 1 rather than returning empty — an empty pool would
+ * break encounter generation the moment the floor cap moves past the roster.
+ */
 export function poolForFloor(floor: number): string[] {
-  const band = Math.min(3, Math.floor((floor - 1) / 10) + 1);
-  return ZONE_CREATURE_POOLS[band] ?? ZONE_CREATURE_POOLS[1];
+  const pool = poolForBand(bandForFloor(floor));
+  return pool.length > 0 ? pool : poolForBand(1);
+}
+
+/** `count` distinct entries from `pool`, or as many as it holds. */
+function pickDistinct(pool: string[], count: number): string[] {
+  const remaining = [...pool];
+  const picked: string[] = [];
+  while (picked.length < count && remaining.length > 0) {
+    const i = Math.floor(Math.random() * remaining.length);
+    picked.push(remaining[i]);
+    remaining.splice(i, 1);
+  }
+  return picked;
 }
 
 /** Non-boss filler encounter type. Rests appear occasionally but are never guaranteed. */
@@ -22,7 +40,10 @@ function makeEncounter(type: EncounterType, floor: number, index: number): Encou
   if (type === 'boss') {
     e.bossTier = bossTierForFloor(floor);
     const pool = poolForFloor(floor);
-    e.enemies = e.bossTier === 'major' ? [pool[0], pool[1], pool[2] ?? pool[0]] : [pool[0], pool[1]];
+    // Distinct picks, not pool[0..2]. The old indexing was only meaningful while
+    // pools were hand-ordered by strength; against a pool derived from towerIds
+    // it would pin every boss in the game to the first three species declared.
+    e.enemies = pickDistinct(pool, e.bossTier === 'major' ? 3 : 2);
     e.enemyLevels = Math.floor(floor * (e.bossTier === 'major' ? 1.2 : 1.0)) + 2;
   } else if (type === 'combat') {
     const pool = poolForFloor(floor);

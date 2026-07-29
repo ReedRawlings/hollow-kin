@@ -1,262 +1,333 @@
 # **Hollow Kin — Creature Roster & Generation**
 
-> **Owns:** roster targets and distribution, the species template and creature instance data objects, stat generation, the generation pipeline, starters, breed-only creatures.
-> **Defers to the GDD on:** currency, progression model, and what persists across runs. Star/level-cap rules live in `breeding-and-inheritance.md`; trait acquisition in `traits-system.md`.
-> **Last verified:** 2026-07-26.
+> **Owns:** roster targets and distribution, the species template and creature instance data objects, the role axis, stat generation, capture pricing, the generation pipeline, starters, breed-only creatures.
+> **Defers to the GDD on:** currency, progression model, and what persists across runs. Star/level-cap rules live in `breeding-and-inheritance.md`; trait acquisition in `traits-system.md`; floor layout in `tower-structure.md`.
+> **Last verified:** 2026-07-28 — roster, starters, rites and capture pricing re-checked against `src/data/creatures.ts`.
 
 ---
 
 ## **Overview**
 
-Hollow Kin targets approximately 96 creatures across 8 archetypes — 12 per archetype. This is the starting target, not a ceiling. Currently 36 creatures are implemented (Kami 5, Spirits 5, Food 5, Human 5, Mecha 4, Flora 4, Fauna 4, Rock 4), distributed across the 3 depth bands of the tower. The roster can be expanded by adding rows to the master spreadsheet. These are not hand-authored individually — they are generated programmatically from a data-driven design system. This document covers how the roster is structured, how creatures are defined in data, and how the generation pipeline works.
+Hollow Kin's full-game roster is **134 creatures across 11 archetypes**. The roster lives in the master spreadsheet (`Hollow Kins`, sheet `Kin`), which is the single source of truth. Attribute definitions — roles, archetypes, tower bands, capture price ranges — live on the `Roles & Archetypes` sheet of the same workbook.
+
+Creatures are **not hand-authored individually**. Identity is authored per creature; stats and abilities are generated from that identity. This document covers how the roster is structured, what is authored versus generated, and how the pipeline works.
+
+**Alpha scope is Tower ID 1,2 — 30 creatures.** This replaces the previous 36-creature alpha roster in `src/data/creatures.ts` entirely. The old roster is superseded, not extended.
 
 ---
 
 ## **Roster Structure**
 
-### **Distribution by Archetype**
+### **Archetypes**
 
-Target is 12 creatures per archetype, evenly distributed (96 total). No archetype is inherently rarer than another — rarity exists at the individual creature level within each archetype. Currently 36 creatures are implemented, unevenly distributed while the roster is built out:
+Eleven archetypes. Distribution is intentionally uneven — archetype size is a content decision, not a balance lever. No archetype is inherently rarer than another; rarity exists at the individual creature level.
 
-| Archetype | Count (Implemented / Target) | Combat Identity |
+| Archetype | Count | Notes |
 | ----- | ----- | ----- |
-| Kami | 5 / 12 | Debuffs and ice |
-| Spirits | 5 / 12 | Ghost damage and debuffs |
-| Flora | 4 / 12 | Heals and buffs |
-| Fauna | 4 / 12 | Physical, high speed |
-| Rock | 4 / 12 | Defense, physical |
-| Mecha | 4 / 12 | Flame and electricity, fragile |
-| Food | 5 / 12 | Buffs and physical |
-| Human | 5 / 12 | Physical and ice |
+| Dragon | 15 | |
+| Fauna | 15 | |
+| Flora | 15 | |
+| Human | 14 | |
+| Kami | 13 | |
+| Devils | 12 | |
+| Mecha | 12 | |
+| Spirits | 12 | |
+| Rock | 11 | Authored as "Golem" on the Kin sheet; `Rock` is canonical |
+| Food | 10 | |
+| Slimes | 5 | Smallest archetype — expand or accept as a deliberate rarity |
+
+Archetype determines **element identity, resistances, weaknesses, trait pool, and ability set**. It does not determine stats.
+
+### **Roles**
+
+Nine roles. Role is a separate axis from archetype and it is what **stats are generated from**.
+
+| Role | Base profile | Modifier |
+| ----- | ----- | ----- |
+| Tank | Tank | — |
+| Tank Buff | Tank | Buff |
+| Tank Debuff | Tank | Debuff |
+| Mage | Mage | — |
+| Mage Buff | Mage | Buff |
+| Mage Debuff | Mage | Debuff |
+| Healer Buff | Healer | Buff |
+| Healer Debuff | Healer | Debuff |
+| Fighter | Fighter | — |
+
+The nine roles decompose into **four stat profiles** (Tank, Mage, Healer, Fighter) and a **modifier** (none / Buff / Debuff). The base profile drives the stat distribution. The modifier drives the creature's second ability — a Mage and a Mage Debuff share a stat shape and differ in what they do with it.
+
+There is no plain `Healer` role and no Buff/Debuff variant of Fighter. Both are deliberate.
+
+### **Tower Bands**
+
+The full game is a **100-floor descent in 10 bands of 10 floors**. A creature's `Tower ID` is a list of the bands it can be encountered in.
+
+| Tower ID | Floors | Capture price range |
+| ----- | ----- | ----- |
+| 1 | 1–10 | 20–40 |
+| 2 | 11–20 | 41–60 |
+| 3 | 21–30 | 61–80 |
+| 4 | 31–40 | 81–100 |
+| 5 | 41–50 | 101–120 |
+| 6 | 51–60 | 121–140 |
+| 7 | 61–70 | 141–160 |
+| 8 | 71–80 | 161–180 |
+| 9 | 81–90 | 181–200 |
+| 10 | 91–100 | 201–220 |
+
+A creature with `Tower ID = 1,2` appears anywhere on floors 1–20.
+
+> The sheet lists band 10 as `200-220`, overlapping band 9's ceiling by one. Treated as `201-220` here.
+
+The tower has no hard zone walls — enemy pools and visual identity shift by band as the player descends. Alpha ships bands 1 and 2 only; the remaining eight bands are full-game scope.
+
+---
+
+## **Alpha Roster — Tower ID 1,2**
+
+Thirty creatures, two to three per archetype across all eleven.
+
+| Archetype | Creatures |
+| ----- | ----- |
+| Devils | Bound Book, Squishims |
+| Dragon | Wiggledrake, Vinewyrm, Eggnition |
+| Fauna | Cat, Egg, Girafficorn |
+| Flora | Weeping Willow, Turnimp |
+| Food | Cherry Punch, Butterfly, Tofu Slime |
+| Human | Fleschat, Trumpet Ted, BellyFul |
+| Kami | Garbage Gary, Pencilvester, Geta |
+| Mecha | Bomb Beetle, Routergeist, Glitch Goblin |
+| Rock | Golem Grimace, Pebble Fairy, Rubble |
+| Slimes | Triple Stack, Teddy |
+| Spirits | Hunger, Grampskin, Little Light |
+
+Role spread: 9 Mage, 7 Fighter, 4 Tank, 3 Mage Debuff, 3 Healer Debuff, 2 Mage Buff, 2 Healer Buff.
 
 ### **Availability**
 
-* **Wild-catchable:** The majority of creatures, available within specific depth bands of the tower  
-* **Boss-exclusive:** Unique creatures, uncapturable during runs, but breedable after defeat. Homed on the mini-bosses (every 5 floors) and major bosses (every 10 floors) of the single 30-floor descent  
-* **Breed-only:** Creatures that can only be obtained by breeding specific combinations — not found in the wild
+* **Wild-catchable** — the majority, available within their Tower ID bands
+* **Boss-exclusive** — unique, uncapturable during runs, breedable after defeat. Homed on mini-bosses (every 5 floors) and major bosses (every 10)
+* **Breed-only** — obtainable only by breeding specific combinations
 
-The tower is one continuous 30-floor descent — there are no discrete zones. Enemy pools and visual identity shift by **depth band** as the player goes deeper, but there are no hard zone walls.
+---
 
-Implemented creatures are split across 3 depth bands (~12 creatures each): floors 1-10 (band 1), floors 11-20 (band 2), floors 21-30 (band 3). This is defined in `ZONE_CREATURE_POOLS` in `src/data/creatures.ts`. Combat encounters draw random enemies from the current floor's depth-band pool; enemies can currently repeat within a single fight (variety is expected to improve as the pools grow toward the full 96-creature roster — a future polish item is preventing in-fight repeats directly).
+## **Authored vs Generated**
+
+This split is the core of the system. Get it wrong and the spreadsheet stops being useful.
+
+### **Authored per creature — nothing derives these**
+
+| Field | Why it must be authored |
+| ----- | ----- |
+| `id`, `name` | Identity |
+| `archetype` | Content decision |
+| `role` | Content decision |
+| `towerIds` | Encounter placement |
+| `resistances` | Type identity. Permanent — breeding never changes it |
+| `weaknesses` | As above. This is the one thing a player can never breed away from |
+| `naturalTraitPool` | Curated compatibility list, not a roll table |
+| `rites` | The capture puzzle. Universal per creature — the same rite applies at every depth |
+| `availability` | wild / boss / breed_only |
+| `signature` | One line: what this creature is uniquely best at. If it can't be filled, the creature is filler |
+
+### **Generated — do not hand-author these**
+
+| Field | Derived from |
+| ----- | ----- |
+| `baseStats` (all seven) | tier budget × role weights |
+| `defaultAbilities[0]` | archetype + tier |
+| `defaultAbilities[1]` | role modifier (Buff / Debuff / none) |
+| `captureBasePrice` | one value per tower band, drawn from that band's range |
 
 ---
 
 ## **The Creature Data Object**
 
-Every creature is defined by a row in the master data spreadsheet and represented in code as a plain JavaScript object. Stats are data. Behavior is code.
-
-{  
-  id: "creature\_001",  
-  name: "Emberwhelp",  
-  archetype: "Mecha",  
-  baseStats: {  
-    hp: 40,  
-    mp: 25,  
-    str: 12,  
-    def: 8,  
-    wis: 10,  
-    spd: 18,  
-    int: 14  
-  },  
-  naturalLevelCap: 5,        // Wild-caught cap before earning stars  
-  defaultAbilities: \["ability\_012", "ability\_034"\],  
-  naturalTraitPool: \["trait\_fire\_res", "trait\_spd\_up", "trait\_initiative"\],  
-  resistances: \["fire"\],  
-  weaknesses: \["ice"\],  
-  availability: "wild",       // wild | boss | breed\_only  
-  depthBand: \[1, 10\],         // floor range where this creature appears in the descent  
-  spriteId: "emberwhelp"  
+```
+{
+  id: "kin_070",
+  name: "Cat",
+  archetype: "Fauna",
+  role: "Fighter",
+  towerIds: [1, 2],            // bands this creature appears in
+  baseStats: { hp, mp, str, def, wis, spd, int },   // generated
+  naturalLevelCap: 5,          // wild-caught cap before earning stars
+  defaultAbilities: [...],     // generated
+  naturalTraitPool: [...],     // authored
+  resistances: [...],          // authored
+  weaknesses: [...],           // authored
+  rites: [...],                // authored
+  captureBasePrice: { 1: 32, 2: 47 },   // generated, one per band in towerIds
+  availability: "wild",
+  spriteId: "cat"
 }
+```
 
-This object represents the species template. It is distinct from a creature instance — what a player actually owns. The instance references this template and layers on top of it.
+This is the **species template** — static data. It is distinct from a **creature instance**, which is what a player owns. See the Creature Instance Object section below.
+
+> **Three fields above are design-ahead-of-code.** `naturalLevelCap`, `availability` and `spriteId` do not exist on `CreatureTemplate` in `src/types.ts`. Level caps currently come from `STAR_LEVEL_CAPS`, every alpha creature is wild so nothing yet reads `availability`, and there are no sprites. They are kept here as the intended shape, not as a description of what ships — the rest of the object is accurate.
 
 ---
 
 ## **The Creature Instance Object**
 
-What the player owns is an instance derived from the species template. It holds all the runtime and persistent data for that specific creature.
-
-{  
-  instanceId: "uuid",  
-  speciesId: "creature\_001",  
-  nickname: null,  
-  starRating: 0,  
-  permanentLevel: 1,          // essence-driven starting-level floor; run leveling stacks on top temporarily  
-  currentLevel: 1,  
-  essenceInvested: 0,         // total essence permanently spent on this pet  
-  earnedMarks: \[\],            // all marks this creature has ever earned  
-  activeMarkId: null,         // the currently equipped mark  
-  traitSlots: \[  
-    { traitId: null, traitLevel: 0, unlocked: false },  
-    { traitId: null, traitLevel: 0, unlocked: false },  
-    { traitId: null, traitLevel: 0, unlocked: false },  
-    { traitId: null, traitLevel: 0, unlocked: false }  
-  \],  
-  abilities: \["ability\_012", "ability\_034", null, null\],  
-  lineage: {  
-    parentA: null,            // instanceId of parent or null if wild  
-    parentB: null  
-  },  
-  stats: {                    // current calculated stats, derived from base \+ star \+ level  
-    hp: 40,  
-    mp: 25,  
-    str: 12,  
-    def: 8,  
-    wis: 10,  
-    spd: 18,  
-    int: 14  
-  },  
-  resistances: \["fire"\],  
-  weaknesses: \["ice"\],  
-  isRetired: false  
+```
+{
+  instanceId: "uuid",
+  speciesId: "kin_070",
+  nickname: null,
+  starRating: 0,
+  permanentLevel: 1,          // essence-driven floor; run leveling stacks temporarily
+  currentLevel: 1,
+  essenceInvested: 0,
+  statBaseline: { ... },      // instance-specific; survives run resets and recalculation
+  currentStats: { ... },      // statBaseline + level scaling + trait bonuses
+  earnedMarks: [],
+  activeMarkId: null,
+  traitSlots: [ {traitId, traitLevel, unlocked} x4 ],
+  abilities: [a, b, null, null],
+  lineage: { parentA: null, parentB: null },
+  resistances: [...],         // copied from template, permanent
+  weaknesses: [...],          // copied from template, permanent
+  isRetired: false
 }
+```
 
 ---
 
-## **Stat Generation Formula**
+## **Stat Generation**
 
-### **Base Stats**
+### **The formula**
 
-Base stats are authored per species in the spreadsheet. They represent the floor — what the creature has at level 1 with no breeding.
+```
+base_stat = round(tier_budget[tier] × role_weight[base_profile][stat]) + nudge
+```
 
-### **Stat Scaling Per Level**
+Two lookup tables carry all numeric balance:
 
-Stats scale linearly from base to a cap determined by star rating. The formula during a run:
+* **Tier budget** — total stat points a creature at each tower band receives
+* **Role weights** — how those points split across the seven stats, per base profile
 
-current\_stat \= base\_stat \+ ((max\_stat \- base\_stat) \* (current\_level / level\_cap))
+`nudge` is an optional per-creature offset, defaulting to zero. It exists so a handful of creatures can break their pattern deliberately. Without it, every tier-2 Fighter is the same creature with a different name. Use it sparingly — if most rows carry a nudge, the role weights are wrong.
 
-Where `max_stat` is derived from the species template and modified by star rating.
+### **Stat scaling per level**
 
-### **Bred Stat Inheritance**
+```
+current_stat = base_stat + ((max_stat - base_stat) × (current_level / level_cap))
+```
 
-When a creature is bred its base stats are:
+`max_stat` derives from the species template modified by star rating.
 
-offspring\_base\_stat \= (parentA\_stat \+ parentB\_stat) / 6, but never lower than the species base stat
+> **Unresolved:** no `max_stat` field exists in the template spec or in code. This formula currently references data that was never defined.
 
-This means bred creatures have better floors than wild creatures, compounding across generations.
+### **Bred stat inheritance**
 
-### **Archetype Stat Profiles**
+```
+offspring_base_stat = max(species_base_stat, (parentA_scaled + parentB_scaled) / 6)
+```
 
-Each archetype has a stat bias applied during generation to ensure the species feels like its archetype. These are multipliers applied on top of the base formula.
+The inherited term is **species-agnostic** — it does not care what the offspring is. Once parents are levelled, the inherited term dominates and the species floor stops mattering.
 
-| Archetype | High Stats | Low Stats |
-| ----- | ----- | ----- |
-| Kami | Balanced across all | None |
-| Spirits | INT, WIS | STR, DEF |
-| Flora | WIS, HP | STR, SPD |
-| Fauna | STR, SPD | DEF, INT |
-| Rock | DEF, HP | SPD, INT |
-| Mecha | SPD, INT | HP, DEF |
-| Food | STR, WIS | SPD, INT |
-| Human | STR, DEF | WIS, INT |
+This is the mechanism that makes every creature viable long-term. A weak early-tower creature bred from strong parents converges on the same stats as anything else. It is also why the species base must be a **stable authored number** rather than rolled at spawn: if the floor moves, the punishment for breeding too early stops being legible.
+
+**What breeding cannot fix:** resistances and weaknesses are copied from the template and never change. Type is the one permanent difference between creatures. Keep the type chart balanced — a type that is a weakness on many creatures and a resistance on few is a tax no amount of breeding removes.
 
 ---
 
-## **Trait Pool Generation**
+## **Capture Pricing**
 
-Each species has a `naturalTraitPool` — a curated subset of the trait library authored per species as a list of trait IDs.
+**This replaces the previous fixed per-species base price.**
 
-**This is a compatibility rule, not a roll table.** Traits are never randomly assigned. The pool defines which traits a species *can be imbued with* at the Trait-keeper: a creature cannot take a trait outside its pool. A strong trait you cannot use on the creature you wanted is a real and intended outcome — it makes trait loot a light puzzle rather than pure upgrade.
+Price depends on **the band the player is currently standing in**. The same creature costs more when met deeper.
 
-The pool is curated to feel appropriate for the species. A Mecha creature's pool contains fire resistance, speed traits, and electricity-related bonuses. A Flora creature's pool contains healing amplifiers and buff-related traits. No species has access to the entire trait library.
+Each species gets **one price per band it can be encountered in**, drawn from that band's range at generation time and then fixed. A creature with `towerIds: [1, 2]` gets two values — one from 20–40, one from 41–60:
 
-Inherited traits come through the breeding system rather than the pool — see `breeding-and-inheritance.md`.
+```
+captureBasePrice: { 1: 32, 2: 47 }
+```
 
-> **Not yet authored:** no creature in `src/data/creatures.ts` currently defines a `naturalTraitPool`. These must be written before traits can be built.
+At runtime, look up the band of the current floor and read the value. No calculation at encounter time.
+
+Existing modifiers still apply on top: the HP nudge, and the rite band multiplier.
+
+> **Naming collision, partly resolved.** The code's `CAPTURE_BAND_MULTIPLIER` still uses "band" to mean *rite tier* (signature / family / unsatisfied), which is a different thing from a tower band. `capturePrice` now names its parameters `towerBand` and `riteBand` so the two cannot be confused at a call site, but the constant itself is unrenamed.
+
+### **Rites**
+
+Rites are **universal per creature** — the same conditions apply on floor 3 and floor 93. Depth changes the price, never the puzzle.
+
+A base price of exactly `0` means the species cannot be taken in the wild.
+
+**Family rites are authored for all eleven archetypes** and every creature carries its archetype's. Signature rites are still unwritten for every species.
+
+> **Authored but not yet evaluable.** Seven of the eleven family rites read `RiteLog` fields — items consumed, damage types *dealt*, a struck enemy's stat stages, party composition, debuffs applied — that combat does not populate, because capture is not wired into `CombatScene` yet. Those rites read false rather than throwing, so the creature sits at full freight. Populating the log is the capture-wiring task's job; the condition vocabulary and evaluator already exist.
+
+---
+
+## **Trait Pools**
+
+Each species has a `naturalTraitPool` — a curated subset of the trait library, **authored per species**.
+
+**This is a compatibility rule, not a roll table.** Traits are never randomly assigned. The pool defines which traits a species *can be imbued with* at the Trait-keeper; a creature cannot take a trait outside its pool. A strong trait you cannot use on the creature you wanted is a real and intended outcome — it makes trait loot a light puzzle rather than a pure upgrade.
+
+Pools are curated to feel appropriate for the species. No species has access to the entire library.
+
+Inherited traits come through breeding and **bypass the pool entirely** — `resolveInheritedTraitSlots` does not check it. That is deliberate: breeding is the escape valve for a narrow pool. See `breeding-and-inheritance.md`.
 
 ---
 
 ## **The Generation Pipeline**
 
-### **Step 1 — Master Spreadsheet**
+**Step 1 — Master spreadsheet.** All identity authored in `Hollow Kins`. Stat and ability columns are formulas reading the tier-budget and role-weight tables. The spreadsheet is the single source of truth for numeric balance.
 
-All species data is authored in a spreadsheet. Each row is one species. Columns cover every field in the creature data object: id, name, archetype, base stats, default abilities, trait pool IDs, resistances, weaknesses, availability, depth band.
+**Step 2 — Export** as JSON.
 
-Stat formulas in the spreadsheet apply archetype multipliers automatically. The spreadsheet is the single source of truth for all numeric balance.
+**Step 3 — Importer script.** A Node script reads the JSON and produces species templates.
 
-### **Step 2 — Export**
+**Step 4 — Runtime instantiation.** Spawning an enemy, hatching an offspring, or initialising a starter loads the template and creates an instance from it.
 
-The spreadsheet is exported as JSON.
+### **Rebalancing workflow**
 
-### **Step 3 — Importer Script**
-
-A Node.js script reads the JSON and produces one creature data object file per species. These are the species templates used at runtime.
-
-// Pseudocode  
-const raw \= JSON.parse(fs.readFileSync('creatures.json'));  
-raw.forEach(row \=\> {  
-  const template \= buildCreatureTemplate(row);  
-  fs.writeFileSync(\`data/creatures/${row.id}.json\`, JSON.stringify(template));  
-});
-
-### **Step 4 — Runtime Instantiation**
-
-When the game needs a creature — spawning an enemy, hatching a bred offspring, initializing a player's starter — it loads the species template and creates an instance from it.
-
-function createInstance(speciesId, options \= {}) {  
-  const template \= loadTemplate(speciesId);  
-  return {  
-    instanceId: generateUUID(),  
-    speciesId: template.id,  
-    starRating: options.starRating ?? 0,  
-    permanentLevel: options.permanentLevel ?? 1,  
-    currentLevel: options.permanentLevel ?? 1,  
-    essenceInvested: options.essenceInvested ?? 0,  
-    stats: { ...template.baseStats },  
-    abilities: \[...template.defaultAbilities, null, null\],  
-    traitSlots: buildTraitSlots(options.inheritedTraits ?? \[\]),  
-    lineage: options.lineage ?? { parentA: null, parentB: null },  
-    resistances: \[...template.resistances\],  
-    weaknesses: \[...template.weaknesses\],  
-    earnedMarks: \[\],  
-    activeMarkId: null,  
-    isRetired: false  
-  };  
-}
-
----
-
-## **Rebalancing Workflow**
-
-If stats need adjustment during playtesting, the process is:
-
-1. Edit formulas in the master spreadsheet  
-2. Export updated JSON  
-3. Run the importer script  
-4. All species templates update automatically
-
-No individual creature files need to be touched. Instances in player saves recalculate from the updated templates on next load.
+Edit the tier-budget or role-weight table → export → run the importer. All species update. No individual creature files are touched. Instances in player saves recalculate from the updated templates on next load, except `statBaseline`, which is instance-specific by design and survives.
 
 ---
 
 ## **Starting Creatures**
 
-New players are presented with two fixed, hand-authored trios of creatures to choose from. They select one trio as their starting party.
+**Alpha ships one fixed hand, with no choice.** All three start at Star 0 with no traits, no marks, and default abilities only.
 
-All six starter creatures begin at Star 0 with no traits unlocked, no marks, and default abilities only. Starters are fixed across all sessions so the early game is consistent and experienced players can give reliable advice to new ones. The first few runs are naturally tutorial-paced since no traits are active yet — players learn combat before the breeding system adds complexity.
+| Creature | Archetype | Role | Abilities |
+| ----- | ----- | ----- | ----- |
+| Cat (`kin_070`) | Fauna | Fighter | `jab`, `bold` |
+| Geta (`kin_092`) | Kami | Tank | `frost`, `harden` |
+| Wiggledrake (`kin_123`) | Dragon | Mage | `ember`, `focus` |
 
-**Trio A — Aggressive** Oriented around dealing damage quickly and ending fights fast. Suggested archetypes: Fauna for physical speed, Mecha for elemental burst, Human for versatility. One straightforward attacker, one that rewards ability timing, and one that introduces elemental damage types.
+One of each stat shape, across three archetypes and three damage types, so a first descent meets the whole grammar of combat. **The trio has no healer** — `soothe` is the only ally-target heal and no starter carries it, so early runs lean on shop and rest recovery. That is a deliberate difficulty choice, not an oversight; revisit it if first runs feel punishing rather than tense.
 
-**Trio B — Resilient** Oriented around surviving, controlling, and outlasting. Suggested archetypes: Rock for defense anchoring, Flora for healing, Spirits for debuffing. One straightforward tank, one that rewards knowing when to heal versus attack, and one that introduces status effects.
+Starters are fixed across all sessions so the early game is consistent and experienced players can give reliable advice. The first few runs are naturally tutorial-paced since no traits are active yet.
 
-Specific species assignments and ability loadouts for all six starters are pending full roster completion.
+> The two-hand picker (an aggressive trio versus a resilient one) is deferred, not cut — the code still exports the hand as `STARTER_TRIO_A` so a second can return without a rename.
 
 ---
 
 ## **Breed-Only Creatures**
 
-Breed-only creatures cannot be found in the wild or captured during runs. They are discovered exclusively through the breeding system.
+Cannot be found in the wild or captured. Discovered exclusively through breeding.
 
-### **Discovery Rules**
+* Triggered by breeding two specific species — the combination matters, not just the archetypes
+* The player is not told which combinations work; discovery is organic
+* Once discovered, the recipe is recorded in the bestiary
+* All standard breeding rules apply; only the offspring species differs
+* Once bred, the creature can appear in the wild with a low chance of being a variant
 
-* Breed-only creatures are triggered by breeding two specific species together — the combination matters, not just the archetypes
-* The player is not told which combinations produce breed-only results — discovery is organic
-* Once a breed-only creature has been discovered, it is added to a bestiary entry so the player can reference the recipe
-* Breed-only creatures follow all standard breeding rules (star calculation, trait inheritance, stat inheritance) — the only difference is that the offspring species is unique rather than inheriting one parent's species
-* Once a creature has been bred it can be found in the while with a low chance of being a variant version.
+> Breed-only creatures and variants do not exist in code. Variants have no design behind them beyond the line above.
 
 ---
 
 ## **Open Questions**
 
-* How many creatures per depth band for enemy encounters 
+* `max_stat` is referenced by the level-scaling formula but defined nowhere.
+* How many creatures per band should be in the encounter pool at once?
+* Slimes has 5 creatures against Dragon's 15. Deliberate rarity, or a gap to fill?
+* Row 26 of the Kin sheet is a Flora with no name.
+* `Stone Plant` (id 62, Rock) is still authored as role `Healer`, which is not a valid role.

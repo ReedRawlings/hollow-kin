@@ -57,7 +57,9 @@ Bands **replace** rather than stack. If both a family and a signature rite are s
 
 **HP is a nudge, not a lever.** At most a 1.25× swing from full HP to nearly dead. The rites carry the price, so there is no reason to grind a target to 1 HP and no false-swipe minigame — the genre's oldest annoyance is designed out rather than mitigated.
 
-`base` scales with depth by `floor ^ CAPTURE_DEPTH_EXPONENT`, matching `OBOL_REWARD_EXPONENT`. Obol income grows as `floor^0.5`; if prices grew more slowly, captures would get relatively cheaper with depth and deep floors would become the farmable ones. **These constants move together** — the same coupling rule documented on `OBOL_REWARD_EXPONENT` in `types.ts`.
+> **Superseded (2026-07-27).** The continuous depth curve below is replaced by the tower-band price table in `creature-roster-and-generation.md`. Each species now carries **one authored price per band it appears in**, drawn from that band's range at generation time and then fixed — `captureBasePrice: { 1: 32, 2: 47 }`. At runtime the current floor's band selects the value; there is no calculation at encounter time. The coupling concern below still applies and now lives in the band table itself: the ranges climb 20–40 → 201–220 across ten bands, which must stay ahead of Obol income at depth.
+
+~~`base` scales with depth by `floor ^ CAPTURE_DEPTH_EXPONENT`, matching `OBOL_REWARD_EXPONENT`. Obol income grows as `floor^0.5`; if prices grew more slowly, captures would get relatively cheaper with depth and deep floors would become the farmable ones. **These constants move together** — the same coupling rule documented on `OBOL_REWARD_EXPONENT` in `types.ts`.~~
 
 ### Bidding
 
@@ -175,7 +177,7 @@ src/managers/GameState.ts    — Box capacity, pending-capture queue, line-inves
 ## 8. Data model & persistence
 
 **New on `CreatureTemplate`:**
-- `captureBasePrice: number` — base Obol price before rites. `0` means uncapturable in the wild.
+- `captureBasePrice: Record<number, number>` — one price per tower band the species appears in, keyed by Tower ID. A species with `towerIds: [1, 2]` carries two. `0` means uncapturable in the wild.
 - `rites: RiteDef[]` — family and signature rites, each flagged volatile or sticky, each with its own price.
 
 **New on `GameState` (persisted, save version 3 → 4):**
@@ -193,7 +195,7 @@ src/managers/GameState.ts    — Box capacity, pending-capture queue, line-inves
 
 Everything structural is decided. What remains is a rite vocabulary and a handful of numbers, both of which want playtest rather than argument.
 
-1. **The rite vocabulary itself** — the family rites per archetype, and a signature rite for each species that gets one. This is the design work the rest of the spec exists to support.
+1. ~~**The rite vocabulary itself**~~ — family rites are now authored for all eleven archetypes; see §12. Signature rites remain unwritten.
 2. **The three price bands**, and how far apart they sit. "Near-nothing" for a signature rite has to still cost enough that paying it registers as a purchase.
 3. **`CAPTURE_BASE_PRICE` per species**, checked against Obol income at the depth each species appears.
 4. **How much Enrage heals and buffs.** Enough to punish three failed probes, not enough to lose the fight over.
@@ -268,6 +270,51 @@ Explicit and ordered, in the same style as the tactic ladders — a player must 
 **Rule 7: AUTO bids list price, never gambles.** Legibility beats cleverness — an AI that bids fractions on the player's behalf produces losses that can't be explained afterwards. If list price isn't affordable within the reserve, AUTO skips rather than taking a partial shot. Note that against an unstudied species AUTO is bidding blind at a price it cannot see, which is exactly the wasteful behaviour a player opts into when they set a broad policy.
 
 `obolReserve` is a **player-set absolute floor, defaulting to zero** — surfaced beside the policy. Zero by default is deliberate: auto-capture is meant to cost you, and the reserve exists for players who want a guard rather than as a rail imposed on everyone.
+
+---
+
+## 12. Rite vocabulary — authored status and condition gaps
+
+**Added 2026-07-27.** Family rites are authored for all eleven archetypes in the master spreadsheet (`Hollow Kins`, sheet `Kin`, column `Rite`). Signature rites are not yet written for any species.
+
+Rites generalise by archetype and are available per species: creatures within an archetype share the family rite, and any individual creature may additionally carry a bespoke signature rite attuned to its own flavour. That is the §2 model unchanged — this section records what has actually been filled in.
+
+### Family rites as authored
+
+| Archetype | Family rite | `RiteCondition` | Status |
+|---|---|---|---|
+| Spirits | An enemy creature faints in combat | `ally_knocked_out` | **supported** |
+| Flora | This creature is hit with a flame attack | `damage_type_taken` (Fire) | **supported** |
+| Kami | This creature is hit with an electric attack | `damage_type_taken` (Electric) | **supported** |
+| Slimes | This creature is hit with a physical attack | `damage_type_taken` (Fighting) | **supported** |
+| Devils | Any creature receives a debuff | — | **needs new kind** |
+| Food | An allied creature consumes food | — | **needs new kind** |
+| Fauna | This creature is fed food | — | **needs new kind** |
+| Rock | This creature hits an enemy with increased defense | — | **needs new kind** |
+| Human | This enemy team contains a human creature | — | **needs new kind** |
+| Mecha | Both a fire and electric attack are used this battle | — | **needs new kind** |
+| Dragon | A fire attack is used twice in battle | — | **needs new kind** |
+
+Four of eleven evaluate against the existing vocabulary. Seven do not.
+
+### Condition kinds the authored rites require
+
+Tracked here, not scheduled. None of this blocks authoring more rites — it blocks evaluating the ones already written.
+
+| Needed | Why the existing vocabulary misses it | Wanted by |
+|---|---|---|
+| **Item consumed** — an item was used, optionally targeting a specific creature | No condition observes item use at all. `RiteLog` records damage types, statuses, turns and bids; nothing records consumption. Fauna needs it scoped to *this creature*, Food to *any ally*. | Food, Fauna |
+| **Damage type dealt** (battle-wide) | `damageTypesTaken` records what the capture target *received*. These rites care about what was *used* in the battle, by either side. Different log field. | Mecha, Dragon |
+| **Damage type count** | Follows from the above but needs a tally rather than a set — "twice" cannot be expressed by a membership check. | Dragon |
+| **Struck enemy's stat stage** | `stat_stage_at_least` reads the capture target's own stages. Rock's rite reads the stages of a creature the target *hit*, which is not in scope at evaluation time. | Rock |
+| **Party composition** | No condition inspects archetypes present on either side. | Human |
+| **Debuff applied to anyone** | `status_applied` covers statuses; stat-stage debuffs are separate, and `stat_stage_at_most` is scoped to the target rather than "any creature". | Devils |
+
+Two of these are cheap. `damage type dealt` and its counter are a second field on `RiteLog` written from the same place `damageTypesTaken` is. `party composition` is a read against state already in hand. The other three want new plumbing: item use has no hook, and the struck-enemy stage condition needs the evaluator to know what happened during the target's action rather than only its resulting state.
+
+### Authoring inconsistency
+
+`Hunger` (Spirits) reads *"An enemy creature faints in combat"* while `Grampskin` and `Little Light` read *"An **allied** enemy creature faints in combat."* Same archetype, so the family rite should read identically across all three. "Allied enemy" is also ambiguous — most likely an ally of the capture target, but it could be read the other way.
 
 ---
 

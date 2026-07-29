@@ -43,12 +43,12 @@ Each section has a corresponding detailed doc:
 |------|--------|
 | `game-design-document.md` | **Source of truth** — all systems, what persists vs. resets, specs index |
 | `combat-system.md` | Turn-based combat, damage formula, buffs/debuffs, auto-combat tactics, enemy AI |
-| `creature-roster-and-generation.md` | Target 96 creatures (12×8 archetypes), data objects, generation pipeline |
+| `creature-roster-and-generation.md` | Full roster of 134 creatures across 11 archetypes; alpha's 30; the authored-vs-generated split, stat generation, capture pricing, generation pipeline |
 | `breeding-and-inheritance.md` | Star ratings, level caps (0–12), stat inheritance, essence carry-over, trait inheritance |
 | `traits-system.md` | 4 slots unlocked by permanent level, traits found & imbued, Trait-keeper, 4 trait levels — *not built* |
 | `marks-system.md` | Run-earned bonuses, earn-then-lock permanence, 1 slot per creature |
 | `marks-catalog.md` | All mark entries with thresholds |
-| `tower-structure.md` | One continuous 30-floor descent, depth bands, depth-jumps, boss cadence, procgen rules |
+| `tower-structure.md` | One continuous descent (100 floors in 10 bands; alpha capped at 20), the band→floor mapping, depth-jumps, boss cadence, procgen rules |
 | `town.md` | Essence hub — Creature Box, Leveler, Trait-keeper, Mark-binder, Gatekeeper, Quartermaster, Breeder |
 | `economy-balancing.md` | Obols→Essence, level cost curve, depth-jump prices, pacing targets (all placeholders) |
 | `relics.md` | Run-only temporary power-ups — *not built* |
@@ -59,44 +59,71 @@ Each section has a corresponding detailed doc:
 
 ## Current State — Essence Pivot Implemented (Phases 1–4a)
 
-The **essence-progression pivot is built and merged to `main`.** The full core loop runs on the new model: town (essence hub) → party select → 30-floor descent → combat → return → spend Essence / breed → repeat. Implementation history lives in `docs/superpowers/plans/` and `docs/superpowers/specs/2026-07-23-essence-progression-pivot-design.md`.
+The **essence-progression pivot is built and merged to `main`.** The full core loop runs on the new model: town (essence hub) → party select → tower descent → combat → return → spend Essence / breed → repeat. Implementation history lives in `docs/superpowers/plans/` and `docs/superpowers/specs/2026-07-23-essence-progression-pivot-design.md`.
+
+### The Roster (swapped 2026-07-28)
+
+The 36 placeholder creatures invented to have something to fight are **gone**. In their place are the **30 Tower ID 1,2 creatures** from the master spreadsheet (`Hollow Kins`, sheet `Kin`) — the actual authored content. Plan: `docs/superpowers/plans/2026-07-27-alpha-roster-swap.md`.
+
+- **11 archetypes**, up from 8. `Devils`, `Dragon` and `Slimes` are new.
+- **Species ids are `kin_NNN`**, zero-padded from the sheet's row id — `kin_070` is Cat. Ids are opaque; never parse meaning out of the number.
+- **Identity is authored; everything else is generated.** `id`, `name`, `archetype`, `role`, `towerIds` are content decisions. Base stats (tier budget × role weights), both default abilities (archetype + role), capture prices (one per band) and trait pools (role staples + archetype flavour) are all derived. **Do not hand-tune a generated value in `creatures.ts`** — change the table and regenerate, or the spreadsheet stops being the source of truth.
+- **`role` is the second content axis**, orthogonal to archetype: nine roles collapsing to four stat profiles (Tank/Mage/Healer/Fighter) plus a Buff/Debuff modifier that picks the second ability without touching stats. Alpha has four distinct stat blocks across 30 creatures — nine Mages are numerically identical. Expected at this stage; the first thing to revisit if fights feel samey.
+- **`resistances` and `weaknesses` are deliberately empty.** The type chart is flat: `RESISTANCE_MULTIPLIER` never applies, and auto-combat's knowledge fog has nothing to withhold, so the "blind on first encounter" promise is intact but invisible. Filling these in touches `creatures.ts` only.
+- **Encounter pools are derived from `towerIds`**, not hand-maintained. `poolForBand` filters the templates; moving a creature between bands is a data edit. All 30 sit in bands 1 and 2, so the two pools are currently identical — depth changes enemy *level*, not enemy *variety*.
+- **Family rites are authored for all eleven archetypes**, and the five `RiteCondition` kinds the unsupported ones needed now exist. Combat does not populate the new `RiteLog` fields yet — those rites read false, which means full freight, never a crash. Signature rites are unwritten.
+- **One fixed starting hand**, no choice: Cat (Fauna/Fighter), Geta (Kami/Tank), Wiggledrake (Dragon/Mage). `STARTER_TRIO_A` kept its name so a second hand can return without a rename.
+- **`getTemplate` throws on an unknown id.** It used to return `undefined` typed as `CreatureTemplate`, which disarmed TypeScript at every call site.
 
 ### What's Built
 
 **Source structure:**
 ```
 src/
-  main.ts                    — Phaser game config, scene registry
-  types.ts                   — Interfaces, enums, economy/tower constants
+  main.ts                    — Phaser game config, scene registry, opt-in ?test= hooks
+  types.ts                   — Interfaces, enums, economy/tower/capture constants
   data/
     abilities.ts             — 31 abilities (subset of 72; MP costs tuned)
-    creatures.ts             — 36 creatures across 8 archetypes + depth-band pools
+    creatures.ts             — 30 creatures across 11 archetypes + FAMILY_RITES; pools from towerIds
+    traits.ts                — 22-trait library (stat/battle-start/resistance/affinity/type/economy)
+    items.ts                 — 2 carryable items
   managers/
-    GameState.ts             — Singleton: box, party, essence, permanent levels,
-                               obol→essence conversion, depth-jump, save v2 + migration
+    GameState.ts             — Singleton: box, party, essence, permanent levels, backpack,
+                               obol→essence conversion, depth-jump, save v7 (no migration)
   systems/
-    CombatEngine.ts          — Damage formula, turn order, buffs, status, enemy AI (random target)
-    BreedingSystem.ts        — Star calc, stat inheritance, essence carry-over to offspring
-    RunGenerator.ts          — 30-floor descent generation + boss-aware pick-next
-    Economy.ts               — Obol→Essence conversion, level cost curve, depth-jump cost, carry-over
+    CombatEngine.ts          — Damage formula, turn order, buffs, status
+    TacticsAI.ts             — One side-agnostic chooseAction driving player tactics AND enemy AI
+    BreedingSystem.ts        — Star calc, stat inheritance, essence carry-over, trait inheritance
+    RunGenerator.ts          — Descent generation to TOWER_FLOORS + boss-aware pick-next
+    Economy.ts               — Obol→Essence conversion, level cost curve, depth costs, carry-over
+    Traits.ts                — Slot unlocking, stat bonuses, pool gating, derived breed-readiness
+    Backpack.ts              — Slots, protected slots, single-random wipe loss, capture unload
+    Capture.ts               — Rite evaluation + band-keyed pricing (NOT wired into any scene)
+    Bestiary.ts              — Monsterpedia entries, archetype ordering, paging
+    Shop.ts / Recovery.ts    — Purchase and heal/revive resolution
+    PartyStatus.ts           — Stale-default-party reporting by name
   scenes/
-    BootScene, TownScene (essence hub), PartySelectScene, RunScene ("TOWER — Floor N/30"),
-    CombatScene, ShopScene (Obols), RestScene, BreedingScene (shows carry-over),
-    LevelerScene (buy permanent levels + stat preview), GatekeeperScene (depth-jumps)
+    BootScene (single starter hand), TownScene (essence hub), PartySelectScene,
+    DepartureScene (depth + party confirm), RunScene ("TOWER — Floor N/20"),
+    CombatScene + combat/BattlefieldRenderer, PostCombatScene, ShopScene (tower, Obols),
+    TownShopScene (Provisioner, Essence), RestScene, BreedingScene, LevelerScene,
+    GatekeeperScene (depth-jumps), BestiaryScene (Monsterpedia)
+  ui/
+    Theme.ts                 — Shared screen furniture + the archetype palette scenes actually use
 ```
 
 **Working systems (all merged):**
 - **Two-tier currency:** Obols in-run (heals/revives/shops), convert to permanent **Essence** on exit (flee/win = 100%, wipe = 50%)
 - **Permanent essence levels:** creatures start each run at their essence-bought level floor (no level-1 reset); bought at the **Leveler** on a rising cost curve
-- **One continuous 30-floor descent:** mini-boss every 5 floors, major every 10; rests appear as occasional filler (not guaranteed); boss-aware pick-next never skips a boss
+- **One continuous descent, `TOWER_FLOORS` deep — 20 for alpha:** mini-boss every 5 floors, major every 10; rests appear as occasional filler (not guaranteed); boss-aware pick-next never skips a boss. Clearing the last floor lands on a `TOWER CLEARED` ledger, the third run outcome alongside fled and wiped
 - **Depth-jumps:** clear a break, buy a deeper start at the **Gatekeeper** (per-run Essence cost)
 - **Breeding:** star calc, stat inheritance, parent retirement, + **essence carry-over** jump-start to offspring
 - Turn-based combat (abilities, MP, buffs/debuffs, status, player-only crits, defend); **random enemy targeting**; single-enemy auto-target
 - Damage formula: `(ATK - DEF/2) × (Power/50) × TypeMultiplier`; per-creature resistances/weaknesses
-- localStorage **save v2** with migration from old (townResources→essence, drop longevity/plasm)
+- localStorage **save v7**, with **no migration path**: the roster swap invalidated every species id a save could hold, so anything below v7 is discarded and the stale blob removed. The v2→v6 field-by-field migrations were deleted with it
 - **Auto-combat / tactics (DQ-style):** per-creature standing tactic (Fight Wisely / All Out / Conserve MP / Heal First / Follow Orders), set in Party Select and persisted; global AUTO toggle in combat and on the run map, with `follow_orders` creatures still prompting manually while AUTO is on. One side-agnostic `TacticsAI.chooseAction()` drives **both** player tactics and enemy AI (`enemy_default` is a literal port of the old `getEnemyAction`, pinned by characterization tests). Knowledge fog: auto only exploits resistances/weaknesses of species already fought — recorded at battle end, so the first encounter with a species is genuinely blind. Persisted **1×/2×/4× battle speed** scales all combat pacing with a 100 ms floor.
-- **31 abilities** (MP costs cut ~40% for a healthier MP economy), **36 creatures** distributed across 3 depth bands
-- vitest test suite (Economy, GameState, RunGenerator, BreedingSystem, CombatEngine, TacticsAI, types) — 121 tests
+- **31 abilities** (MP costs cut ~40% for a healthier MP economy), **30 creatures** across 11 archetypes, all in tower bands 1–2
+- vitest test suite — 350 tests across 15 files, including roster authoring invariants in `src/data/creatures.test.ts` (every ability id resolves, every band is priced, every archetype shares one family rite) and pool invariants in `Traits.test.ts`
 
 **Removed in the pivot:** Plasm, Longevity, Breeding Stones, Enhancer, Leathersmith, the 3-zone structure.
 
@@ -104,20 +131,40 @@ src/
 
 ### What's NOT Built Yet
 
-- **Capture system** — the "collect" pillar; Obols-based capture during combat is not implemented (only data hooks exist)
-- **Traits system** + Trait-keeper vendor (slots unlock by permanent level; traits found and imbued — enables the *Essence Distiller* conversion lever). Designed, see roadmap below
-- **Marks system** + Mark-binder vendor (earn-then-lock; Floor Marks on bosses)
-- **Inventory / Quartermaster** vendor (backpack capacity; pairs with capture) + Obols→Essence conversion-rate levers
-- Run relics (temporary power-ups)
-- **Monsterpedia / bestiary UI** — `gameState.seenSpecies` now collects the data, but nothing shows it to the player. Design drafted in `docs/superpowers/specs/2026-07-25-monsterpedia-design.md` (awaiting review).
-- Onboarding tutorial (old-man flow in `onboarding.md`)
-- Remaining ~41 abilities from `Abilities.csv` (31 of 72)
-- Remaining creatures (36 of target 96)
-- Any art/sprites
+*Audited against `src/` on 2026-07-28. "Built" here means a player can reach it, not that a module exists.*
+
+#### Engine built, no way in — the important category
+
+These are the ones most likely to be misjudged in either direction. The logic exists, is unit-tested, and does nothing, because **nothing in the game can reach it.** Do not plan them as greenfield work, and do not assume they function.
+
+- **Capture** — `src/systems/Capture.ts` is complete and tested: rite evaluation, band-keyed pricing, the HP nudge, bidding, insult/waver reactions, enrage. `Backpack.ts` already carries `kind: 'creature'` slots, `unloadCapturesToBox` moves them into the box on exit, and `applyWipeLoss` puts an unprotected one at risk exactly as the design rule says. **What is missing is every point of contact:** `Capture.ts` is imported by nothing but its own test, `CombatScene` has no capture action, and nothing populates the new `RiteLog` fields (items consumed, damage types *dealt*, struck stat stages, party archetypes, debuffs applied) — so seven of the eleven family rites evaluate false and every creature would sit at full freight. Spec: `docs/superpowers/specs/2026-07-25-capture-system-design.md`.
+- **Traits** — `src/systems/Traits.ts` plus a 22-trait library. Slots unlock from `permanentLevel` at 5/10/20/30, `applyStatTraitBonuses` is wired into `calculateStatsForLevel` so a held trait really would change stats, `canSpeciesTakeTrait` gates on `naturalTraitPool` (now authored for all 30), and `resolveInheritedTraitSlots` handles breeding inheritance. **No code path ever writes a non-null `traitId`.** There is no Trait-keeper (the town tile is shuttered), no boss drop, no event reward; `BackpackContents` declares a `kind: 'trait'` slot that nothing ever constructs. Every creature's slots are permanently empty, so the whole system is currently invisible. Acquisition is the only missing piece — and it unblocks the *Essence Distiller* conversion lever, which is authored into three species' pools and equally unreachable. Spec: `docs/superpowers/specs/2026-07-26-traits-system-design.md`.
+
+#### Not built at all — zero code
+
+- **Marks system** + Mark-binder vendor (earn-then-lock; Floor Marks on bosses). No `earnedMarks` or `activeMarkId` field exists; the town tile is shuttered. Note `marks-catalog.md` flags two open issues to settle first: the deepest Floor Mark is a dead bonus at any tower height, and `mark_physical`/`mark_fighting` are the same mark twice.
+- **Run relics** (temporary power-ups) — no code, no data.
+- **Onboarding tutorial** (old-man flow in `onboarding.md`) — no code, no data.
+- **Quartermaster vendor** — no town tile. The backpack it would sell against *is* built: `guaranteedSlots` protects the first N slots from wipe loss and `BACKPACK_START_CAPACITY`/`_GUARANTEED` are the placeholders it would raise. Neither capacity nor guaranteed count is purchasable, and the Obols→Essence conversion-rate upgrades are likewise unimplemented — `convertObolsToEssence` applies the flat base rate with no trait, upgrade or depth bonus.
+
+#### Content gaps
+
+- Remaining ~41 abilities from `Abilities.csv` (31 of 72 in code)
+- Remaining creatures (30 of 134) and tower bands 3–10 (floors 21–100)
+- **`resistances`/`weaknesses` are empty on all 30** — the type chart is flat, so `RESISTANCE_MULTIPLIER` never applies and auto-combat's knowledge fog has nothing to withhold. Biggest live content gap.
+- Only 2 items exist (`power_increase`, `mending_draught`)
+- Signature rites — unwritten for every species (family rites are done)
+- Any art/sprites — every creature is a coloured rectangle
+
+#### Corrections — these ARE built, despite older notes saying otherwise
+
+- **Monsterpedia** — `BestiaryScene` is built, registered, and reachable from THE ARCHIVE in town. It renders all 30 species in archetype order with discovered/silhouette states and a detail panel. The old note claiming "nothing shows it to the player" was stale.
+- **Auto-combat / tactics** — fully built (`TacticsAI`, per-creature standing tactics, AUTO toggle, battle-speed control). Any roadmap entry listing it as future work is stale.
+- **Backpack and shops** — built and reachable: the Tower Merchant (Obols) and the town Provisioner (Essence), carried items usable in combat, the single-random-loss wipe rule, and protected slots.
 
 **Resolved (2026-07-25):** the combat "freeze after one action" is **not** a bug and **not** an HMR artifact. Chrome throttles `requestAnimationFrame` to zero in a backgrounded or unfocused tab, so Phaser's game loop stops stepping and the Scene Clock never advances — every `this.time.delayedCall` in `CombatScene` (which is how turns advance) simply never fires. Measured directly: `document.hidden === true`, `game.loop.frame` advancing 0 frames per second, `scene.time.now` frozen. The canvas still *appears* to update because DOM input events keep dispatching and a screenshot forces a paint, which is exactly what makes it look like a logic hang. **Keep the tab focused and visible when playtesting combat.** Verify before assuming it's a real turn-loop bug.
 
-**Placeholder numbers to tune (playtest)** — a non-exhaustive list; see the alpha note at the top of this file. Obol base rewards 5/25/75 now scaled by depth as `base × SCALAR × floor^EXPONENT` (`OBOL_REWARD_EXPONENT` is derived from `LEVEL_COST_EXPONENT` — retune the pair together, never separately), conversion rate 0.5, wipe penalty 50%, level cost `10·L^1.5`, depth-jump `(floor-1)×15`, breeding carry-over 50%, MP costs across all 31 abilities, the tactic ladder thresholds (Fight Wisely's half-current-MP budget, Conserve MP's ⅓-max-MP ceiling and 50% party-danger gate, Heal First's 60%/2×-cheapest-heal reserve), battle speed steps, and enemy/XP scaling by floor/depth band.
+**Placeholder numbers to tune (playtest)** — a non-exhaustive list; see the alpha note at the top of this file. Obol base rewards 5/25/75 now scaled by depth as `base × SCALAR × floor^EXPONENT` (`OBOL_REWARD_EXPONENT` is derived from `LEVEL_COST_EXPONENT` — retune the pair together, never separately), conversion rate 0.5, wipe penalty 50%, level cost `10·L^1.5`, depth-jump unlock `(floor-1)×40` plus a per-run fee `(floor-1)×5`, breeding carry-over 50%, MP costs across all 31 abilities, the tactic ladder thresholds (Fight Wisely's half-current-MP budget, Conserve MP's ⅓-max-MP ceiling and 50% party-danger gate, Heal First's 60%/2×-cheapest-heal reserve), battle speed steps, and enemy/XP scaling by floor/depth band.
 
 ## Key Design Rules (Don't Violate These)
 
@@ -137,7 +184,8 @@ src/
 - Both parents are **retired** when breeding, but invested essence **carries over** to the offspring as a jump-start. Retired parents **stay in the creature box as tombstones** — do not delete them. Every box consumer filters `!isRetired`, and keeping them is what lets a stale default party name the creature that left instead of saying "a former party member".
 - **Breeding requires a minimum level investment, and this is load-bearing.** A creature is breed-ready only on hitting its star's level cap — **5 for a 0★ starter**, higher for higher stars. Stats pass down through generations, so breeding too early founds a weak line and the weakness compounds every generation after. Never relax this gate casually. A **captured creature arrives at level 1**, so it is far from breedable: capture yields a bloodline candidate, not a parent.
 - **Longevity is removed.** No run counter, no forced retirement.
-- Tower is **one continuous 30-floor descent** — no zones. Mini-boss every 5 floors, major every 10. Depth-jumps buyable at cleared 5-floor breaks (buy 5 → start 6).
+- Tower is **one continuous descent** — no zones. The full game is **100 floors in 10 bands of 10**; **alpha caps it at 20** (`TOWER_FLOORS`), the deepest the current roster reaches. Raising the cap is a one-constant change — descent generation, the Gatekeeper's grant loop, the results ledger and the tests all derive from it. Mini-boss every 5 floors, major every 10. Depth-jumps buyable at cleared 5-floor breaks (buy 5 → start 6).
+- **A creature's `towerIds` are the only statement of where it appears.** Encounter pools derive from them; never hand-maintain a parallel pool list, and never read meaning into a pool's ordering — `pool[0]` is not "the strongest".
 - First floor (and any post-jump floor) is **combat**. Rests are **occasional random filler** — never guaranteed before a boss.
 - Enemies pick a **random** living target (spread damage); single-target attacks **auto-target** when one enemy remains.
 - Player crits only — enemies cannot crit.
@@ -145,20 +193,22 @@ src/
 
 ## Roadmap / Next Steps
 
-**Done:** essence pivot Phases 1–4a (currency, permanent levels, 30-floor descent, Leveler + Gatekeeper vendors, breeding carry-over) + playtest tuning.
+**Done:** essence pivot Phases 1–4a (currency, permanent levels, the continuous descent, Leveler + Gatekeeper vendors, breeding carry-over) + playtest tuning, then the alpha roster swap (30 authored creatures, 11 archetypes, derived pools, 20-floor cap).
 
 **Next, in rough priority:**
-1. **Capture system — DESIGNED, ready to plan.** Spec: `docs/superpowers/specs/2026-07-25-capture-system-design.md` (threshold model, duplicate Essence grant, box capacity + pending-capture queue, combat-turn interaction). Next step is an implementation plan, not another design pass. Note the spec cites `docs/superpowers/research/capture-mechanics-research.md`, which is **not in the repo** — the survey it draws on either lives outside version control or was never committed, so treat the spec as self-contained.
+1. **Capture — wire the built engine into combat.** Spec: `docs/superpowers/specs/2026-07-25-capture-system-design.md`. `Capture.ts` and the backpack's creature-cargo handling are done and tested; what remains is a capture action on the combat turn, a bidding UI, and **populating the `RiteLog` fields nothing writes yet** — without that last piece seven of the eleven family rites can never be satisfied and every creature prices at full freight. `newRiteLog()` names each missing write site. Note the spec cites `docs/superpowers/research/capture-mechanics-research.md`, which is **not in the repo** — treat the spec as self-contained.
 
    Two rules from elsewhere in this file that constrain it: a capture **arrives at level 1** and is cargo, not a reinforcement — it cannot be fielded during the run that caught it; and it is **eligible for the single random wipe loss** unless it occupies guaranteed inventory space.
 
    **Two open issues capture work will collide with, both currently unreachable but not for long:**
    - **A soft-lock.** Breeding is net −1 creature (two parents in, one offspring out). From the 3-creature starting box that leaves 2 actives, and with no capture there is no way back to 3 — `CONFIRM` sticks at 2/3 and `ENTER TOWER` stays permanently dimmed. Capture is the fix, but decide whether breeding also needs a guard.
    - **`PartySelectScene` breaks past 12 creatures.** Cards lay out 3-per-row at 140px; creatures 10–12 overlap the CONFIRM button and 13+ render off-canvas, unselectable. The box only shrinks today, so it is unreachable — until capture makes it grow. Tighter than the town box's 18-row display cap.
-2. **Traits system — DESIGNED, ready to plan.** Spec: `docs/superpowers/specs/2026-07-26-traits-system-design.md` (slots by permanent level, found-and-imbued traits, Trait-keeper, three-case inheritance). Also fixes two live bugs: `isBreedReady` is a stored flag set only by in-run levelling, so buying a creature to its cap locks it out of breeding forever, and `startRun()` wipes readiness before it can be used. Delete `BreedingSystem.ts:73–76` (star-based slot unlock — a third model matching neither doc). Needs `naturalTraitPool` authored per species (none exist) and the backpack for found traits. Also add the Essence Distiller conversion lever.
-3. **Marks system** + Mark-binder vendor + Floor Marks on bosses.
-4. **Inventory / Quartermaster** vendor (backpack) — pairs with capture.
-5. Content & polish: more creatures (36→96), more abilities (31→72), onboarding tutorial, auto-combat, sprites.
+2. **Trait acquisition — the engine is already built.** Spec: `docs/superpowers/specs/2026-07-26-traits-system-design.md`. Slots, level-gated unlocking, stat bonuses, pool gating and breeding inheritance all work; **the only missing piece is any way to obtain a trait.** That means the Trait-keeper vendor, plus at least one found source (boss drop or event) writing a `kind: 'trait'` slot into the backpack. Also unblocks the Essence Distiller conversion lever, already authored into three species' pools.
+
+   *Three blockers this entry used to list are done:* breed-readiness is now derived via `isCreatureBreedReady` (the stored `isBreedReady` field is vestigial and read nowhere), the star-based slot unlock in `BreedingSystem` is deleted, and `naturalTraitPool` is authored for all 30 species.
+3. **Marks system** + Mark-binder vendor + Floor Marks on bosses. Nothing exists in code. Settle the two catalogue issues first (see `marks-catalog.md`): the deepest Floor Mark grants damage "deeper than" a floor with nothing below it, and `mark_physical`/`mark_fighting` duplicate one damage type.
+4. **Quartermaster vendor** — the backpack itself is built; this is the shop that sells capacity, guaranteed slots and Obols→Essence conversion-rate upgrades. Pairs with capture.
+5. Content & polish: `resistances`/`weaknesses` for the 30 (the flat type chart is the biggest live gap), more creatures (30→134) and tower bands 3–10, more abilities (31→72), onboarding tutorial, sprites.
 
 Each new system (capture/traits/marks/inventory) warrants its own design pass before implementation. Ongoing: tune the placeholder numbers listed above via playtest.
 

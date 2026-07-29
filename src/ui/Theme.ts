@@ -40,6 +40,9 @@ const ARCHETYPE_UI: Record<Archetype, number> = {
   Mecha: 0x6dead6,
   Food: 0xdab163,
   Human: 0xdab163,
+  Devils: 0xa8496b,
+  Dragon: 0x4f8f6b,
+  Slimes: 0x8fd6c4,
 };
 
 export function archetypeColor(archetype: Archetype): number {

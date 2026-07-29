@@ -1,319 +1,448 @@
-import { CreatureTemplate, ARCHETYPE_COLORS } from '../types';
+import { Archetype, CreatureTemplate, RiteDef, ARCHETYPE_COLORS } from '../types';
+
+/**
+ * The alpha roster: the thirty Tower ID 1,2 creatures from the master
+ * spreadsheet (`Hollow Kins`, sheet `Kin`).
+ *
+ * Identity — id, name, archetype, role, towerIds — is authored. Everything else
+ * on these templates is GENERATED from those four plus the tables in
+ * `creature-roster-and-generation.md`: base stats from tier budget x role
+ * weights, the first ability from archetype, the second from role, capture
+ * prices from each band's range, and the trait pool from role staples plus
+ * archetype flavour. Do not hand-tune a generated value here — change the table
+ * and regenerate, or the spreadsheet stops being the source of truth.
+ *
+ * `resistances` and `weaknesses` are deliberately empty: they are not authored
+ * yet, so the type chart is flat for now. Filling them in touches this file only.
+ */
+
+/**
+ * Family rites, one per archetype, shared by every creature in it. A creature may
+ * additionally carry a bespoke signature rite; none are written yet.
+ *
+ * Several of these read RiteLog fields that combat does not populate yet — see
+ * the note on RiteLog. They evaluate to false rather than throwing, so an
+ * unwired condition just means the creature sits at full freight.
+ */
+export const FAMILY_RITES: Record<Archetype, RiteDef> = {
+  // An allied creature faints in combat.
+  Spirits: {
+    id: 'rite_family_spirits', band: 'family', persistence: 'sticky',
+    conditions: [{ kind: 'ally_knocked_out' }],
+  },
+  // This creature is hit with a flame attack.
+  Flora: {
+    id: 'rite_family_flora', band: 'family', persistence: 'sticky',
+    conditions: [{ kind: 'damage_type_taken', damageType: 'Fire' }],
+  },
+  // This creature is hit with an electric attack.
+  Kami: {
+    id: 'rite_family_kami', band: 'family', persistence: 'sticky',
+    conditions: [{ kind: 'damage_type_taken', damageType: 'Electric' }],
+  },
+  // This creature is hit with a physical attack.
+  Slimes: {
+    id: 'rite_family_slimes', band: 'family', persistence: 'sticky',
+    conditions: [{ kind: 'damage_type_taken', damageType: 'Fighting' }],
+  },
+  // Any creature receives a debuff.
+  Devils: {
+    id: 'rite_family_devils', band: 'family', persistence: 'sticky',
+    conditions: [{ kind: 'debuff_applied' }],
+  },
+  // An allied creature consumes food.
+  Food: {
+    id: 'rite_family_food', band: 'family', persistence: 'sticky',
+    conditions: [{ kind: 'item_consumed', scope: 'ally' }],
+  },
+  // This creature is fed food.
+  Fauna: {
+    id: 'rite_family_fauna', band: 'family', persistence: 'sticky',
+    conditions: [{ kind: 'item_consumed', scope: 'self' }],
+  },
+  // This creature hits an enemy with increased defense.
+  Rock: {
+    id: 'rite_family_rock', band: 'family', persistence: 'sticky',
+    conditions: [{ kind: 'struck_enemy_stat_stage_at_least', stat: 'def', stage: 1 }],
+  },
+  // The opposing team contains a human creature.
+  Human: {
+    id: 'rite_family_human', band: 'family', persistence: 'sticky',
+    conditions: [{ kind: 'enemy_party_contains_archetype', archetype: 'Human' }],
+  },
+  // Both a fire and an electric attack are used this battle.
+  Mecha: {
+    id: 'rite_family_mecha', band: 'family', persistence: 'sticky',
+    conditions: [
+      { kind: 'damage_type_dealt', damageType: 'Fire' },
+      { kind: 'damage_type_dealt', damageType: 'Electric' },
+    ],
+  },
+  // A fire attack is used twice in battle.
+  Dragon: {
+    id: 'rite_family_dragon', band: 'family', persistence: 'sticky',
+    conditions: [{ kind: 'damage_type_dealt', damageType: 'Fire', times: 2 }],
+  },
+};
 
 export const CREATURE_TEMPLATES: Record<string, CreatureTemplate> = {
-  emberwhelp: {
-    id: 'emberwhelp', name: 'Emberwhelp', archetype: 'Mecha',
-    baseStats: { hp: 35, mp: 30, str: 10, def: 7, wis: 9, spd: 18, int: 16 },
-    defaultAbilities: ['ember', 'spark'],
-    resistances: ['Fire'], weaknesses: ['Ice'],
-    spriteColor: ARCHETYPE_COLORS.Mecha,
-    naturalTraitPool: ['hp_up', 'mp_up', 'spd_up', 'int_up', 'resist_fire', 'initiative_boost', 'opening_buff'],
-  },
-  voltarc: {
-    id: 'voltarc', name: 'Voltarc', archetype: 'Mecha',
-    baseStats: { hp: 30, mp: 35, str: 8, def: 6, wis: 10, spd: 20, int: 18 },
-    defaultAbilities: ['crackle', 'discharge'],
-    resistances: ['Electric'], weaknesses: ['Fighting'],
-    spriteColor: ARCHETYPE_COLORS.Mecha,
-    naturalTraitPool: ['mp_up', 'spd_up', 'int_up', 'resist_lightning', 'resist_physical', 'initiative_boost', 'evasion_up', 'opening_buff'],
-  },
-  thornvine: {
-    id: 'thornvine', name: 'Thornvine', archetype: 'Flora',
-    baseStats: { hp: 50, mp: 35, str: 8, def: 10, wis: 18, spd: 8, int: 12 },
-    defaultAbilities: ['mend', 'gust'],
-    resistances: ['Wind'], weaknesses: ['Fire'],
-    spriteColor: ARCHETYPE_COLORS.Flora,
-    naturalTraitPool: ['hp_up', 'mp_up', 'wis_up', 'resist_wind', 'opening_ward', 'resist_status', 'kin_bond'],
-  },
-  petalward: {
-    id: 'petalward', name: 'Petalward', archetype: 'Flora',
-    baseStats: { hp: 55, mp: 30, str: 7, def: 12, wis: 16, spd: 7, int: 10 },
-    defaultAbilities: ['soothe', 'harden'],
-    resistances: ['Ice'], weaknesses: ['Fire'],
-    spriteColor: ARCHETYPE_COLORS.Flora,
-    naturalTraitPool: ['hp_up', 'def_up', 'wis_up', 'resist_ice', 'opening_ward', 'opening_block', 'resist_status'],
-  },
-  ironjaw: {
-    id: 'ironjaw', name: 'Ironjaw', archetype: 'Fauna',
-    baseStats: { hp: 40, mp: 20, str: 18, def: 8, wis: 7, spd: 16, int: 6 },
-    defaultAbilities: ['thrash', 'slash'],
-    resistances: ['Fighting'], weaknesses: ['Ghost'],
-    spriteColor: ARCHETYPE_COLORS.Fauna,
-    naturalTraitPool: ['str_up', 'spd_up', 'hp_up', 'resist_physical', 'resist_ghost', 'opening_buff', 'kin_bond'],
-  },
-  swiftfang: {
-    id: 'swiftfang', name: 'Swiftfang', archetype: 'Fauna',
-    baseStats: { hp: 38, mp: 22, str: 16, def: 7, wis: 8, spd: 20, int: 7 },
-    defaultAbilities: ['jab', 'razor_wind'],
-    resistances: ['Wind'], weaknesses: ['Ice'],
-    spriteColor: ARCHETYPE_COLORS.Fauna,
-    naturalTraitPool: ['str_up', 'spd_up', 'resist_wind', 'initiative_boost', 'evasion_up', 'opening_buff', 'kin_bond'],
-  },
-  stoneguard: {
-    id: 'stoneguard', name: 'Stoneguard', archetype: 'Rock',
-    baseStats: { hp: 60, mp: 18, str: 14, def: 20, wis: 10, spd: 5, int: 6 },
-    defaultAbilities: ['smash', 'harden'],
-    resistances: ['Fire', 'Fighting'], weaknesses: ['Ice', 'Electric'],
-    spriteColor: ARCHETYPE_COLORS.Rock,
-    naturalTraitPool: ['hp_up', 'def_up', 'opening_ward', 'opening_block', 'resist_fire', 'resist_physical', 'resist_ice', 'kin_bond'],
-  },
-  bouldershell: {
-    id: 'bouldershell', name: 'Bouldershell', archetype: 'Rock',
-    baseStats: { hp: 65, mp: 15, str: 16, def: 18, wis: 8, spd: 4, int: 5 },
-    defaultAbilities: ['seismic_slam', 'steel_skin'],
-    resistances: ['Fire'], weaknesses: ['Wind'],
-    spriteColor: ARCHETYPE_COLORS.Rock,
-    naturalTraitPool: ['hp_up', 'def_up', 'str_up', 'resist_fire', 'resist_wind', 'opening_ward', 'opening_block'],
-  },
-  frostwisp: {
-    id: 'frostwisp', name: 'Frostwisp', archetype: 'Kami',
-    baseStats: { hp: 45, mp: 30, str: 10, def: 10, wis: 14, spd: 12, int: 14 },
-    defaultAbilities: ['freeze', 'weaken'],
-    resistances: ['Ice'], weaknesses: ['Fire'],
-    spriteColor: ARCHETYPE_COLORS.Kami,
-    naturalTraitPool: ['wis_up', 'int_up', 'mp_up', 'resist_ice', 'resist_status', 'opening_ward'],
-  },
-  duskgeist: {
-    id: 'duskgeist', name: 'Duskgeist', archetype: 'Spirits',
-    baseStats: { hp: 38, mp: 32, str: 7, def: 8, wis: 16, spd: 14, int: 18 },
-    defaultAbilities: ['shadow_claw', 'spook'],
-    resistances: ['Ghost'], weaknesses: ['Fighting'],
+  kin_002: {
+    id: 'kin_002', name: 'Hunger', archetype: 'Spirits', role: 'Mage Buff',
+    towerIds: [1, 2],
+    baseStats: { hp: 33, mp: 29, str: 8, def: 7, wis: 12, spd: 14, int: 15 },
+    defaultAbilities: ['phantom', 'overdrive'],
+    resistances: [], weaknesses: [],
     spriteColor: ARCHETYPE_COLORS.Spirits,
-    naturalTraitPool: ['int_up', 'wis_up', 'spd_up', 'resist_ghost', 'evasion_up', 'kin_bond', 'essence_distiller'],
+    naturalTraitPool: ['int_up', 'mp_up', 'wis_up', 'evasion_up', 'resist_ghost', 'essence_distiller'],
+    captureBasePrice: { 1: 20, 2: 41 },
+    rites: [FAMILY_RITES.Spirits],
   },
-  riceball: {
-    id: 'riceball', name: 'Riceball', archetype: 'Food',
-    baseStats: { hp: 45, mp: 25, str: 15, def: 10, wis: 14, spd: 8, int: 8 },
-    defaultAbilities: ['bold', 'smash'],
-    resistances: ['Ice'], weaknesses: ['Ghost'],
-    spriteColor: ARCHETYPE_COLORS.Food,
-    naturalTraitPool: ['hp_up', 'str_up', 'wis_up', 'resist_ice', 'opening_buff', 'kin_bond'],
-  },
-  bladeknight: {
-    id: 'bladeknight', name: 'Bladeknight', archetype: 'Human',
-    baseStats: { hp: 45, mp: 22, str: 16, def: 14, wis: 8, spd: 10, int: 8 },
-    defaultAbilities: ['frost', 'cross_counter'],
-    resistances: ['Fighting'], weaknesses: ['Ghost'],
-    spriteColor: ARCHETYPE_COLORS.Human,
-    naturalTraitPool: ['str_up', 'def_up', 'hp_up', 'resist_physical', 'resist_ghost', 'opening_ward', 'kami_slayer'],
-  },
-  glacikin: {
-    id: 'glacikin', name: 'Glacikin', archetype: 'Kami',
-    baseStats: { hp: 50, mp: 28, str: 9, def: 12, wis: 16, spd: 10, int: 15 },
-    defaultAbilities: ['freeze', 'weaken'],
-    resistances: ['Ice'], weaknesses: ['Fire'],
-    spriteColor: ARCHETYPE_COLORS.Kami,
-    naturalTraitPool: ['wis_up', 'int_up', 'def_up', 'hp_up', 'resist_ice', 'resist_fire', 'resist_status'],
-  },
-  mistvane: {
-    id: 'mistvane', name: 'Mistvane', archetype: 'Kami',
-    baseStats: { hp: 40, mp: 32, str: 8, def: 9, wis: 15, spd: 14, int: 16 },
-    defaultAbilities: ['chill', 'scold'],
-    resistances: ['Ice'], weaknesses: ['Fire'],
-    spriteColor: ARCHETYPE_COLORS.Kami,
-    naturalTraitPool: ['wis_up', 'int_up', 'spd_up', 'resist_ice', 'resist_status', 'opening_ward'],
-  },
-  yukiorb: {
-    id: 'yukiorb', name: 'Yukiorb', archetype: 'Kami',
-    baseStats: { hp: 38, mp: 34, str: 7, def: 8, wis: 17, spd: 13, int: 17 },
-    defaultAbilities: ['frost', 'focus'],
-    resistances: ['Ice'], weaknesses: ['Fighting'],
-    spriteColor: ARCHETYPE_COLORS.Kami,
-    naturalTraitPool: ['wis_up', 'int_up', 'mp_up', 'resist_ice', 'resist_status', 'opening_buff'],
-  },
-  hoarfang: {
-    id: 'hoarfang', name: 'Hoarfang', archetype: 'Kami',
-    baseStats: { hp: 46, mp: 26, str: 11, def: 11, wis: 13, spd: 11, int: 13 },
-    defaultAbilities: ['weaken', 'chill'],
-    resistances: ['Ice'], weaknesses: ['Fire'],
-    spriteColor: ARCHETYPE_COLORS.Kami,
-    naturalTraitPool: ['wis_up', 'int_up', 'hp_up', 'resist_ice', 'resist_status', 'kin_bond'],
-  },
-  wraithling: {
-    id: 'wraithling', name: 'Wraithling', archetype: 'Spirits',
-    baseStats: { hp: 34, mp: 34, str: 8, def: 7, wis: 15, spd: 16, int: 19 },
-    defaultAbilities: ['shadow_claw', 'spook'],
-    resistances: ['Ghost'], weaknesses: ['Fighting'],
+  kin_007: {
+    id: 'kin_007', name: 'Grampskin', archetype: 'Spirits', role: 'Mage',
+    towerIds: [1, 2],
+    baseStats: { hp: 33, mp: 29, str: 8, def: 7, wis: 12, spd: 14, int: 15 },
+    defaultAbilities: ['phantom', 'focus'],
+    resistances: [], weaknesses: [],
     spriteColor: ARCHETYPE_COLORS.Spirits,
-    naturalTraitPool: ['int_up', 'spd_up', 'mp_up', 'resist_ghost', 'evasion_up', 'initiative_boost', 'kin_bond'],
+    naturalTraitPool: ['int_up', 'mp_up', 'wis_up', 'evasion_up', 'resist_ghost'],
+    captureBasePrice: { 1: 28, 2: 52 },
+    rites: [FAMILY_RITES.Spirits],
   },
-  banewisp: {
-    id: 'banewisp', name: 'Banewisp', archetype: 'Spirits',
-    baseStats: { hp: 36, mp: 30, str: 6, def: 8, wis: 17, spd: 15, int: 18 },
+  kin_011: {
+    id: 'kin_011', name: 'Little Light', archetype: 'Spirits', role: 'Mage Debuff',
+    towerIds: [1, 2],
+    baseStats: { hp: 33, mp: 29, str: 8, def: 7, wis: 12, spd: 14, int: 15 },
     defaultAbilities: ['phantom', 'weaken'],
-    resistances: ['Ghost'], weaknesses: ['Fighting'],
+    resistances: [], weaknesses: [],
     spriteColor: ARCHETYPE_COLORS.Spirits,
-    naturalTraitPool: ['wis_up', 'int_up', 'mp_up', 'resist_ghost', 'evasion_up', 'resist_status', 'essence_distiller'],
+    naturalTraitPool: ['int_up', 'mp_up', 'wis_up', 'evasion_up', 'resist_ghost'],
+    captureBasePrice: { 1: 36, 2: 43 },
+    rites: [FAMILY_RITES.Spirits],
   },
-  gravemoth: {
-    id: 'gravemoth', name: 'Gravemoth', archetype: 'Spirits',
-    baseStats: { hp: 32, mp: 36, str: 9, def: 6, wis: 14, spd: 18, int: 17 },
-    defaultAbilities: ['spook', 'scold'],
-    resistances: ['Ghost'], weaknesses: ['Fighting'],
-    spriteColor: ARCHETYPE_COLORS.Spirits,
-    naturalTraitPool: ['int_up', 'spd_up', 'mp_up', 'resist_ghost', 'evasion_up', 'initiative_boost', 'kin_bond'],
-  },
-  hollowveil: {
-    id: 'hollowveil', name: 'Hollowveil', archetype: 'Spirits',
-    baseStats: { hp: 40, mp: 28, str: 7, def: 9, wis: 16, spd: 13, int: 16 },
-    defaultAbilities: ['shadow_claw', 'weaken'],
-    resistances: ['Ghost'], weaknesses: ['Fire'],
-    spriteColor: ARCHETYPE_COLORS.Spirits,
-    naturalTraitPool: ['wis_up', 'int_up', 'mp_up', 'resist_fire', 'evasion_up', 'resist_status', 'kin_bond'],
-  },
-  dumplord: {
-    id: 'dumplord', name: 'Dumplord', archetype: 'Food',
-    baseStats: { hp: 50, mp: 22, str: 16, def: 12, wis: 13, spd: 7, int: 7 },
-    defaultAbilities: ['bold', 'thrash'],
-    resistances: ['Ice'], weaknesses: ['Ghost'],
-    spriteColor: ARCHETYPE_COLORS.Food,
-    naturalTraitPool: ['hp_up', 'str_up', 'def_up', 'resist_ice', 'resist_ghost', 'opening_ward', 'essence_distiller'],
-  },
-  skewerkin: {
-    id: 'skewerkin', name: 'Skewerkin', archetype: 'Food',
-    baseStats: { hp: 42, mp: 20, str: 18, def: 10, wis: 11, spd: 9, int: 8 },
+  kin_013: {
+    id: 'kin_013', name: 'Cherry Punch', archetype: 'Food', role: 'Fighter',
+    towerIds: [1, 2],
+    baseStats: { hp: 42, mp: 21, str: 16, def: 11, wis: 10, spd: 10, int: 8 },
     defaultAbilities: ['jab', 'bold'],
-    resistances: ['Ice'], weaknesses: ['Ghost'],
+    resistances: [], weaknesses: [],
     spriteColor: ARCHETYPE_COLORS.Food,
-    naturalTraitPool: ['str_up', 'hp_up', 'resist_ice', 'opening_buff', 'def_up', 'kin_bond'],
+    naturalTraitPool: ['str_up', 'hp_up', 'opening_buff', 'kin_bond', 'resist_status'],
+    captureBasePrice: { 1: 23, 2: 54 },
+    rites: [FAMILY_RITES.Food],
   },
-  brothling: {
-    id: 'brothling', name: 'Brothling', archetype: 'Food',
-    baseStats: { hp: 48, mp: 24, str: 14, def: 11, wis: 15, spd: 6, int: 8 },
-    defaultAbilities: ['harden', 'smash'],
-    resistances: ['Ice'], weaknesses: ['Ghost'],
+  kin_017: {
+    id: 'kin_017', name: 'Butterfly', archetype: 'Food', role: 'Mage',
+    towerIds: [1, 2],
+    baseStats: { hp: 33, mp: 29, str: 8, def: 7, wis: 12, spd: 14, int: 15 },
+    defaultAbilities: ['jab', 'focus'],
+    resistances: [], weaknesses: [],
     spriteColor: ARCHETYPE_COLORS.Food,
-    naturalTraitPool: ['hp_up', 'wis_up', 'def_up', 'resist_ice', 'opening_ward', 'resist_status'],
+    naturalTraitPool: ['int_up', 'mp_up', 'wis_up', 'kin_bond', 'resist_status'],
+    captureBasePrice: { 1: 31, 2: 45 },
+    rites: [FAMILY_RITES.Food],
   },
-  pepperfist: {
-    id: 'pepperfist', name: 'Pepperfist', archetype: 'Food',
-    baseStats: { hp: 40, mp: 18, str: 17, def: 9, wis: 10, spd: 10, int: 9 },
-    defaultAbilities: ['focus', 'thrash'],
-    resistances: ['Ice'], weaknesses: ['Ghost'],
+  kin_020: {
+    id: 'kin_020', name: 'Tofu Slime', archetype: 'Food', role: 'Healer Buff',
+    towerIds: [1, 2],
+    baseStats: { hp: 45, mp: 26, str: 7, def: 10, wis: 14, spd: 7, int: 9 },
+    defaultAbilities: ['jab', 'soothe'],
+    resistances: [], weaknesses: [],
     spriteColor: ARCHETYPE_COLORS.Food,
-    naturalTraitPool: ['str_up', 'hp_up', 'resist_ice', 'opening_buff', 'kin_bond'],
+    naturalTraitPool: ['wis_up', 'hp_up', 'resist_status', 'kin_bond'],
+    captureBasePrice: { 1: 39, 2: 56 },
+    rites: [FAMILY_RITES.Food],
   },
-  frostblade: {
-    id: 'frostblade', name: 'Frostblade', archetype: 'Human',
-    baseStats: { hp: 42, mp: 20, str: 17, def: 13, wis: 8, spd: 12, int: 8 },
-    defaultAbilities: ['frost', 'slash'],
-    resistances: ['Fighting'], weaknesses: ['Ghost'],
-    spriteColor: ARCHETYPE_COLORS.Human,
-    naturalTraitPool: ['str_up', 'def_up', 'hp_up', 'resist_physical', 'opening_buff', 'kami_slayer'],
-  },
-  duelist: {
-    id: 'duelist', name: 'Duelist', archetype: 'Human',
-    baseStats: { hp: 40, mp: 18, str: 18, def: 11, wis: 7, spd: 15, int: 7 },
-    defaultAbilities: ['cross_counter', 'jab'],
-    resistances: ['Fighting'], weaknesses: ['Ghost'],
-    spriteColor: ARCHETYPE_COLORS.Human,
-    naturalTraitPool: ['str_up', 'spd_up', 'resist_physical', 'opening_buff', 'initiative_boost', 'kami_slayer'],
-  },
-  icevow: {
-    id: 'icevow', name: 'Icevow', archetype: 'Human',
-    baseStats: { hp: 44, mp: 24, str: 14, def: 15, wis: 9, spd: 9, int: 9 },
-    defaultAbilities: ['chill', 'cross_counter'],
-    resistances: ['Fighting'], weaknesses: ['Ghost'],
-    spriteColor: ARCHETYPE_COLORS.Human,
-    naturalTraitPool: ['hp_up', 'def_up', 'resist_physical', 'opening_ward', 'opening_block', 'resist_status'],
-  },
-  ronin: {
-    id: 'ronin', name: 'Ronin', archetype: 'Human',
-    baseStats: { hp: 38, mp: 20, str: 16, def: 12, wis: 8, spd: 14, int: 8 },
-    defaultAbilities: ['slash', 'freeze'],
-    resistances: ['Fighting'], weaknesses: ['Ghost'],
-    spriteColor: ARCHETYPE_COLORS.Human,
-    naturalTraitPool: ['str_up', 'spd_up', 'resist_physical', 'opening_buff', 'kami_slayer', 'evasion_up'],
-  },
-  sparkoid: {
-    id: 'sparkoid', name: 'Sparkoid', archetype: 'Mecha',
-    baseStats: { hp: 28, mp: 32, str: 9, def: 6, wis: 9, spd: 19, int: 19 },
-    defaultAbilities: ['spark', 'discharge'],
-    resistances: ['Electric'], weaknesses: ['Fighting'],
-    spriteColor: ARCHETYPE_COLORS.Mecha,
-    naturalTraitPool: ['spd_up', 'int_up', 'mp_up', 'resist_lightning', 'initiative_boost', 'evasion_up'],
-  },
-  cindercog: {
-    id: 'cindercog', name: 'Cindercog', archetype: 'Mecha',
-    baseStats: { hp: 32, mp: 28, str: 10, def: 7, wis: 8, spd: 18, int: 17 },
-    defaultAbilities: ['ember', 'overdrive'],
-    resistances: ['Fire'], weaknesses: ['Ice'],
-    spriteColor: ARCHETYPE_COLORS.Mecha,
-    naturalTraitPool: ['spd_up', 'int_up', 'mp_up', 'resist_fire', 'resist_ice', 'initiative_boost', 'opening_buff'],
-  },
-  mossgolem: {
-    id: 'mossgolem', name: 'Mossgolem', archetype: 'Flora',
-    baseStats: { hp: 58, mp: 28, str: 9, def: 14, wis: 17, spd: 6, int: 9 },
-    defaultAbilities: ['harden', 'soothe'],
-    resistances: ['Wind'], weaknesses: ['Fire'],
+  kin_029: {
+    id: 'kin_029', name: 'Weeping Willow', archetype: 'Flora', role: 'Mage Debuff',
+    towerIds: [1, 2],
+    baseStats: { hp: 33, mp: 29, str: 8, def: 7, wis: 12, spd: 14, int: 15 },
+    defaultAbilities: ['gust', 'weaken'],
+    resistances: [], weaknesses: [],
     spriteColor: ARCHETYPE_COLORS.Flora,
-    naturalTraitPool: ['hp_up', 'def_up', 'wis_up', 'resist_wind', 'opening_ward', 'resist_status', 'kin_bond'],
+    naturalTraitPool: ['int_up', 'mp_up', 'wis_up', 'kin_bond', 'resist_wind'],
+    captureBasePrice: { 1: 26, 2: 47 },
+    rites: [FAMILY_RITES.Flora],
   },
-  bloomwarden: {
-    id: 'bloomwarden', name: 'Bloomwarden', archetype: 'Flora',
-    baseStats: { hp: 52, mp: 32, str: 8, def: 11, wis: 19, spd: 7, int: 11 },
-    defaultAbilities: ['mend', 'bold'],
-    resistances: ['Ice'], weaknesses: ['Fire'],
+  kin_037: {
+    id: 'kin_037', name: 'Turnimp', archetype: 'Flora', role: 'Mage',
+    towerIds: [1, 2],
+    baseStats: { hp: 33, mp: 29, str: 8, def: 7, wis: 12, spd: 14, int: 15 },
+    defaultAbilities: ['gust', 'focus'],
+    resistances: [], weaknesses: [],
     spriteColor: ARCHETYPE_COLORS.Flora,
-    naturalTraitPool: ['wis_up', 'hp_up', 'mp_up', 'resist_ice', 'resist_fire', 'resist_status', 'opening_ward'],
+    naturalTraitPool: ['int_up', 'mp_up', 'wis_up', 'kin_bond', 'resist_wind'],
+    captureBasePrice: { 1: 34, 2: 58 },
+    rites: [FAMILY_RITES.Flora],
   },
-  hornback: {
-    id: 'hornback', name: 'Hornback', archetype: 'Fauna',
-    baseStats: { hp: 42, mp: 18, str: 19, def: 9, wis: 6, spd: 17, int: 6 },
-    defaultAbilities: ['thrash', 'slash'],
-    resistances: ['Fighting'], weaknesses: ['Ghost'],
-    spriteColor: ARCHETYPE_COLORS.Fauna,
-    naturalTraitPool: ['str_up', 'spd_up', 'resist_physical', 'opening_buff', 'kin_bond'],
+  kin_038: {
+    id: 'kin_038', name: 'Bound Book', archetype: 'Devils', role: 'Mage',
+    towerIds: [1, 2],
+    baseStats: { hp: 33, mp: 29, str: 8, def: 7, wis: 12, spd: 14, int: 15 },
+    defaultAbilities: ['phantom', 'focus'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Devils,
+    naturalTraitPool: ['int_up', 'mp_up', 'wis_up', 'evasion_up', 'resist_ghost'],
+    captureBasePrice: { 1: 21, 2: 49 },
+    rites: [FAMILY_RITES.Devils],
   },
-  duskfang: {
-    id: 'duskfang', name: 'Duskfang', archetype: 'Fauna',
-    baseStats: { hp: 36, mp: 20, str: 17, def: 7, wis: 7, spd: 21, int: 7 },
-    defaultAbilities: ['jab', 'razor_wind'],
-    resistances: ['Wind'], weaknesses: ['Ice'],
-    spriteColor: ARCHETYPE_COLORS.Fauna,
-    naturalTraitPool: ['str_up', 'spd_up', 'resist_wind', 'initiative_boost', 'evasion_up', 'kin_bond'],
+  kin_046: {
+    id: 'kin_046', name: 'Squishims', archetype: 'Devils', role: 'Mage',
+    towerIds: [1, 2],
+    baseStats: { hp: 33, mp: 29, str: 8, def: 7, wis: 12, spd: 14, int: 15 },
+    defaultAbilities: ['phantom', 'focus'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Devils,
+    naturalTraitPool: ['int_up', 'mp_up', 'wis_up', 'evasion_up', 'resist_ghost'],
+    captureBasePrice: { 1: 29, 2: 60 },
+    rites: [FAMILY_RITES.Devils],
   },
-  cragback: {
-    id: 'cragback', name: 'Cragback', archetype: 'Rock',
-    baseStats: { hp: 62, mp: 16, str: 15, def: 19, wis: 9, spd: 5, int: 5 },
-    defaultAbilities: ['smash', 'steel_skin'],
-    resistances: ['Fighting'], weaknesses: ['Ice'],
+  kin_050: {
+    id: 'kin_050', name: 'Triple Stack', archetype: 'Slimes', role: 'Healer Debuff',
+    towerIds: [1, 2],
+    baseStats: { hp: 45, mp: 26, str: 7, def: 10, wis: 14, spd: 7, int: 9 },
+    defaultAbilities: ['smash', 'mend'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Slimes,
+    naturalTraitPool: ['wis_up', 'hp_up', 'resist_status', 'kin_bond', 'resist_physical', 'essence_distiller'],
+    captureBasePrice: { 1: 37, 2: 51 },
+    rites: [FAMILY_RITES.Slimes],
+  },
+  kin_054: {
+    id: 'kin_054', name: 'Teddy', archetype: 'Slimes', role: 'Fighter',
+    towerIds: [1, 2],
+    baseStats: { hp: 42, mp: 21, str: 16, def: 11, wis: 10, spd: 10, int: 8 },
+    defaultAbilities: ['smash', 'bold'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Slimes,
+    naturalTraitPool: ['str_up', 'hp_up', 'opening_buff', 'kin_bond', 'resist_physical'],
+    captureBasePrice: { 1: 24, 2: 42 },
+    rites: [FAMILY_RITES.Slimes],
+  },
+  kin_059: {
+    id: 'kin_059', name: 'Golem Grimace', archetype: 'Rock', role: 'Fighter',
+    towerIds: [1, 2],
+    baseStats: { hp: 42, mp: 21, str: 16, def: 11, wis: 10, spd: 10, int: 8 },
+    defaultAbilities: ['smash', 'bold'],
+    resistances: [], weaknesses: [],
     spriteColor: ARCHETYPE_COLORS.Rock,
-    naturalTraitPool: ['hp_up', 'def_up', 'str_up', 'resist_physical', 'opening_ward', 'opening_block'],
+    naturalTraitPool: ['str_up', 'hp_up', 'opening_buff', 'kin_bond', 'resist_physical'],
+    captureBasePrice: { 1: 32, 2: 53 },
+    rites: [FAMILY_RITES.Rock],
   },
-  granitehide: {
-    id: 'granitehide', name: 'Granitehide', archetype: 'Rock',
-    baseStats: { hp: 58, mp: 20, str: 13, def: 21, wis: 11, spd: 4, int: 6 },
-    defaultAbilities: ['seismic_slam', 'harden'],
-    resistances: ['Fire'], weaknesses: ['Electric'],
+  kin_061: {
+    id: 'kin_061', name: 'Pebble Fairy', archetype: 'Rock', role: 'Mage',
+    towerIds: [1, 2],
+    baseStats: { hp: 33, mp: 29, str: 8, def: 7, wis: 12, spd: 14, int: 15 },
+    defaultAbilities: ['smash', 'focus'],
+    resistances: [], weaknesses: [],
     spriteColor: ARCHETYPE_COLORS.Rock,
-    naturalTraitPool: ['hp_up', 'def_up', 'resist_fire', 'resist_lightning', 'opening_ward', 'opening_block', 'kin_bond'],
+    naturalTraitPool: ['int_up', 'mp_up', 'wis_up', 'kin_bond', 'resist_physical'],
+    captureBasePrice: { 1: 40, 2: 44 },
+    rites: [FAMILY_RITES.Rock],
+  },
+  kin_064: {
+    id: 'kin_064', name: 'Rubble', archetype: 'Rock', role: 'Mage',
+    towerIds: [1, 2],
+    baseStats: { hp: 33, mp: 29, str: 8, def: 7, wis: 12, spd: 14, int: 15 },
+    defaultAbilities: ['smash', 'focus'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Rock,
+    naturalTraitPool: ['int_up', 'mp_up', 'wis_up', 'kin_bond', 'resist_physical'],
+    captureBasePrice: { 1: 27, 2: 55 },
+    rites: [FAMILY_RITES.Rock],
+  },
+  kin_070: {
+    id: 'kin_070', name: 'Cat', archetype: 'Fauna', role: 'Fighter',
+    towerIds: [1, 2],
+    baseStats: { hp: 42, mp: 21, str: 16, def: 11, wis: 10, spd: 10, int: 8 },
+    defaultAbilities: ['jab', 'bold'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Fauna,
+    naturalTraitPool: ['str_up', 'hp_up', 'opening_buff', 'kin_bond', 'resist_physical'],
+    captureBasePrice: { 1: 35, 2: 46 },
+    rites: [FAMILY_RITES.Fauna],
+  },
+  kin_075: {
+    id: 'kin_075', name: 'Egg', archetype: 'Fauna', role: 'Tank',
+    towerIds: [1, 2],
+    baseStats: { hp: 55, mp: 15, str: 13, def: 17, wis: 8, spd: 4, int: 5 },
+    defaultAbilities: ['jab', 'harden'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Fauna,
+    naturalTraitPool: ['hp_up', 'def_up', 'opening_ward', 'opening_block', 'kin_bond', 'resist_physical'],
+    captureBasePrice: { 1: 22, 2: 57 },
+    rites: [FAMILY_RITES.Fauna],
+  },
+  kin_080: {
+    id: 'kin_080', name: 'Girafficorn', archetype: 'Fauna', role: 'Healer Debuff',
+    towerIds: [1, 2],
+    baseStats: { hp: 45, mp: 26, str: 7, def: 10, wis: 14, spd: 7, int: 9 },
+    defaultAbilities: ['jab', 'mend'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Fauna,
+    naturalTraitPool: ['wis_up', 'hp_up', 'resist_status', 'kin_bond', 'resist_physical'],
+    captureBasePrice: { 1: 30, 2: 48 },
+    rites: [FAMILY_RITES.Fauna],
+  },
+  kin_087: {
+    id: 'kin_087', name: 'Garbage Gary', archetype: 'Kami', role: 'Fighter',
+    towerIds: [1, 2],
+    baseStats: { hp: 42, mp: 21, str: 16, def: 11, wis: 10, spd: 10, int: 8 },
+    defaultAbilities: ['frost', 'bold'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Kami,
+    naturalTraitPool: ['str_up', 'hp_up', 'opening_buff', 'resist_status', 'resist_ice', 'essence_distiller'],
+    captureBasePrice: { 1: 38, 2: 59 },
+    rites: [FAMILY_RITES.Kami],
+  },
+  kin_091: {
+    id: 'kin_091', name: 'Pencilvester', archetype: 'Kami', role: 'Fighter',
+    towerIds: [1, 2],
+    baseStats: { hp: 42, mp: 21, str: 16, def: 11, wis: 10, spd: 10, int: 8 },
+    defaultAbilities: ['frost', 'bold'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Kami,
+    naturalTraitPool: ['str_up', 'hp_up', 'opening_buff', 'resist_status', 'resist_ice'],
+    captureBasePrice: { 1: 25, 2: 50 },
+    rites: [FAMILY_RITES.Kami],
+  },
+  kin_092: {
+    id: 'kin_092', name: 'Geta', archetype: 'Kami', role: 'Tank',
+    towerIds: [1, 2],
+    baseStats: { hp: 55, mp: 15, str: 13, def: 17, wis: 8, spd: 4, int: 5 },
+    defaultAbilities: ['frost', 'harden'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Kami,
+    naturalTraitPool: ['hp_up', 'def_up', 'opening_ward', 'opening_block', 'resist_status', 'resist_ice'],
+    captureBasePrice: { 1: 33, 2: 41 },
+    rites: [FAMILY_RITES.Kami],
+  },
+  kin_098: {
+    id: 'kin_098', name: 'Fleschat', archetype: 'Human', role: 'Mage Buff',
+    towerIds: [1, 2],
+    baseStats: { hp: 33, mp: 29, str: 8, def: 7, wis: 12, spd: 14, int: 15 },
+    defaultAbilities: ['jab', 'overdrive'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Human,
+    naturalTraitPool: ['int_up', 'mp_up', 'wis_up', 'kami_slayer', 'resist_physical'],
+    captureBasePrice: { 1: 20, 2: 52 },
+    rites: [FAMILY_RITES.Human],
+  },
+  kin_099: {
+    id: 'kin_099', name: 'Trumpet Ted', archetype: 'Human', role: 'Mage Debuff',
+    towerIds: [1, 2],
+    baseStats: { hp: 33, mp: 29, str: 8, def: 7, wis: 12, spd: 14, int: 15 },
+    defaultAbilities: ['jab', 'weaken'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Human,
+    naturalTraitPool: ['int_up', 'mp_up', 'wis_up', 'kami_slayer', 'resist_physical'],
+    captureBasePrice: { 1: 28, 2: 43 },
+    rites: [FAMILY_RITES.Human],
+  },
+  kin_107: {
+    id: 'kin_107', name: 'BellyFul', archetype: 'Human', role: 'Tank',
+    towerIds: [1, 2],
+    baseStats: { hp: 55, mp: 15, str: 13, def: 17, wis: 8, spd: 4, int: 5 },
+    defaultAbilities: ['jab', 'harden'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Human,
+    naturalTraitPool: ['hp_up', 'def_up', 'opening_ward', 'opening_block', 'kami_slayer', 'resist_physical'],
+    captureBasePrice: { 1: 36, 2: 54 },
+    rites: [FAMILY_RITES.Human],
+  },
+  kin_110: {
+    id: 'kin_110', name: 'Bomb Beetle', archetype: 'Mecha', role: 'Mage',
+    towerIds: [1, 2],
+    baseStats: { hp: 33, mp: 29, str: 8, def: 7, wis: 12, spd: 14, int: 15 },
+    defaultAbilities: ['crackle', 'focus'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Mecha,
+    naturalTraitPool: ['int_up', 'mp_up', 'wis_up', 'initiative_boost', 'resist_lightning'],
+    captureBasePrice: { 1: 23, 2: 45 },
+    rites: [FAMILY_RITES.Mecha],
+  },
+  kin_116: {
+    id: 'kin_116', name: 'Routergeist', archetype: 'Mecha', role: 'Healer Debuff',
+    towerIds: [1, 2],
+    baseStats: { hp: 45, mp: 26, str: 7, def: 10, wis: 14, spd: 7, int: 9 },
+    defaultAbilities: ['crackle', 'mend'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Mecha,
+    naturalTraitPool: ['wis_up', 'hp_up', 'resist_status', 'initiative_boost', 'resist_lightning'],
+    captureBasePrice: { 1: 31, 2: 56 },
+    rites: [FAMILY_RITES.Mecha],
+  },
+  kin_118: {
+    id: 'kin_118', name: 'Glitch Goblin', archetype: 'Mecha', role: 'Tank',
+    towerIds: [1, 2],
+    baseStats: { hp: 55, mp: 15, str: 13, def: 17, wis: 8, spd: 4, int: 5 },
+    defaultAbilities: ['crackle', 'harden'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Mecha,
+    naturalTraitPool: ['hp_up', 'def_up', 'opening_ward', 'opening_block', 'initiative_boost', 'resist_lightning'],
+    captureBasePrice: { 1: 39, 2: 47 },
+    rites: [FAMILY_RITES.Mecha],
+  },
+  kin_123: {
+    id: 'kin_123', name: 'Wiggledrake', archetype: 'Dragon', role: 'Mage',
+    towerIds: [1, 2],
+    baseStats: { hp: 33, mp: 29, str: 8, def: 7, wis: 12, spd: 14, int: 15 },
+    defaultAbilities: ['ember', 'focus'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Dragon,
+    naturalTraitPool: ['int_up', 'mp_up', 'wis_up', 'initiative_boost', 'resist_fire'],
+    captureBasePrice: { 1: 26, 2: 58 },
+    rites: [FAMILY_RITES.Dragon],
+  },
+  kin_124: {
+    id: 'kin_124', name: 'Vinewyrm', archetype: 'Dragon', role: 'Fighter',
+    towerIds: [1, 2],
+    baseStats: { hp: 42, mp: 21, str: 16, def: 11, wis: 10, spd: 10, int: 8 },
+    defaultAbilities: ['ember', 'bold'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Dragon,
+    naturalTraitPool: ['str_up', 'hp_up', 'opening_buff', 'initiative_boost', 'resist_fire'],
+    captureBasePrice: { 1: 34, 2: 49 },
+    rites: [FAMILY_RITES.Dragon],
+  },
+  kin_125: {
+    id: 'kin_125', name: 'Eggnition', archetype: 'Dragon', role: 'Healer Buff',
+    towerIds: [1, 2],
+    baseStats: { hp: 45, mp: 26, str: 7, def: 10, wis: 14, spd: 7, int: 9 },
+    defaultAbilities: ['ember', 'soothe'],
+    resistances: [], weaknesses: [],
+    spriteColor: ARCHETYPE_COLORS.Dragon,
+    naturalTraitPool: ['wis_up', 'hp_up', 'resist_status', 'initiative_boost', 'resist_fire'],
+    captureBasePrice: { 1: 21, 2: 60 },
+    rites: [FAMILY_RITES.Dragon],
   },
 };
 
-export const STARTER_TRIO_A = ['ironjaw', 'emberwhelp', 'bladeknight'];
-export const STARTER_TRIO_B = ['stoneguard', 'thornvine', 'duskgeist'];
+/**
+ * The one starting hand. Fighter, Tank and Mage, so a first descent meets all
+ * three stat shapes, across three archetypes and three damage types.
+ */
+export const STARTER_TRIO_A = ['kin_070', 'kin_092', 'kin_123'];
 
+/**
+ * Throws rather than returning undefined-typed-as-CreatureTemplate. Every caller
+ * treats the result as present, so a dead species id used to surface as a
+ * TypeError several frames away from its cause — or, inside the save loader's
+ * catch, as a silent "no save found".
+ */
 export function getTemplate(id: string): CreatureTemplate {
-  return CREATURE_TEMPLATES[id];
+  const template = CREATURE_TEMPLATES[id];
+  if (!template) throw new Error(`Unknown species id: ${id}`);
+  return template;
 }
 
-export function getAllTemplateIds(): string[] {
-  return Object.keys(CREATURE_TEMPLATES);
+/**
+ * Wild encounter pool for a tower band, derived from `towerIds` rather than
+ * maintained alongside it. A creature in bands 1 and 2 appears in both pools,
+ * and moving a creature between bands is a data edit, not a code edit.
+ */
+export function poolForBand(band: number): string[] {
+  return Object.values(CREATURE_TEMPLATES)
+    .filter(t => t.towerIds.includes(band))
+    .map(t => t.id);
 }
-
-// Creatures available as wild encounters per zone (banded roughly by stat total: low -> high)
-export const ZONE_CREATURE_POOLS: Record<number, string[]> = {
-  1: [
-    'pepperfist', 'ironjaw', 'duskfang', 'duelist', 'ronin', 'hornback',
-    'swiftfang', 'skewerkin', 'frostblade', 'cindercog', 'sparkoid', 'bladeknight',
-  ],
-  2: [
-    'icevow', 'emberwhelp', 'riceball', 'brothling', 'dumplord', 'voltarc',
-    'hollowveil', 'banewisp', 'bouldershell', 'cragback', 'hoarfang', 'gravemoth',
-  ],
-  3: [
-    'duskgeist', 'stoneguard', 'wraithling', 'granitehide', 'mistvane', 'yukiorb',
-    'frostwisp', 'petalward', 'glacikin', 'bloomwarden', 'mossgolem', 'thornvine',
-  ],
-};

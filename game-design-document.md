@@ -108,8 +108,10 @@ Every Obol is a fork: **survive now, or bank for permanent power.** Spending kee
 
 ### **Run Length**
 
-* The tower is **one continuous descent** — no discrete zones. **30 floors** for the current slice (bounded now, endless later)
-* **Mini-boss every 5 floors; major boss every 10 floors**
+* The tower is **one continuous descent** — no discrete zones. **100 floors in 10 bands of 10** (bounded now, endless later)
+* **Alpha caps the descent at floor 20**, the deepest the authored roster reaches — one constant, `TOWER_FLOORS`. The cap is a content limit, not a structural one
+* **Mini-boss every 5 floors; major boss every 10 floors** — derived from the floor number, so the cadence holds at any depth
+* Clearing the deepest floor is a distinct run outcome alongside fleeing and wiping, and converts Obols at the full non-wipe rate
 * Roughly half of floors are combat — the rest are shops, rest points, and random events
 * Enemy pools and visual identity can still shift by **depth band**, but there are no hard zone walls
 * Failed runs end earlier; there is no longevity cost (longevity is removed)
@@ -246,7 +248,7 @@ Longevity has been **removed** from the design. Permanent essence progression is
 * **Earned** during runs through specific accomplishments — temporary by default  
 * Each creature has **one mark slot**  
 * **Made permanent by spending essence** at the Mark-binder — essence buys permanence, not the mark itself (you still have to earn it)  
-* Mark accomplishment thresholds are pegged to the single 30-floor descent (e.g., mini-boss at floor 5)  
+* Mark accomplishment thresholds are pegged to the boss cadence, not to a fixed tower height (e.g., mini-boss at floor 5) — the Floor Mark set extends with the tower  
 * See `marks-system.md` and `marks-catalog.md` for the full rules and re-pegged thresholds
 
 ### **Mark Types (Examples)**
@@ -437,7 +439,7 @@ Under either backend:
 ## **Resolved Design Decisions**
 
 * Progression is **permanent and essence-driven** (2026-07-23 pivot) — creatures no longer reset to level 1; they keep an essence-bought level floor. Plasm, Breeding Stones, and Longevity are removed. See `docs/superpowers/specs/2026-07-23-essence-progression-pivot-design.md`.
-* Tower is **one continuous 30-floor descent** (no zones). Depth-jumps let veterans buy a start point at any cleared 5-floor break.
+* Tower is **one continuous descent** (no zones) — 100 floors in 10 bands of 10, capped at 20 for alpha. Depth-jumps let veterans buy a start point at any cleared 5-floor break.
 * Marks — consolidated into separate reference docs (marks-catalog.md); breeding-stones.md is retired/cut
 * Save architecture — Supabase (see Technical Architecture)
 * Ability archetype distribution — DQM-style wide overlap with basic abilities available across all archetypes

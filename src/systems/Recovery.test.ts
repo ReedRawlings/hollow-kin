@@ -7,7 +7,7 @@ import {
 function creature(instanceId: string): CreatureInstance {
   return {
     instanceId,
-    speciesId: 'ironjaw',
+    speciesId: 'kin_070',
     nickname: null,
     starRating: 0,
     currentLevel: 1,

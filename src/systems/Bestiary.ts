@@ -12,12 +12,24 @@ export interface BestiaryEntry {
 }
 
 /**
- * Canonical archetype display order. Explicit rather than derived from object
- * key order so the grid layout can't reshuffle when creatures are added.
+ * Canonical archetype display order. Explicit rather than derived from object key
+ * order so the grid layout can't reshuffle when creatures are added.
+ *
+ * Written as a Record rather than an array on purpose: an array of archetypes is
+ * the one archetype table in the codebase a widening `Archetype` union would NOT
+ * break at compile time, and a missing entry sorts to `indexOf === -1`, silently
+ * floating that archetype above Kami in the Monsterpedia. As a Record, forgetting
+ * one is a type error.
  */
-export const ARCHETYPE_ORDER: readonly Archetype[] = [
-  'Kami', 'Spirits', 'Flora', 'Fauna', 'Rock', 'Mecha', 'Food', 'Human',
-];
+const ARCHETYPE_RANK: Record<Archetype, number> = {
+  Kami: 0, Spirits: 1, Flora: 2, Fauna: 3, Rock: 4, Mecha: 5,
+  Food: 6, Human: 7, Devils: 8, Dragon: 9, Slimes: 10,
+};
+
+export const ARCHETYPE_ORDER: readonly Archetype[] =
+  (Object.keys(ARCHETYPE_RANK) as Archetype[]).sort(
+    (a, b) => ARCHETYPE_RANK[a] - ARCHETYPE_RANK[b],
+  );
 
 /**
  * Every species in the roster, flagged against the player's seen set and

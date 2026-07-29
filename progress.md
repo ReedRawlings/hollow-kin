@@ -85,3 +85,23 @@ Original prompt: Do a review of our project, look for bugs or open issues that n
   next-floor Run Map. The selected MP recovery changed only its target and the
   browser console remained free of warnings and errors.
 - Final verification: `npm run build` succeeds and all 275 tests pass.
+
+## Merchant UI pass (2026-07-26)
+
+- Rebuilt the Tower Merchant in the shared tower-screen language. Immediate
+  field services and carryable supplies are visually separated, all five offers
+  support keyboard and pointer selection, disabled reasons remain visible, and
+  the screen shows live Obols plus every bag slot and its wipe protection.
+- Rebuilt the Town Provisioner with two large supply cards, Essence pricing,
+  clear affordability/full-bag states, a live protected-slot bag strip, an
+  obvious upper-left Town return, and keyboard/pointer purchase controls.
+- Kept the new item/shop systems authoritative: Tower services act immediately,
+  Tower supplies cost Obols, Provisioner supplies cost Essence, and no purchase
+  charges the player when the bag is full or funds are short.
+- Expanded `render_game_to_text` with backpack capacity and contents, and added
+  opt-in `?test=1` merchant/provisioner scene controls for deterministic UI QA.
+- Live-browser QA covered both funded screens, item purchases, a recovery-service
+  purchase, protected-slot display, full-bag blocking, Provisioner → Town, and
+  Tower Merchant → Run Map. No browser warnings or errors were reported.
+- Final verification: `npm run build` succeeds and all 322 tests pass. The
+  production build retains the existing large-chunk warning.

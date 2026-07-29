@@ -7,15 +7,16 @@ import { CombatCreature, CreatureTemplate, RiteDef, CaptureParty } from '../type
 
 // --- fixtures -------------------------------------------------------------
 
-const NO_PARTY: CaptureParty = { anyKnockedOut: false, actorCount: 2 };
+const NO_PARTY: CaptureParty = { anyKnockedOut: false, actorCount: 2, archetypes: [] };
 
 function template(overrides: Partial<CreatureTemplate> = {}): CreatureTemplate {
   return {
-    id: 'test_beast', name: 'Test Beast', archetype: 'Fauna',
+    id: 'test_beast', name: 'Test Beast', archetype: 'Fauna', role: 'Fighter',
+    towerIds: [1, 2],
     baseStats: { hp: 30, mp: 10, str: 10, def: 10, wis: 10, spd: 10, int: 10 },
     defaultAbilities: ['basic_attack'], resistances: [], weaknesses: [],
     spriteColor: 0xffffff, naturalTraitPool: [],
-    captureBasePrice: 20,
+    captureBasePrice: { 1: 20, 2: 45 },
     ...overrides,
   };
 }
@@ -119,15 +120,26 @@ describe('rite persistence', () => {
 // --- uncapturable ---------------------------------------------------------
 
 describe('uncapturable species', () => {
-  const boss = template({ captureBasePrice: 0 });
+  const boss = template({ captureBasePrice: { 1: 0, 2: 0 } });
 
-  it('is flagged by an explicit base price of 0, not by omission', () => {
-    expect(isUncapturable(boss)).toBe(true);
-    expect(isUncapturable(template({ captureBasePrice: undefined }))).toBe(false);
+  it('is flagged by an explicit price of 0 in that band', () => {
+    expect(isUncapturable(boss, 1)).toBe(true);
+    expect(isUncapturable(template(), 1)).toBe(false);
+  });
+
+  it('is flagged in a band the species has no price for at all', () => {
+    // A species met outside its authored bands is untakeable, never free.
+    expect(isUncapturable(template({ captureBasePrice: { 1: 20 } }), 2)).toBe(true);
+  });
+
+  it('can be uncapturable in one band and takeable in another', () => {
+    const t = template({ captureBasePrice: { 1: 0, 2: 45 } });
+    expect(isUncapturable(t, 1)).toBe(true);
+    expect(isUncapturable(t, 2)).toBe(false);
   });
 
   it('cannot be bought at any bid', () => {
-    const price = capturePrice(boss, 30, foe(), 'signature');
+    const price = capturePrice(boss, 5, foe(), 'signature');
     expect(price).toBe(0);
     expect(captureChance(999999, price)).toBe(0);
   });
@@ -160,10 +172,20 @@ describe('bidding', () => {
     expect(healthy / hurt).toBeLessThanOrEqual(1.3);
   });
 
-  it('gets more expensive with depth', () => {
+  it('gets more expensive one tower band deeper', () => {
     const t = template();
-    expect(capturePrice(t, 30, foe(), 'unsatisfied'))
-      .toBeGreaterThan(capturePrice(t, 1, foe(), 'unsatisfied'));
+    expect(capturePrice(t, 15, foe(), 'unsatisfied'))
+      .toBeGreaterThan(capturePrice(t, 5, foe(), 'unsatisfied'));
+  });
+
+  it('is flat within a tower band — depth is priced by band, not by floor', () => {
+    // The continuous floor^exponent curve was replaced by the authored band
+    // table; keeping both would have counted depth twice.
+    const t = template();
+    const shallow = capturePrice(t, 1, foe(), 'unsatisfied');
+    expect(capturePrice(t, 10, foe(), 'unsatisfied')).toBe(shallow);
+    const deep = capturePrice(t, 11, foe(), 'unsatisfied');
+    expect(capturePrice(t, 20, foe(), 'unsatisfied')).toBe(deep);
   });
 });
 
@@ -201,7 +223,7 @@ describe('party-scoped conditions', () => {
     };
     const t = template({ rites: [rite] });
     expect(evaluateRites(t, foe(), newRiteLog(), NO_PARTY).satisfied).toHaveLength(0);
-    expect(evaluateRites(t, foe(), newRiteLog(), { anyKnockedOut: true, actorCount: 2 }).satisfied)
+    expect(evaluateRites(t, foe(), newRiteLog(), { ...NO_PARTY, anyKnockedOut: true }).satisfied)
       .toContain('grief');
   });
 
@@ -211,9 +233,88 @@ describe('party-scoped conditions', () => {
       conditions: [{ kind: 'solo_actor' }],
     };
     const t = template({ rites: [rite] });
-    expect(evaluateRites(t, foe(), newRiteLog(), { anyKnockedOut: false, actorCount: 1 }).satisfied)
+    expect(evaluateRites(t, foe(), newRiteLog(), { ...NO_PARTY, actorCount: 1 }).satisfied)
       .toContain('duel');
-    expect(evaluateRites(t, foe(), newRiteLog(), { anyKnockedOut: false, actorCount: 3 }).satisfied)
+    expect(evaluateRites(t, foe(), newRiteLog(), { ...NO_PARTY, actorCount: 3 }).satisfied)
       .toHaveLength(0);
+  });
+
+  it('reads party composition for archetype-scoped rites', () => {
+    const rite: RiteDef = {
+      id: 'kinship', band: 'family', persistence: 'sticky',
+      conditions: [{ kind: 'enemy_party_contains_archetype', archetype: 'Human' }],
+    };
+    const t = template({ rites: [rite] });
+    expect(evaluateRites(t, foe(), newRiteLog(), NO_PARTY).satisfied).toHaveLength(0);
+    expect(evaluateRites(t, foe(), newRiteLog(), { ...NO_PARTY, archetypes: ['Rock', 'Human'] })
+      .satisfied).toContain('kinship');
+  });
+});
+
+// --- conditions added for the authored family rites -----------------------
+
+describe('log-scoped conditions added for the family rites', () => {
+  function riteWith(conditions: RiteDef['conditions']): RiteDef {
+    return { id: 'r', band: 'family', persistence: 'sticky', conditions };
+  }
+
+  function holds(conditions: RiteDef['conditions'], log = newRiteLog()): boolean {
+    const t = template({ rites: [riteWith(conditions)] });
+    return evaluateRites(t, foe(), log, NO_PARTY).satisfied.includes('r');
+  }
+
+  it('distinguishes an item used on the target from one used on its ally', () => {
+    expect(holds([{ kind: 'item_consumed', scope: 'self' }])).toBe(false);
+    expect(holds([{ kind: 'item_consumed', scope: 'self' }],
+      { ...newRiteLog(), itemConsumedOnSelf: true })).toBe(true);
+    // Fed-this-creature must not be satisfied by feeding somebody else.
+    expect(holds([{ kind: 'item_consumed', scope: 'self' }],
+      { ...newRiteLog(), itemConsumedByAlly: true })).toBe(false);
+    expect(holds([{ kind: 'item_consumed', scope: 'ally' }],
+      { ...newRiteLog(), itemConsumedByAlly: true })).toBe(true);
+  });
+
+  it('counts damage types dealt rather than merely observing them', () => {
+    const twice = [{ kind: 'damage_type_dealt' as const, damageType: 'Fire' as const, times: 2 }];
+    expect(holds(twice, { ...newRiteLog(), damageTypesDealt: { Fire: 1 } })).toBe(false);
+    expect(holds(twice, { ...newRiteLog(), damageTypesDealt: { Fire: 2 } })).toBe(true);
+    expect(holds(twice, { ...newRiteLog(), damageTypesDealt: { Fire: 5 } })).toBe(true);
+  });
+
+  it('defaults an uncounted damage_type_dealt to once', () => {
+    const once = [{ kind: 'damage_type_dealt' as const, damageType: 'Electric' as const }];
+    expect(holds(once)).toBe(false);
+    expect(holds(once, { ...newRiteLog(), damageTypesDealt: { Electric: 1 } })).toBe(true);
+  });
+
+  it('keeps damage dealt separate from damage taken', () => {
+    // Mecha and Dragon read what was USED in the battle; the existing
+    // damage_type_taken reads only what the target received. Different fields.
+    const dealt = [{ kind: 'damage_type_dealt' as const, damageType: 'Fire' as const }];
+    expect(holds(dealt, { ...newRiteLog(), damageTypesTaken: ['Fire'] })).toBe(false);
+  });
+
+  it('reads the stat stage of an enemy this creature struck', () => {
+    const cond = [{
+      kind: 'struck_enemy_stat_stage_at_least' as const, stat: 'def' as const, stage: 1,
+    }];
+    expect(holds(cond)).toBe(false);
+    expect(holds(cond, { ...newRiteLog(), struckStatStages: { def: 1 } })).toBe(true);
+    expect(holds(cond, { ...newRiteLog(), struckStatStages: { def: -1 } })).toBe(false);
+    // A stage on a different stat must not satisfy it.
+    expect(holds(cond, { ...newRiteLog(), struckStatStages: { str: 3 } })).toBe(false);
+  });
+
+  it('reads a debuff applied to anyone', () => {
+    expect(holds([{ kind: 'debuff_applied' }])).toBe(false);
+    expect(holds([{ kind: 'debuff_applied' }], { ...newRiteLog(), debuffApplied: true })).toBe(true);
+  });
+
+  it('leaves a rite unsatisfied while its log field has no writer', () => {
+    // Capture is not wired into CombatScene yet, so every one of these reads
+    // false in a real battle. That must mean "full freight", never a throw.
+    const fresh = newRiteLog();
+    expect(() => holds([{ kind: 'item_consumed', scope: 'self' }], fresh)).not.toThrow();
+    expect(holds([{ kind: 'item_consumed', scope: 'self' }], fresh)).toBe(false);
   });
 });

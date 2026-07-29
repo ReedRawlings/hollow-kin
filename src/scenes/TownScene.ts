@@ -2,8 +2,9 @@ import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
 import { resolvePartyStatus, describePartyStatus } from '../systems/PartyStatus';
+import { TOWER_FLOORS } from '../types';
 import {
-  UI, BODY_FONT, DISPLAY_FONT, archetypeColor, button, compactPartyCard,
+  UI, BODY_FONT, DISPLAY_FONT, archetypeColor, button,
   footer, header, panel, screenFrame, spritePlate,
 } from '../ui/Theme';
 
@@ -29,7 +30,7 @@ export class TownScene extends Phaser.Scene {
     { name: 'TRAIT-KEEPER', tag: 'SHUTTERED', pitch: 'Trait imbuing is not available in this build yet.', x: 816, y: 222, w: 142, h: 78, color: UI.teal, enabled: () => false },
     { name: 'THE ROOST', tag: 'PARTY', pitch: 'Review the box and choose the three going down.', x: 100, y: 342, w: 140, h: 86, color: 0xe98537, scene: 'PartySelectScene' },
     { name: 'HATCHERY', tag: 'BREED', pitch: 'Pair ready creatures and carry their line forward.', x: 252, y: 342, w: 140, h: 86, color: UI.teal, scene: 'BreedingScene' },
-    { name: 'NOTICE BOARD', tag: 'RUN NEWS', pitch: 'The tower has thirty floors. Wardens wait every fifth.', x: 404, y: 342, w: 140, h: 86, color: UI.lineBright },
+    { name: 'NOTICE BOARD', tag: 'RUN NEWS', pitch: `The tower has ${TOWER_FLOORS} floors. Wardens wait every fifth.`, x: 404, y: 342, w: 140, h: 86, color: UI.lineBright },
     { name: 'THE ARCHIVE', tag: 'PEDIA', pitch: 'Read what your party has learned about tower creatures.', x: 556, y: 342, w: 140, h: 86, color: 0x8c78a5, scene: 'BestiaryScene' },
     { name: 'THE ORACLE', tag: 'SHUTTERED', pitch: 'The Oracle opens after a deeper milestone.', x: 708, y: 342, w: 140, h: 86, color: 0x5e5b8c, enabled: () => false },
   ];

@@ -129,25 +129,25 @@ class Component extends DCLogic {
       action: 'GO IN', actionSub: 'bag slots · stock',
     },
     {
-      name: 'Apothecary', tag: 'OPEN', kind: 'vendor', accent: '#9de64e',
+      name: 'Provisioner', tag: 'OPEN', kind: 'vendor', accent: '#9de64e',
       left: 178, top: 108, w: 140, h: 88, tint: 'rgba(90,181,82,0.24)',
       body: 'Restocks what you drank. Buys in threes and will not sell one of anything.',
       lines: [['SALVE ×3', '45'], ['ANTIDOTE ×3', '30']],
       action: 'GO IN', actionSub: 'salves · ethers',
     },
     {
-      name: 'Reliquary', tag: '3 IN STOCK', kind: 'vendor', accent: '#dab163',
+      name: 'Mark-binder', tag: '3 IN STOCK', kind: 'vendor', accent: '#dab163',
       left: 600, top: 108, w: 148, h: 88, tint: 'rgba(218,177,99,0.24)',
       body: 'Marks pulled off dead things and cleaned. Permanent once fitted, and never fitted twice.',
       lines: [['GRAVEBOUND', '260'], ['2ND SLOT', '400']],
       action: 'GO IN', actionSub: 'marks · slots',
     },
     {
-      name: 'Beast Broker', tag: '2 ON OFFER', kind: 'vendor', accent: '#e98537',
+      name: 'The Leveler', tag: 'OPEN', kind: 'vendor', accent: '#5e91b4',
       left: 758, top: 108, w: 142, h: 88, tint: 'rgba(233,133,55,0.24)',
       body: 'Creatures somebody else raised and lost. Honest about the levels, quiet about the rest.',
       lines: [['4★ LV20', '520'], ['TRADE-IN', 'from 90']],
-      action: 'GO IN', actionSub: 'grown creatures',
+      action: 'GO IN', actionSub: 'depth-jumps',
     },
     {
       name: 'The Roost', tag: '14 KEPT', kind: 'home', accent: '#6dead6',
@@ -164,7 +164,7 @@ class Component extends DCLogic {
       action: 'BREED', actionSub: '3 pairs ready',
     },
     {
-      name: 'Stonecutter', tag: 'RANK 1', kind: 'vendor', accent: '#8c78a5',
+      name: 'Gatekeeper', tag: 'OPEN', kind: 'vendor', accent: '#f3a833',
       left: 320, top: 244, w: 140, h: 96, tint: 'rgba(140,120,165,0.28)',
       body: 'Cuts changes into the tower itself. Nothing he sells sits in your bag, so nothing he sells can be lost.',
       lines: [['START F3', '340'], ['KEEP +1', '280']],

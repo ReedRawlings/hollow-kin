@@ -4,7 +4,7 @@ import { getTemplate } from '../data/creatures';
 import { getAbility } from '../data/abilities';
 import { getItem } from '../data/items';
 import {
-  CombatCreature, BattlePhase, Encounter, CreatureInstance,
+  CombatCreature, BattlePhase, Encounter, CreatureInstance, bandForFloor,
   generateId, STAR_LEVEL_CAPS, TacticId, COMBAT_DELAY_AUTO_THINK,
   scaledDelay, COMBAT_DELAY_ACTION, COMBAT_DELAY_TURN_END, COMBAT_DELAY_STATUS_SKIP,
 } from '../types';
@@ -519,9 +519,9 @@ export class CombatScene extends Phaser.Scene {
 
     if (victory) {
       // Award XP and obols
-      // Depth band (1-3) is the zone-equivalent value, not the raw floor (1-30) —
-      // using raw floor here would inflate XP ~10x at deep floors.
-      const depthBand = Math.floor((this.encounter.floor - 1) / 10) + 1;
+      // Scale on the depth band, not the raw floor — using the floor directly
+      // would inflate XP roughly tenfold at the bottom of the tower.
+      const depthBand = bandForFloor(this.encounter.floor);
       const xpPerCreature = 8 + (this.encounter.type === 'boss' ? 20 : 5) * depthBand;
       const obolKind = this.encounter.type === 'boss'
         ? (this.encounter.bossTier ?? 'mini')

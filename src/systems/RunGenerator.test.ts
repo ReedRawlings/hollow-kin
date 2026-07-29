@@ -1,35 +1,53 @@
 import { describe, it, expect } from 'vitest';
 import { generateDescent, generatePickNextChoices, poolForFloor } from './RunGenerator';
-import { TOWER_FLOORS } from '../types';
+import { TOWER_FLOORS, TOWER_BAND_SIZE, bandForFloor } from '../types';
+
+/** Every boss floor in the current descent, mini and major alike. */
+const BOSS_FLOORS = Array.from({ length: Math.floor(TOWER_FLOORS / 5) }, (_, i) => (i + 1) * 5);
 
 describe('poolForFloor', () => {
-  it('maps floors to depth bands 1-3', () => {
-    expect(poolForFloor(1)).toEqual(poolForFloor(10));   // band 1
-    expect(poolForFloor(11)).toEqual(poolForFloor(20));  // band 2
-    expect(poolForFloor(21)).toEqual(poolForFloor(30));  // band 3
-    expect(poolForFloor(1)).not.toEqual(poolForFloor(21));
+  it('holds the pool steady across a band and switches at the boundary', () => {
+    // Asserted against band boundaries rather than pool inequality: alpha authors
+    // every creature into both bands 1 and 2, so the two pools are legitimately
+    // equal today and comparing them would test the roster, not the banding.
+    expect(bandForFloor(1)).toBe(bandForFloor(TOWER_BAND_SIZE));
+    expect(bandForFloor(TOWER_BAND_SIZE + 1)).toBe(bandForFloor(TOWER_BAND_SIZE * 2));
+    expect(bandForFloor(TOWER_BAND_SIZE)).not.toBe(bandForFloor(TOWER_BAND_SIZE + 1));
+    expect(poolForFloor(1)).toEqual(poolForFloor(TOWER_BAND_SIZE));
+  });
+
+  it('never hands back an empty pool, even below the shallowest authored band', () => {
+    // Bands past the authored roster fall back to band 1; an empty pool would
+    // break encounter generation outright.
+    expect(poolForFloor(TOWER_BAND_SIZE * 9 + 1).length).toBeGreaterThan(0);
+    expect(poolForFloor(1).length).toBeGreaterThan(0);
   });
 });
 
 describe('generateDescent', () => {
-  it('produces one encounter per floor from 1 to 30 by default', () => {
+  it('produces one encounter per floor of the tower by default', () => {
     const d = generateDescent();
     expect(d).toHaveLength(TOWER_FLOORS);
     expect(d[0].floor).toBe(1);
-    expect(d[d.length - 1].floor).toBe(30);
+    expect(d[d.length - 1].floor).toBe(TOWER_FLOORS);
     d.forEach((e, i) => expect(e.index).toBe(i));
   });
 
-  it('places mini bosses on 5/15/25 and majors on 10/20/30', () => {
+  it('places a boss every 5 floors, major on every 10th', () => {
     const d = generateDescent();
     const byFloor = (f: number) => d.find(e => e.floor === f)!;
-    for (const f of [5, 15, 25]) {
+    for (const f of BOSS_FLOORS) {
       expect(byFloor(f).type).toBe('boss');
-      expect(byFloor(f).bossTier).toBe('mini');
+      expect(byFloor(f).bossTier).toBe(f % 10 === 0 ? 'major' : 'mini');
     }
-    for (const f of [10, 20, 30]) {
-      expect(byFloor(f).type).toBe('boss');
-      expect(byFloor(f).bossTier).toBe('major');
+  });
+
+  it('gives a boss distinct enemies rather than the head of the pool', () => {
+    // Pools are derived from towerIds, so pool[0..2] carries no meaning; a boss
+    // taking the first three entries would pin every boss to the same species.
+    const d = generateDescent();
+    for (const e of d.filter(x => x.type === 'boss')) {
+      expect(new Set(e.enemies!).size).toBe(e.enemies!.length);
     }
   });
 
@@ -39,11 +57,12 @@ describe('generateDescent', () => {
   });
 
   it('supports a depth-jump start floor', () => {
-    const d = generateDescent(11);
-    expect(d[0].floor).toBe(11);
+    const start = TOWER_BAND_SIZE + 1;
+    const d = generateDescent(start);
+    expect(d[0].floor).toBe(start);
     expect(d[0].type).toBe('combat');
-    expect(d[d.length - 1].floor).toBe(30);
-    expect(d).toHaveLength(20);
+    expect(d[d.length - 1].floor).toBe(TOWER_FLOORS);
+    expect(d).toHaveLength(TOWER_FLOORS - start + 1);
   });
 
   it('gives every combat/boss enemies and a positive level', () => {
@@ -100,7 +119,7 @@ describe('generatePickNextChoices', () => {
     expect(generatePickNextChoices(d, d.length - 1)).toEqual([]);
   });
 
-  it('walks a full descent end-to-end, forcing every boss and terminating on floor 30', () => {
+  it('walks a full descent end-to-end, forcing every boss and terminating at the tower floor', () => {
     const d = generateDescent();
     let idx = -1;
     const forcedBossFloors: number[] = [];
@@ -122,8 +141,8 @@ describe('generatePickNextChoices', () => {
     }
 
     expect(terminatedOnEmpty).toBe(true);
-    expect(forcedBossFloors).toEqual([5, 10, 15, 20, 25, 30]);
-    expect(lastFloor).toBe(30);
+    expect(forcedBossFloors).toEqual(BOSS_FLOORS);
+    expect(lastFloor).toBe(TOWER_FLOORS);
   });
 
   it('never offers the same non-combat encounter type twice in one choice set', () => {

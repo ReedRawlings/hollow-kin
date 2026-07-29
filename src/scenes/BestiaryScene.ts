@@ -14,6 +14,13 @@ const GRID_Y = 130;
 const COL_SPACING = 145;
 const ROW_SPACING = 82;
 
+/** Where a grid cell's text starts, relative to the cell centre. */
+const LABEL_OFFSET_X = -20;
+/** Room a grid label has before it runs off the right edge of its cell. */
+const LABEL_MAX_W = CELL_W / 2 - LABEL_OFFSET_X - 8;
+/** Tried largest-first; the first size that fits LABEL_MAX_W wins. */
+const LABEL_SIZES = [11, 10, 9, 8];
+
 export class BestiaryScene extends Phaser.Scene {
   private entries: BestiaryEntry[] = [];
   private pageIndex = 0;
@@ -97,9 +104,7 @@ export class BestiaryScene extends Phaser.Scene {
 
       if (entry.discovered) {
         this.track(this.add.rectangle(x - 45, y, 38, 38, entry.template.spriteColor));
-        this.track(this.add.text(x - 20, y - 12, entry.name, {
-          fontSize: '11px', color: '#ffffff', fontFamily: 'monospace',
-        }));
+        this.track(this.nameLabel(x + LABEL_OFFSET_X, y - 12, entry.name));
         this.track(this.add.text(x - 20, y + 4, entry.archetype, {
           fontSize: '10px', color: '#8888aa', fontFamily: 'monospace',
         }));
@@ -119,6 +124,25 @@ export class BestiaryScene extends Phaser.Scene {
         }));
       }
     });
+  }
+
+  /**
+   * A species name sized to fit its grid cell. Names run from 3 to 14 characters
+   * ("Egg" to "Weeping Willow"), and at a fixed 11px the longest ones rendered
+   * straight over the cell border and into the neighbouring column. Shrinking
+   * beats truncating here: the grid's whole job is letting a player find a
+   * species by name, and an ellipsis takes that away from exactly the entries
+   * hardest to identify from a colour swatch alone.
+   */
+  private nameLabel(x: number, y: number, name: string): Phaser.GameObjects.Text {
+    const label = this.add.text(x, y, name, {
+      fontSize: `${LABEL_SIZES[0]}px`, color: '#ffffff', fontFamily: 'monospace',
+    });
+    for (const size of LABEL_SIZES) {
+      label.setFontSize(size);
+      if (label.width <= LABEL_MAX_W) break;
+    }
+    return label;
   }
 
   private drawPaging(): void {

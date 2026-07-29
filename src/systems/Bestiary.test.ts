@@ -15,21 +15,21 @@ describe('buildBestiary', () => {
   });
 
   it('marks exactly the passed species as discovered', () => {
-    const entries = buildBestiary(new Set(['ironjaw', 'petalward']));
+    const entries = buildBestiary(new Set(['kin_070', 'kin_020']));
     const discovered = entries.filter(e => e.discovered).map(e => e.speciesId).sort();
-    expect(discovered).toEqual(['ironjaw', 'petalward']);
+    expect(discovered).toEqual(['kin_020', 'kin_070']);
   });
 
   it('ignores species ids that are not in the roster', () => {
-    const entries = buildBestiary(new Set(['ironjaw', 'not_a_real_species']));
-    expect(entries.filter(e => e.discovered).map(e => e.speciesId)).toEqual(['ironjaw']);
+    const entries = buildBestiary(new Set(['kin_070', 'not_a_real_species']));
+    expect(entries.filter(e => e.discovered).map(e => e.speciesId)).toEqual(['kin_070']);
   });
 
   it('carries the template through so the scene needs no second lookup', () => {
-    const entry = buildBestiary(new Set()).find(e => e.speciesId === 'ironjaw')!;
-    expect(entry.template).toBe(CREATURE_TEMPLATES['ironjaw']);
-    expect(entry.name).toBe(CREATURE_TEMPLATES['ironjaw'].name);
-    expect(entry.archetype).toBe(CREATURE_TEMPLATES['ironjaw'].archetype);
+    const entry = buildBestiary(new Set()).find(e => e.speciesId === 'kin_070')!;
+    expect(entry.template).toBe(CREATURE_TEMPLATES['kin_070']);
+    expect(entry.name).toBe(CREATURE_TEMPLATES['kin_070'].name);
+    expect(entry.archetype).toBe(CREATURE_TEMPLATES['kin_070'].archetype);
   });
 
   it('groups by archetype in ARCHETYPE_ORDER, then sorts by species id', () => {
@@ -53,14 +53,14 @@ describe('buildBestiary', () => {
 
   it('is stable — two calls produce the same order', () => {
     const a = buildBestiary(new Set()).map(e => e.speciesId);
-    const b = buildBestiary(new Set(['ironjaw'])).map(e => e.speciesId);
+    const b = buildBestiary(new Set(['kin_070'])).map(e => e.speciesId);
     expect(a).toEqual(b);
   });
 });
 
 describe('bestiaryProgress', () => {
   it('counts discovered against total', () => {
-    const entries = buildBestiary(new Set(['ironjaw', 'petalward']));
+    const entries = buildBestiary(new Set(['kin_070', 'kin_020']));
     expect(bestiaryProgress(entries)).toEqual({
       discovered: 2,
       total: Object.keys(CREATURE_TEMPLATES).length,

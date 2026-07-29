@@ -10,7 +10,7 @@ import { calculateLevelScaledStats } from '../managers/GameState';
 // Minimal creature-instance factory for tests (only fields breeding reads).
 function makeParent(overrides: Partial<CreatureInstance>): CreatureInstance {
   return {
-    instanceId: 'p', speciesId: 'ironjaw', nickname: null, starRating: 1,
+    instanceId: 'p', speciesId: 'kin_070', nickname: null, starRating: 1,
     currentLevel: 1, levelCap: 50, permanentLevel: 1, essenceInvested: 0,
     abilities: [], traitSlots: [], lineage: { parentA: null, parentB: null },
     statBaseline: { hp: 30, mp: 5, str: 10, def: 8, wis: 5, spd: 7, int: 4 },
@@ -80,7 +80,7 @@ describe('breed applies carry-over to the offspring', () => {
   it('sets permanentLevel = currentLevel = carried level, and matching essenceInvested', () => {
     const a = makeParent({ instanceId: 'a', essenceInvested: 38 });
     const b = makeParent({ instanceId: 'b', essenceInvested: 38 });
-    const child = breed(a, b, 'ironjaw', []);
+    const child = breed(a, b, 'kin_070', []);
     expect(child.permanentLevel).toBe(2);
     expect(child.currentLevel).toBe(2);
     expect(child.essenceInvested).toBe(10);
@@ -89,7 +89,7 @@ describe('breed applies carry-over to the offspring', () => {
   it('still retires both parents', () => {
     const a = makeParent({ instanceId: 'a', essenceInvested: 0 });
     const b = makeParent({ instanceId: 'b', essenceInvested: 0 });
-    breed(a, b, 'ironjaw', []);
+    breed(a, b, 'kin_070', []);
     expect(a.isRetired).toBe(true);
     expect(b.isRetired).toBe(true);
   });
@@ -108,8 +108,8 @@ describe('breed applies carry-over to the offspring', () => {
       statBaseline: { hp: 48, mp: 36, str: 28, def: 26, wis: 24, spd: 22, int: 20 },
       currentLevel: 10, levelCap: 10,
     });
-    const expected = calculateOffspringStats(a, b, 'ironjaw');
-    const child = breed(a, b, 'ironjaw', []);
+    const expected = calculateOffspringStats(a, b, 'kin_070');
+    const child = breed(a, b, 'kin_070', []);
 
     expect(child.statBaseline).toEqual(expected);
     expect(child.currentStats).toEqual(child.statBaseline);
@@ -143,14 +143,14 @@ describe('calculateOffspringStats excludes trait bonuses from the heritable base
     });
     other.currentStats = calculateLevelScaledStats(other);
 
-    const fromUntraited = calculateOffspringStats(untraited, other, 'ironjaw');
-    const fromTraited = calculateOffspringStats(traited, other, 'ironjaw');
+    const fromUntraited = calculateOffspringStats(untraited, other, 'kin_070');
+    const fromTraited = calculateOffspringStats(traited, other, 'kin_070');
 
     expect(fromTraited).toEqual(fromUntraited);
   });
 
   it('still produces a stronger offspring baseline from higher-LEVEL parents (level scaling survives)', () => {
-    // A baseline well above the ironjaw template floor (40 hp), so Math.max's floor
+    // A baseline well above the Cat template floor (42 hp), so Math.max's floor
     // clamp in calculateOffspringStats can't mask the level-scaling difference this
     // test is checking for.
     const highBaseline = { hp: 300, mp: 200, str: 200, def: 160, wis: 120, spd: 120, int: 120 };
@@ -161,8 +161,8 @@ describe('calculateOffspringStats excludes trait bonuses from the heritable base
       instanceId: 'high', statBaseline: { ...highBaseline }, currentLevel: 50, levelCap: 50,
     });
 
-    const fromLow = calculateOffspringStats(low, low, 'ironjaw');
-    const fromHigh = calculateOffspringStats(high, high, 'ironjaw');
+    const fromLow = calculateOffspringStats(low, low, 'kin_070');
+    const fromHigh = calculateOffspringStats(high, high, 'kin_070');
 
     expect(fromHigh.hp).toBeGreaterThan(fromLow.hp);
   });
@@ -260,7 +260,7 @@ describe('breed() trait slot wiring (no star-based unlocking)', () => {
     // permanentLevel-driven model must not.
     const a = makeParent({ instanceId: 'a', starRating: 5, permanentLevel: 50, levelCap: 50, essenceInvested: 0 });
     const b = makeParent({ instanceId: 'b', starRating: 5, permanentLevel: 50, levelCap: 50, essenceInvested: 0 });
-    const child = breed(a, b, 'ironjaw', []);
+    const child = breed(a, b, 'kin_070', []);
     expect(child.permanentLevel).toBe(1);
     expect(child.traitSlots.every((s) => s.unlocked === false)).toBe(true);
   });
@@ -271,7 +271,7 @@ describe('breed() trait slot wiring (no star-based unlocking)', () => {
       traitSlots: slotsWith({ 0: { traitId: 'sturdy', traitLevel: 4, unlocked: true } }),
     });
     const b = makeParent({ instanceId: 'b', traitSlots: emptySlots() });
-    const child = breed(a, b, 'ironjaw', []);
+    const child = breed(a, b, 'kin_070', []);
     expect(child.traitSlots[0].traitId).toBe('sturdy');
     expect(child.traitSlots[0].traitLevel).toBe(1);
   });

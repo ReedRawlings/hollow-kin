@@ -223,7 +223,20 @@ Below the ledger: `ESSENCE GAINED` plate with the total in Press Start 22px and 
 
 **Layout:** header (`THE TOWN`, run count/deepest floor) + essence chip → left: a 2×4 grid of seven vendor tiles (colored spine, name, rank/stock tag, one-line trade) plus a bricked-up eighth door; right: default party (three cards) and a vendor detail panel (pitch + priced offers, red when unaffordable) → bottom action row: `ENTER TOWER` (gold, primary) / `PARTY` / `BREED` / `PEDIA`.
 
-**Seven vendors:** Quartermaster (bag slots, exchange bonus) · Apothecary (restoratives) · Hatchery (clutch slots, egg rushing) · Reliquary (marks, mark slots) · Beast Broker (grown creatures) · Stonecutter (permanent run upgrades) · The Oracle (floor foresight, **locked** until a run reaches floor 15 — greyed spine, muted text, default cursor).
+**Seven vendors:** Quartermaster (bag slots, exchange bonus) · Provisioner (carryable supplies) · Hatchery (breed a pair) · Mark-binder (bind an earned mark) · Gatekeeper (depth-jumps) · The Leveler (permanent levels) · The Oracle (floor foresight, **locked** until a run reaches floor 15 — greyed spine, muted text, default cursor).
+
+> **Vendor names were realigned on 2026-07-28.** This handoff was drawn against an earlier vendor lineup; the tiles now carry the names in `town.md` and `TownScene.ts` so the mockups can be read as a build reference. The **layout is unchanged** — only names, trade lines and two state tags moved.
+>
+> | Was | Now | Note |
+> |---|---|---|
+> | Stonecutter | **Gatekeeper** | Despite the name, nothing to do with Breeding Stones — those belonged to the Enhancer, cut in the 2026-07-23 pivot. Its offers were `START AT FLOOR 3` and `KEEP 1 MORE ITEM ON WIPE`, i.e. depth-jumps plus a guaranteed bag slot. The depth half is the Gatekeeper; the wipe-protection half belongs to the Quartermaster and has been folded there |
+> | Apothecary | **Provisioner** | Restoratives are bought as carryable items in town |
+> | Reliquary | **Mark-binder** | |
+> | Beast Broker | **The Leveler** | **Substitution, not a rename.** Buying grown creatures ("4★ Boarhide LV20") is not a mechanic in any current design doc, and the Leveler — the single most-used vendor in the build — had no tile at all. Reassigning this one keeps the layout intact. Revisit if a creature broker was actually intended |
+>
+> **Still missing from this mockup:** the **Trait-keeper** has no tile, and `town.md`'s vendor list does not fit the seven-tile grid. The bricked-up eighth door is the obvious home for it.
+>
+> **The sample party is stale content, not layout.** The three cards name Ironjaw / Emberwhelp / Bladeknight with archetypes `BRUTE` / `EMBER` / `HOLLOW` — species and archetype names from the superseded 36-creature roster, none of which exist. Read them as lorem ipsum for card sizing; real names now look like Cat (Fauna), Geta (Kami), Wiggledrake (Dragon). The same goes for the `34 of 60 seen` pedia count — the roster is 30.
 
 ### 9b. Town Hub Map — `screens/Town Hub Map.dc.html` *(preferred direction)*
 
@@ -237,12 +250,12 @@ Ten clickable building footprints, absolutely positioned, each a hatched art pla
 |---|---|---|---|
 | THE TOWER | 375, 6 | 170 × 86 | `ENTER TOWER` |
 | Quartermaster | 20, 108 | 148 × 88 | vendor |
-| Apothecary | 178, 108 | 140 × 88 | vendor |
-| Reliquary | 600, 108 | 148 × 88 | vendor |
-| Beast Broker | 758, 108 | 142 × 88 | vendor |
+| Provisioner | 178, 108 | 140 × 88 | vendor |
+| Mark-binder | 600, 108 | 148 × 88 | vendor |
+| Gatekeeper | 758, 108 | 142 × 88 | vendor |
 | The Roost | 20, 244 | 140 × 96 | `PARTY` — box & swaps |
 | Hatchery | 170, 244 | 140 × 96 | `BREED` |
-| Stonecutter | 320, 244 | 140 × 96 | vendor |
+| The Leveler | 320, 244 | 140 × 96 | vendor |
 | The Archive | 470, 244 | 140 × 96 | `PEDIA` |
 | The Oracle | 620, 244 | 140 × 96 | locked |
 

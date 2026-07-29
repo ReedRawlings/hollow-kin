@@ -257,7 +257,7 @@ describe('contestedSlotIndices', () => {
   // Minimal creature-instance factory — only the fields contestedSlotIndices reads.
   function makeCreature(traitSlots: TraitSlot[]): CreatureInstance {
     return {
-      instanceId: 'c', speciesId: 'ironjaw', nickname: null, starRating: 0,
+      instanceId: 'c', speciesId: 'kin_070', nickname: null, starRating: 0,
       currentLevel: 1, levelCap: 5, permanentLevel: 1, essenceInvested: 0,
       abilities: [], traitSlots, lineage: { parentA: null, parentB: null },
       statBaseline: { hp: 1, mp: 1, str: 1, def: 1, wis: 1, spd: 1, int: 1 },

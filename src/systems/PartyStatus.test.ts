@@ -3,7 +3,7 @@ import { CreatureInstance } from '../types';
 import { resolvePartyStatus, describePartyStatus, PARTY_SIZE } from './PartyStatus';
 import { breed } from './BreedingSystem';
 
-function makeCreature(instanceId: string, speciesId = 'ironjaw', over: Partial<CreatureInstance> = {}): CreatureInstance {
+function makeCreature(instanceId: string, speciesId = 'kin_070', over: Partial<CreatureInstance> = {}): CreatureInstance {
   return {
     instanceId, speciesId, nickname: null, starRating: 0, currentLevel: 1, levelCap: 5,
     permanentLevel: 1, essenceInvested: 0, abilities: [], traitSlots: [],
@@ -45,13 +45,13 @@ describe('resolvePartyStatus', () => {
   it('reports a retired member as missing, by name', () => {
     const box = [
       makeCreature('a'),
-      makeCreature('b', 'ironjaw', { isRetired: true }),
+      makeCreature('b', 'kin_070', { isRetired: true }),
       makeCreature('c'),
     ];
     const status = resolvePartyStatus(['a', 'b', 'c'], box);
     expect(status.kind).toBe('missing');
     if (status.kind === 'missing') {
-      expect(status.missingNames).toEqual(['Ironjaw']);
+      expect(status.missingNames).toEqual(['Cat']);
       expect(status.remaining.map(m => m.instanceId)).toEqual(['a', 'c']);
     }
   });
@@ -59,7 +59,7 @@ describe('resolvePartyStatus', () => {
   it('prefers a nickname over the species name when reporting a missing member', () => {
     const box = [
       makeCreature('a'),
-      makeCreature('b', 'ironjaw', { isRetired: true, nickname: 'Chomper' }),
+      makeCreature('b', 'kin_070', { isRetired: true, nickname: 'Chomper' }),
       makeCreature('c'),
     ];
     const status = resolvePartyStatus(['a', 'b', 'c'], box);
@@ -69,13 +69,13 @@ describe('resolvePartyStatus', () => {
 
   it('names every missing member, not just the first', () => {
     const box = [
-      makeCreature('a', 'ironjaw', { isRetired: true }),
-      makeCreature('b', 'emberwhelp', { isRetired: true }),
+      makeCreature('a', 'kin_070', { isRetired: true }),
+      makeCreature('b', 'kin_110', { isRetired: true }),
       makeCreature('c'),
     ];
     const status = resolvePartyStatus(['a', 'b', 'c'], box);
     if (status.kind !== 'missing') throw new Error('expected missing');
-    expect(status.missingNames).toEqual(['Ironjaw', 'Emberwhelp']);
+    expect(status.missingNames).toEqual(['Cat', 'Bomb Beetle']);
   });
 
   it('does not throw when a stored id is absent from the box entirely', () => {
@@ -90,7 +90,7 @@ describe('resolvePartyStatus', () => {
 
   it('reports incomplete rather than missing when the party is both short and stale', () => {
     // Length is checked first: a two-id party is incomplete regardless of retirement.
-    const box = [makeCreature('a', 'ironjaw', { isRetired: true })];
+    const box = [makeCreature('a', 'kin_070', { isRetired: true })];
     expect(resolvePartyStatus(['a', 'b'], box)).toEqual({ kind: 'incomplete', have: 2 });
   });
 
@@ -108,9 +108,9 @@ describe('resolvePartyStatus after a real breed (finding 1 regression)', () => {
   // retired but still in the box", and only the latter is what breed() + BreedingScene
   // together produce.
   it('names both retired parents by their real names, not a placeholder', () => {
-    const parentA = makeCreature('a', 'ironjaw', { isBreedReady: true, starRating: 1 });
-    const parentB = makeCreature('b', 'emberwhelp', { isBreedReady: true, starRating: 1 });
-    const thirdMember = makeCreature('c', 'stoneguard');
+    const parentA = makeCreature('a', 'kin_070', { isBreedReady: true, starRating: 1 });
+    const parentB = makeCreature('b', 'kin_110', { isBreedReady: true, starRating: 1 });
+    const thirdMember = makeCreature('c', 'kin_092');
     const box: CreatureInstance[] = [parentA, parentB, thirdMember];
 
     const offspring = breed(parentA, parentB, parentA.speciesId, []);
@@ -123,10 +123,10 @@ describe('resolvePartyStatus after a real breed (finding 1 regression)', () => {
     const status = resolvePartyStatus(['a', 'b', 'c'], box);
     expect(status.kind).toBe('missing');
     if (status.kind !== 'missing') throw new Error('expected missing');
-    expect(status.missingNames).toEqual(['Ironjaw', 'Emberwhelp']);
+    expect(status.missingNames).toEqual(['Cat', 'Bomb Beetle']);
     expect(status.missingNames).not.toContain('a former party member');
 
-    expect(describePartyStatus(status)).toBe('Ironjaw and Emberwhelp are no longer available.');
+    expect(describePartyStatus(status)).toBe('Cat and Bomb Beetle are no longer available.');
   });
 });
 
@@ -140,21 +140,21 @@ describe('describePartyStatus', () => {
   it('uses singular "is" for exactly one missing name', () => {
     const box = [
       makeCreature('a'),
-      makeCreature('b', 'ironjaw', { isRetired: true }),
+      makeCreature('b', 'kin_070', { isRetired: true }),
       makeCreature('c'),
     ];
     const status = resolvePartyStatus(['a', 'b', 'c'], box);
-    expect(describePartyStatus(status)).toBe('Ironjaw is no longer available.');
+    expect(describePartyStatus(status)).toBe('Cat is no longer available.');
   });
 
   it('uses plural "are" for two missing names — the ordinary post-breeding case', () => {
     const box = [
-      makeCreature('a', 'ironjaw', { isRetired: true }),
-      makeCreature('b', 'emberwhelp', { isRetired: true }),
+      makeCreature('a', 'kin_070', { isRetired: true }),
+      makeCreature('b', 'kin_110', { isRetired: true }),
       makeCreature('c'),
     ];
     const status = resolvePartyStatus(['a', 'b', 'c'], box);
-    expect(describePartyStatus(status)).toBe('Ironjaw and Emberwhelp are no longer available.');
+    expect(describePartyStatus(status)).toBe('Cat and Bomb Beetle are no longer available.');
   });
 
   it('describes the incomplete case by how many more are needed', () => {

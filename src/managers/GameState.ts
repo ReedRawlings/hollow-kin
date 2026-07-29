@@ -11,6 +11,12 @@ import { createBackpack, applyWipeLoss, unloadCapturesToBox } from '../systems/B
 const STAT_NAMES: (keyof BaseStats)[] = ['hp', 'mp', 'str', 'def', 'wis', 'spd', 'int'];
 
 /**
+ * Saves at any other version are discarded, not migrated. Bumped to 7 by the
+ * alpha roster swap, which invalidated every species id a save could hold.
+ */
+export const SAVE_VERSION = 7;
+
+/**
  * Level-scaled stats for `instance`, EXCLUDING trait bonuses — a pure function of the
  * instance's own fields (statBaseline/currentLevel/levelCap), with no dependency on the
  * gameState singleton. `calculateStatsForLevel` (the instance method below) is this plus
@@ -28,8 +34,9 @@ const STAT_NAMES: (keyof BaseStats)[] = ['hp', 'mp', 'str', 'def', 'wis', 'spd',
  */
 export function calculateLevelScaledStats(instance: CreatureInstance): BaseStats {
   const template = getTemplate(instance.speciesId);
-  // Protect runtime callers holding a pre-v5 object. Save migration backfills
-  // the field before persisted creatures reach this path.
+  // Protects runtime callers holding an instance built somewhere that does not
+  // set a baseline. Loading backfills the field from the species template, so
+  // persisted creatures never reach this path without one.
   const base = instance.statBaseline ?? template.baseStats;
   const level = instance.currentLevel;
   const cap = instance.levelCap;
@@ -183,10 +190,12 @@ class GameStateManager {
   /**
    * Floors granted by clearing breaks up to `deepestBreakCleared`, under the current
    * 5-floor cadence (clear the break at f -> floor f+1 is earned). Single source of
-   * truth for this mapping — used both to compute what's purchasable now and, in the
-   * v3->v4 migration, to grant what a returning player already earned under the old
-   * rules. Keeping this in one place means retuning the break cadence can't make the
-   * two drift apart.
+   * truth for this mapping, so retuning the break cadence can't make two copies of it
+   * drift apart.
+   *
+   * The `f + 1 <= TOWER_FLOORS` bound is what stops the deepest break being offered
+   * when there would be nothing below it to descend into: at the alpha cap of 20 the
+   * last purchasable break is 15, not 20.
    */
   private floorsEarnedByBreaks(): number[] {
     const out: number[] = [];
@@ -335,7 +344,7 @@ class GameStateManager {
 
   saveToLocalStorage(): void {
     const data = {
-      version: 6,
+      version: SAVE_VERSION,
       creatureBox: this.creatureBox,
       essence: this.essence,
       deepestBreakCleared: this.deepestBreakCleared,
@@ -350,60 +359,47 @@ class GameStateManager {
     localStorage.setItem('hollow_kin_save', JSON.stringify(data));
   }
 
+  /**
+   * Loads a save, or reports that there is nothing loadable.
+   *
+   * There is deliberately no migration path any more. Every save written before
+   * v7 references species ids from the superseded 36-creature roster, and
+   * `starRating`, `traitSlots` and `statBaseline` all hang off templates that no
+   * longer exist — there is nothing in an old save worth carrying forward, so it
+   * is discarded outright rather than half-translated. The v2->v6 field-by-field
+   * migrations that used to live here went with it.
+   *
+   * The stale blob is removed rather than left in place, so a discarded save
+   * cannot be re-read (and re-discarded) on every boot.
+   */
   loadFromLocalStorage(): boolean {
     const raw = localStorage.getItem('hollow_kin_save');
     if (!raw) return false;
     try {
       const data = JSON.parse(raw);
-      // Essence: new field, else migrate old townResources, else 0
-      this.essence = data.essence ?? data.townResources ?? 0;
+      if (data.version !== SAVE_VERSION) {
+        localStorage.removeItem('hollow_kin_save');
+        return false;
+      }
+      this.essence = data.essence ?? 0;
       this.deepestBreakCleared = data.deepestBreakCleared ?? 0;
       this.hasCompletedFirstRun = data.hasCompletedFirstRun ?? false;
-      // v3 additions — absent on v2 saves, so default safely.
       this.seenSpecies = new Set<string>(data.seenSpecies ?? []);
       this.battleSpeed = (data.battleSpeed ?? 1) as BattleSpeed;
-      // v6: backpack moved from RunState to here. A pre-v6 save (or one saved mid-run,
-      // pre-migration, with no backpack field at all) has nothing to restore — hand it
-      // a fresh bag rather than leaving it undefined.
       this.backpack = (data.backpack && Array.isArray(data.backpack.slots))
         ? {
           slots: [...data.backpack.slots],
           guaranteedSlots: data.backpack.guaranteedSlots ?? BACKPACK_START_GUARANTEED,
         }
         : createBackpack();
-      // v4 additions.
-      // `defaultParty` has no old-semantics value to preserve when absent — there was
-      // nothing like it pre-v4 — so a plain `?? []` is correct as-is. Unlike
-      // `unlockedFloors` below, presence-checking here would buy nothing; don't "fix"
-      // this into an Array.isArray check.
       this.defaultParty = data.defaultParty ?? [];
-      if (Array.isArray(data.unlockedFloors)) {
-        this.unlockedFloors = [...data.unlockedFloors];
-        // v4 save: this is the player's own current choice — preserve it verbatim.
-        this.selectedStartFloor = data.selectedStartFloor ?? 1;
-      } else {
-        // v3 save: cleared breaks already granted deep starts under the old rules.
-        // Grant them outright so nobody is asked to re-buy depth they earned.
-        // Presence, not emptiness, is the test — a v4 player who owns nothing must stay that way.
-        this.unlockedFloors = this.floorsEarnedByBreaks();
-        // A v3 save's selectedStartFloor was chosen under the old rules: a different
-        // per-run fee formula ((floor-1)*15 vs the new (floor-1)*5) and floors that
-        // auto-unlocked on clearing a break rather than being purchased. That value is
-        // not meaningful under the new contract, so we don't carry it forward — this is
-        // true independent of the fact that a stale deep value here would otherwise reach
-        // resolveRunStartFloor()'s throw the moment an ordinary returning player's Essence
-        // falls short of the new fee. Declining to carry forward a *migrated* setting whose
-        // meaning changed is not the same as substituting the player's live choice at
-        // departure time, which remains forbidden — resolveRunStartFloor() keeps throwing
-        // for a v4 save's genuinely unaffordable/unowned selection.
-        this.selectedStartFloor = 1;
-      }
+      this.unlockedFloors = Array.isArray(data.unlockedFloors) ? [...data.unlockedFloors] : [];
+      this.selectedStartFloor = data.selectedStartFloor ?? 1;
       this.creatureBox = (data.creatureBox ?? []).map((c: any) => {
-        const { longevity, ...rest } = c; // drop longevity if present
         const template = getTemplate(c.speciesId);
         const permanentLevel = c.permanentLevel ?? 1;
         return {
-          ...rest,
+          ...c,
           permanentLevel,
           essenceInvested: c.essenceInvested ?? 0,
           tactic: (c.tactic ?? 'fight_wisely') as TacticId,
@@ -415,16 +411,7 @@ class GameStateManager {
           // older/shorter traitSlots array (or one with a hole) would otherwise diverge
           // from what resolveInheritedTraitSlots always builds for offspring.
           traitSlots: this.normalizeTraitSlots(c.traitSlots, permanentLevel),
-          // v5: old, freshly-bred creatures still hold their unscaled inherited
-          // stats in currentStats. Preserve those when possible; if an earlier run
-          // already replaced them with template-scaled stats, the species baseline
-          // is the only trustworthy fallback.
-          statBaseline: c.statBaseline
-            ? { ...c.statBaseline }
-            : c.lineage?.parentA && c.currentLevel === (c.permanentLevel ?? 1)
-              && !this.matchesLegacyTemplateScale(c)
-              ? { ...c.currentStats }
-              : { ...template.baseStats },
+          statBaseline: c.statBaseline ? { ...c.statBaseline } : { ...template.baseStats },
         } as CreatureInstance;
       });
       return true;
@@ -454,16 +441,6 @@ class GameStateManager {
     });
   }
 
-  private matchesLegacyTemplateScale(creature: any): boolean {
-    const base = getTemplate(creature.speciesId).baseStats;
-    const level = creature.currentLevel ?? 1;
-    const cap = creature.levelCap ?? 5;
-    const statNames: (keyof BaseStats)[] = ['hp', 'mp', 'str', 'def', 'wis', 'spd', 'int'];
-    return statNames.every(stat => {
-      const expected = Math.floor(base[stat] + (base[stat] * 2.5 - base[stat]) * (level / cap));
-      return creature.currentStats?.[stat] === expected;
-    });
-  }
 }
 
 export const gameState = new GameStateManager();

@@ -1,8 +1,8 @@
 import {
   CombatCreature, CreatureTemplate, RiteDef, RiteLog, RiteCondition, RiteBand,
-  CaptureParty, BidReaction, StatName,
-  CAPTURE_DEPTH_EXPONENT, CAPTURE_BAND_MULTIPLIER, CAPTURE_HP_NUDGE,
-  CAPTURE_ENRAGE_AFTER, CAPTURE_INSULT_FRACTION, DEFAULT_CAPTURE_BASE_PRICE,
+  CaptureParty, BidReaction, StatName, bandForFloor,
+  CAPTURE_BAND_MULTIPLIER, CAPTURE_HP_NUDGE,
+  CAPTURE_ENRAGE_AFTER, CAPTURE_INSULT_FRACTION,
 } from '../types';
 
 /**
@@ -17,7 +17,26 @@ import {
 
 export type CaptureBand = 'unsatisfied' | RiteBand;
 
-/** A fresh per-enemy record. One per enemy per battle; never persisted. */
+/**
+ * A fresh per-enemy record. One per enemy per battle; never persisted.
+ *
+ * The last five fields have no writer yet — capture is not wired into
+ * CombatScene, so nothing populates any of this. When it is, these are the
+ * write sites that task owes:
+ *
+ * - `damageTypesDealt`   — tally on every resolved ability with a damage type,
+ *                          either side, alongside the existing damageTypesTaken.
+ * - `itemConsumedOnSelf` /
+ *   `itemConsumedByAlly`  — CombatScene.useItem, by whether the target is this
+ *                          creature or one of its allies.
+ * - `struckStatStages`   — at the moment this creature's attack lands, record
+ *                          the struck creature's buffStages. It cannot be read
+ *                          later; the defender is out of scope by evaluation time.
+ * - `debuffApplied`      — wherever a negative stat stage is applied to anyone.
+ *
+ * Until then those conditions read as false, so a rite depending on one leaves
+ * the creature at full freight rather than throwing.
+ */
 export function newRiteLog(): RiteLog {
   return {
     damageTypesTaken: [],
@@ -27,6 +46,11 @@ export function newRiteLog(): RiteLog {
     latchedRites: [],
     rejectedBids: 0,
     isEnraged: false,
+    damageTypesDealt: {},
+    itemConsumedOnSelf: false,
+    itemConsumedByAlly: false,
+    struckStatStages: {},
+    debuffApplied: false,
   };
 }
 
@@ -68,6 +92,16 @@ function conditionHolds(
       return party.anyKnockedOut;
     case 'solo_actor':
       return party.actorCount <= 1;
+    case 'item_consumed':
+      return condition.scope === 'self' ? log.itemConsumedOnSelf : log.itemConsumedByAlly;
+    case 'damage_type_dealt':
+      return (log.damageTypesDealt[condition.damageType] ?? 0) >= (condition.times ?? 1);
+    case 'struck_enemy_stat_stage_at_least':
+      return (log.struckStatStages[condition.stat] ?? 0) >= condition.stage;
+    case 'enemy_party_contains_archetype':
+      return party.archetypes.includes(condition.archetype);
+    case 'debuff_applied':
+      return log.debuffApplied;
   }
 }
 
@@ -127,27 +161,38 @@ export function bandFor(template: CreatureTemplate, satisfiedRiteIds: string[]):
   return best;
 }
 
-/** A base price of exactly 0 means the species cannot be taken in the wild. */
-export function isUncapturable(template: CreatureTemplate): boolean {
-  return template.captureBasePrice === 0;
+/**
+ * Whether this species can be taken in the wild at the given tower band. A band
+ * with no price, or a price of exactly 0, cannot be bought there — which is how
+ * boss-exclusive and breed-only species are expressed, and also what makes a
+ * species met outside its authored bands untakeable rather than free.
+ */
+export function isUncapturable(template: CreatureTemplate, towerBand: number): boolean {
+  const price = template.captureBasePrice?.[towerBand];
+  return price === undefined || price === 0;
 }
 
 /**
  * What it costs to guarantee this creature right now. Returns 0 for species that
  * cannot be captured at all, which `captureChance` reads as impossible.
+ *
+ * Depth enters only through which tower band the floor falls in — the price for
+ * that band is authored, not computed. `riteBand` is the unrelated rite tier.
  */
 export function capturePrice(
   template: CreatureTemplate,
   floor: number,
   target: CombatCreature,
-  band: CaptureBand,
+  riteBand: CaptureBand,
 ): number {
-  if (isUncapturable(template)) return 0;
-  const base = template.captureBasePrice ?? DEFAULT_CAPTURE_BASE_PRICE;
-  const depth = Math.pow(Math.max(1, floor), CAPTURE_DEPTH_EXPONENT);
+  const towerBand = bandForFloor(floor);
+  // Past this guard the band's price is always present and non-zero — that is
+  // exactly what isUncapturable tests — so there is no default to fall back to.
+  if (isUncapturable(template, towerBand)) return 0;
+  const base = template.captureBasePrice[towerBand];
   // HP is a nudge, not a lever — a full-HP target costs a quarter more, never triple.
   const nudge = 1 + CAPTURE_HP_NUDGE * hpFraction(target);
-  return Math.max(1, Math.round(base * depth * CAPTURE_BAND_MULTIPLIER[band] * nudge));
+  return Math.max(1, Math.round(base * CAPTURE_BAND_MULTIPLIER[riteBand] * nudge));
 }
 
 /** Bid the price for a certainty; bid under it and you get exactly that fraction. */

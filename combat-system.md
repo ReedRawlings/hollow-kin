@@ -4,7 +4,7 @@
 
 > **Owns:** turn order, actions, damage formula, accuracy/evasion, crits, buffs & debuffs, status effects, MP, knockout, auto-combat tactics, enemy AI.
 > **Defers to the GDD on:** currency, progression model, capture rules, and what persists across runs.
-> **Last verified:** 2026-07-26.
+> **Last verified:** 2026-07-28 — damage formula, type multipliers, crit rules and the +-3 stage cap re-checked against `CombatEngine.ts`.
 
 ---
 
@@ -41,12 +41,15 @@ There is **no swap action.** A captured creature is cargo, not a reinforcement �
 
 *Proposed starting formula — subject to playtesting:*
 
-Damage ≈ (STR or INT − DEF or WIS/2) × Skill Power × Type Multiplier
+```
+damage = max(1, (STR or INT) − (DEF or WIS) / 2) × (Power / 50) × TypeMultiplier
+```
+
 Key points:
 
 * Physical abilities scale off STR vs DEF, special abilities scale off INT vs WIS
-* Defense doesn't fully cancel attack — it's halved before subtraction, so there's always minimum damage
-* Skills have a built-in Power value (matches the Power column in the ability library)
+* Defense doesn't fully cancel attack — it's halved before subtraction, and the result is floored at 1, so there's always minimum damage
+* Skills have a built-in Power value (matches the Power column in the ability library). **The `/ 50` divisor is load-bearing** — Power is expressed on a ~50-is-average scale, so dropping it multiplies all damage by fifty
 * Type multipliers apply based on the target's resistances and weaknesses (see below)
 * Some skills deal fixed damage or scale off MP/level rather than STR/INT
 
@@ -226,7 +229,7 @@ Inspired by Dragon Quest's tactics system. The player assigns a general behavior
 * Enemies use the same creature stat system as player creatures — same base stats, abilities, resistances.
 * Enemies have variable ATK and Health stats of their standard version. Usually nerfing ATK and increasing health slightly so each battle is not life or death
 * Enemy creatures do not have traits or marks — those are player-only progression systems
-* Enemy difficulty scales by **depth** through higher tier unlocks and composite levels, ramping across the single 30-floor descent (mini-boss every 5 floors, major every 10)
+* Enemy difficulty scales by **depth** through higher tier unlocks and composite levels, ramping across the single continuous descent (mini-boss every 5 floors, major every 10). ⚠️ The curve was tuned against a 30-floor tower; it needs re-checking against the alpha cap of 20 and the eventual 100
 * Boss creatures have unique abilities not available to player creatures and higher stat pools
 * Enemy AI follows simple priority rules: target a random living party member (damage spreads across the party rather than always focusing the lowest-HP creature), use strongest usable non-Status ability, apply status effects when available
 * When only one enemy is alive, single-target attacks auto-target it — no redundant target-selection step. Target selection is only presented to the player when 2+ enemies are alive.
@@ -238,6 +241,6 @@ Inspired by Dragon Quest's tactics system. The player assigns a general behavior
 * Exact damage formula constants and scaling curves — requires playtesting
 * ~~Detailed auto-combat AI decision trees per tactic~~ — **resolved.** Each tactic is an explicit ordered rule ladder (first match wins), specified in `docs/superpowers/specs/2026-07-24-auto-combat-tactics-design.md` §5 and implemented in `src/systems/TacticsAI.ts`. Ladders were chosen over utility scoring deliberately: a strategic layer only works if the player can predict what their tactic will do
 * Whether Heal First should hold its MP reserve across its buff/debuff rules, not just its damage rule — today it can spend on a debuff and then be unable to afford the heal the reserve exists to protect (playtest)
-* Whether Fight Wisely's "half current MP" budget drains too fast across a 30-floor descent (playtest)
+* Whether Fight Wisely's "half current MP" budget drains too fast across a full descent (playtest)
 * Whether bosses have multiple phases or unique mechanics beyond stat inflation
 * Specific crit-related trait effects and balancing

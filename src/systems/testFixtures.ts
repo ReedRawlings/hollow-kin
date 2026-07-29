@@ -38,12 +38,15 @@ export function makeTestCreature(opts: TestCreatureOpts = {}): CombatCreature {
     id: speciesId,
     name: speciesId,
     archetype: 'Fauna',
+    role: 'Fighter',
+    towerIds: [1],
     baseStats: s,
     defaultAbilities: [],
     resistances: [],
     weaknesses: [],
     spriteColor: 0,
     naturalTraitPool: [],
+    captureBasePrice: { 1: 20 },
   };
   const instance: CreatureInstance = {
     instanceId: `i-${speciesId}`,

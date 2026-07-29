@@ -12,24 +12,24 @@ beforeAll(() => {
 });
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { gameState } from './GameState';
+import { gameState, SAVE_VERSION } from './GameState';
 import { estimateDamage, NO_KNOWLEDGE } from '../systems/TacticsAI';
 import { makeTestCreature } from '../systems/testFixtures';
 import { getAbility } from '../data/abilities';
 import { depthUnlockCost, depthRunFee } from '../systems/Economy';
 import { breed } from '../systems/BreedingSystem';
 import { isCreatureBreedReady, TRAIT_SLOT_LEVELS, MAX_TRAIT_SLOTS, unlockedSlotCount } from '../systems/Traits';
-import { STAR_LEVEL_CAPS } from '../types';
+import { STAR_LEVEL_CAPS, TOWER_FLOORS } from '../types';
 import { getTemplate } from '../data/creatures';
 import { add as addToBackpack, createBackpack, usedSlots } from '../systems/Backpack';
 
 beforeEach(() => {
-  gameState.initializeNewGame(['ironjaw', 'stoneguard', 'voltarc']);
+  gameState.initializeNewGame(['kin_070', 'kin_092', 'kin_110']);
 });
 
 describe('createCreatureInstance', () => {
   it('starts at permanent level 1 with no essence invested and no longevity', () => {
-    const c = gameState.createCreatureInstance('ironjaw', 0);
+    const c = gameState.createCreatureInstance('kin_070', 0);
     expect(c.permanentLevel).toBe(1);
     expect(c.currentLevel).toBe(1);
     expect(c.essenceInvested).toBe(0);
@@ -47,8 +47,8 @@ describe('startRun', () => {
   });
 
   it('scales a real offspring from its inherited baseline instead of its species template', () => {
-    const parentA = gameState.createCreatureInstance('ironjaw');
-    const parentB = gameState.createCreatureInstance('ironjaw');
+    const parentA = gameState.createCreatureInstance('kin_070');
+    const parentB = gameState.createCreatureInstance('kin_070');
     // calculateOffspringStats (Fix 2) reads statBaseline/currentLevel/levelCap, not
     // currentStats directly — give both parents a strong, fully-leveled baseline instead
     // of forcing currentStats the way this test used to.
@@ -58,12 +58,12 @@ describe('startRun', () => {
     parentA.currentLevel = parentA.levelCap; // level === cap -> level-scaled stat is base * 2.5 (max)
     parentB.currentLevel = parentB.levelCap;
 
-    const child = breed(parentA, parentB, 'ironjaw', []);
+    const child = breed(parentA, parentB, 'kin_070', []);
     const inheritedHp = child.statBaseline!.hp;
 
-    // Inherited baseline comes from the parents' strong stats, not the ironjaw species
+    // Inherited baseline comes from the parents' strong stats, not the Cat species
     // template floor.
-    expect(inheritedHp).toBeGreaterThan(getTemplate('ironjaw').baseStats.hp);
+    expect(inheritedHp).toBeGreaterThan(getTemplate('kin_070').baseStats.hp);
 
     gameState.creatureBox = [child];
     gameState.setRunParty([child.instanceId]);
@@ -144,7 +144,7 @@ describe('spendEssenceOnLevel', () => {
   });
 });
 
-describe('save/load migration', () => {
+describe('save/load', () => {
   it('round-trips the new save shape', () => {
     gameState.creatureBox[0].statBaseline!.hp = 77;
     gameState.essence = 42;
@@ -158,40 +158,35 @@ describe('save/load migration', () => {
     expect(gameState.creatureBox[0].statBaseline!.hp).toBe(77);
   });
 
-  it('migrates an old save (townResources->essence, backfills fields, drops longevity)', () => {
-    const oldSave = {
-      creatureBox: [{
-        instanceId: 'old1', speciesId: 'ironjaw', nickname: null, starRating: 0,
-        currentLevel: 1, levelCap: 5, longevity: 2,
-        abilities: ['tackle', null, null, null],
-        traitSlots: [{ traitId: null, traitLevel: 0, unlocked: false }],
-        lineage: { parentA: null, parentB: null },
-        currentStats: { hp: 30, mp: 5, str: 10, def: 8, wis: 5, spd: 7, int: 4 },
-        resistances: [], weaknesses: [], isRetired: false, isBreedReady: false, xp: 0,
-      }],
-      townResources: 90,
-      breedingStones: 3,
-      hasCompletedFirstRun: true,
-    };
-    localStorage.setItem('hollow_kin_save', JSON.stringify(oldSave));
-    expect(gameState.loadFromLocalStorage()).toBe(true);
-    expect(gameState.essence).toBe(90);            // townResources -> essence
-    const c = gameState.creatureBox[0];
-    expect(c.permanentLevel).toBe(1);              // backfilled
-    expect(c.essenceInvested).toBe(0);             // backfilled
-    expect(c.statBaseline!.hp).toBe(40);             // species baseline backfilled
-    expect('longevity' in c).toBe(false);          // dropped
-    // Fix 1: the loaded traitSlots array is normalized to MAX_TRAIT_SLOTS entries, even
-    // though this save only stored one.
-    expect(c.traitSlots.length).toBe(MAX_TRAIT_SLOTS);
+  describe('older saves are discarded, never migrated', () => {
+    // Every save written before v7 references species ids from the superseded
+    // 36-creature roster, so there is nothing in one worth translating.
+    it.each([2, 3, 4, 5, 6])('discards a v%i save rather than half-loading it', (version) => {
+      localStorage.setItem('hollow_kin_save', JSON.stringify({
+        version, essence: 999, creatureBox: [], hasCompletedFirstRun: true,
+      }));
+      expect(gameState.loadFromLocalStorage()).toBe(false);
+      expect(gameState.essence).not.toBe(999);
+    });
+
+    it('discards a save with no version field at all', () => {
+      localStorage.setItem('hollow_kin_save', JSON.stringify({ townResources: 90 }));
+      expect(gameState.loadFromLocalStorage()).toBe(false);
+    });
+
+    it('removes the stale blob, so it is not re-read on every boot', () => {
+      localStorage.setItem('hollow_kin_save', JSON.stringify({ version: 6, essence: 5 }));
+      expect(gameState.loadFromLocalStorage()).toBe(false);
+      expect(localStorage.getItem('hollow_kin_save')).toBeNull();
+    });
   });
 
   describe('trait slot normalization on load (Fix 1)', () => {
     function saveWith(creatureOverrides: Record<string, unknown>) {
       return {
-        version: 5,
+        version: SAVE_VERSION,
         creatureBox: [{
-          instanceId: 'c1', speciesId: 'ironjaw', nickname: null, starRating: 0,
+          instanceId: 'c1', speciesId: 'kin_070', nickname: null, starRating: 0,
           currentLevel: 1, levelCap: 5, permanentLevel: 1, essenceInvested: 0,
           abilities: [], lineage: { parentA: null, parentB: null },
           statBaseline: { hp: 40, mp: 20, str: 18, def: 8, wis: 7, spd: 16, int: 6 },
@@ -255,24 +250,24 @@ describe('save/load migration', () => {
     });
   });
 
-  it('preserves unscaled inherited stats when migrating a freshly-bred pre-v5 creature', () => {
-    const inherited = { hp: 100, mp: 50, str: 40, def: 30, wis: 25, spd: 20, int: 15 };
+  it('falls back to the species baseline for a creature saved without one', () => {
     localStorage.setItem('hollow_kin_save', JSON.stringify({
-      version: 4,
+      version: SAVE_VERSION,
       creatureBox: [{
-        instanceId: 'old-child', speciesId: 'ironjaw', nickname: null, starRating: 0,
+        instanceId: 'no-baseline', speciesId: 'kin_070', nickname: null, starRating: 0,
         currentLevel: 1, levelCap: 5, permanentLevel: 1, essenceInvested: 0,
-        abilities: [], traitSlots: [], lineage: { parentA: 'a', parentB: 'b' },
-        currentStats: inherited, resistances: [], weaknesses: [],
-        isRetired: false, isBreedReady: false, xp: 0,
+        abilities: [], traitSlots: [], lineage: { parentA: null, parentB: null },
+        currentStats: { hp: 1, mp: 1, str: 1, def: 1, wis: 1, spd: 1, int: 1 },
+        resistances: [], weaknesses: [], isRetired: false, isBreedReady: false, xp: 0,
       }],
     }));
 
     expect(gameState.loadFromLocalStorage()).toBe(true);
-    expect(gameState.creatureBox[0].statBaseline).toEqual(inherited);
+    expect(gameState.creatureBox[0].statBaseline)
+      .toEqual(getTemplate('kin_070').baseStats);
   });
 
-  describe('backpack — v6: moved from RunState, now persists on GameState', () => {
+  describe('backpack', () => {
     it('round-trips bag contents through save/load', () => {
       const added = addToBackpack(gameState.backpack, { kind: 'item', itemId: 'mending_draught' });
       expect(added).not.toBeNull();
@@ -284,9 +279,11 @@ describe('save/load migration', () => {
       expect(usedSlots(gameState.backpack)).toBe(1);
     });
 
-    it('gives a pre-v6 save (no backpack field) a fresh bag instead of failing to load', () => {
+    it('gives a save with no backpack field a fresh bag instead of failing to load', () => {
+      // A save written mid-run, before the bag existed on GameState, has nothing
+      // to restore — hand it an empty bag rather than leaving it undefined.
       localStorage.setItem('hollow_kin_save', JSON.stringify({
-        version: 5, essence: 10, creatureBox: [], hasCompletedFirstRun: false,
+        version: SAVE_VERSION, essence: 10, creatureBox: [], hasCompletedFirstRun: false,
       }));
       expect(gameState.loadFromLocalStorage()).toBe(true);
       expect(usedSlots(gameState.backpack)).toBe(0);
@@ -298,7 +295,7 @@ describe('endRun — persistent backpack', () => {
   it('applies wipe loss and unloads captures via gameState.backpack, independent of currentRun', () => {
     gameState.setRunParty([gameState.creatureBox[0].instanceId]);
     gameState.startRun();
-    const captured = gameState.createCreatureInstance('ironjaw');
+    const captured = gameState.createCreatureInstance('kin_070');
     const added = addToBackpack(gameState.backpack, { kind: 'creature', instance: captured });
     gameState.backpack = added!.bag;
     const boxSizeBefore = gameState.creatureBox.length;
@@ -335,8 +332,10 @@ describe('deepest-break tracking', () => {
   });
 
   it('caps purchasableFloors at the tower top when the tower is fully cleared', () => {
-    gameState.deepestBreakCleared = 30;
-    expect(gameState.purchasableFloors()).toEqual([6, 11, 16, 21, 26]);
+    gameState.deepestBreakCleared = TOWER_FLOORS;
+    const expected: number[] = [];
+    for (let f = 5; f <= TOWER_FLOORS && f + 1 <= TOWER_FLOORS; f += 5) expected.push(f + 1);
+    expect(gameState.purchasableFloors()).toEqual(expected);
   });
 
   it('persists deepestBreakCleared across save/load', () => {
@@ -347,9 +346,9 @@ describe('deepest-break tracking', () => {
     expect(gameState.deepestBreakCleared).toBe(15);
   });
 
-  it('defaults deepestBreakCleared to 0 when loading an older save', () => {
+  it('defaults deepestBreakCleared to 0 when the save omits it', () => {
     localStorage.setItem('hollow_kin_save', JSON.stringify({
-      version: 2, creatureBox: [], essence: 5, hasCompletedFirstRun: true,
+      version: SAVE_VERSION, creatureBox: [], essence: 5, hasCompletedFirstRun: true,
     }));
     gameState.loadFromLocalStorage();
     expect(gameState.deepestBreakCleared).toBe(0);
@@ -413,22 +412,22 @@ describe('depth-jump start floor', () => {
 
 describe('tactics and settings persistence', () => {
   it('gives new creatures the balanced tactic by default', () => {
-    const c = gameState.createCreatureInstance('ironjaw', 0);
+    const c = gameState.createCreatureInstance('kin_070', 0);
     expect(c.tactic).toBe('fight_wisely');
   });
 
   it('records seen species without duplicates', () => {
     gameState.seenSpecies = new Set();
-    gameState.recordSeenSpecies('ironjaw');
-    gameState.recordSeenSpecies('ironjaw');
+    gameState.recordSeenSpecies('kin_070');
+    gameState.recordSeenSpecies('kin_070');
     expect(gameState.seenSpecies.size).toBe(1);
-    expect(gameState.seenSpecies.has('ironjaw')).toBe(true);
+    expect(gameState.seenSpecies.has('kin_070')).toBe(true);
   });
 
   it('round-trips seenSpecies, battleSpeed, and tactic through save/load', () => {
-    gameState.initializeNewGame(['ironjaw']);
+    gameState.initializeNewGame(['kin_070']);
     gameState.creatureBox[0].tactic = 'heal_first';
-    gameState.seenSpecies = new Set(['mossgolem', 'petalward']);
+    gameState.seenSpecies = new Set(['kin_037', 'kin_020']);
     gameState.battleSpeed = 4;
     gameState.saveToLocalStorage();
 
@@ -439,7 +438,7 @@ describe('tactics and settings persistence', () => {
 
     expect(gameState.creatureBox[0].tactic).toBe('heal_first');
     expect(gameState.battleSpeed).toBe(4);
-    expect([...gameState.seenSpecies].sort()).toEqual(['mossgolem', 'petalward']);
+    expect([...gameState.seenSpecies].sort()).toEqual(['kin_020', 'kin_037']);
   });
 
   it('cycles battle speed 1 -> 2 -> 4 -> 1', () => {
@@ -452,15 +451,15 @@ describe('tactics and settings persistence', () => {
     expect(gameState.battleSpeed).toBe(1);
   });
 
-  it('migrates a v2 save with safe defaults', () => {
+  it('defaults tactic, battle speed and seen species when the save omits them', () => {
     localStorage.setItem('hollow_kin_save', JSON.stringify({
-      version: 2,
+      version: SAVE_VERSION,
       essence: 40,
       deepestBreakCleared: 5,
       selectedStartFloor: 1,
       hasCompletedFirstRun: true,
       creatureBox: [{
-        instanceId: 'old-1', speciesId: 'ironjaw', nickname: null, starRating: 1,
+        instanceId: 'old-1', speciesId: 'kin_070', nickname: null, starRating: 1,
         currentLevel: 3, levelCap: 10, abilities: ['ember'], traitSlots: [],
         lineage: { parentA: null, parentB: null },
         currentStats: { hp: 50, mp: 10, str: 10, def: 10, wis: 10, spd: 10, int: 10 },
@@ -515,7 +514,7 @@ describe('seenSpecies fog timing (finding 2 regression)', () => {
 
 describe('default party', () => {
   it('is empty on a new game', () => {
-    gameState.initializeNewGame(['ironjaw']);
+    gameState.initializeNewGame(['kin_070']);
     expect(gameState.defaultParty).toEqual([]);
   });
 
@@ -527,7 +526,7 @@ describe('default party', () => {
   });
 
   it('round-trips through save and load', () => {
-    gameState.initializeNewGame(['ironjaw']);
+    gameState.initializeNewGame(['kin_070']);
     gameState.setDefaultParty(['x', 'y', 'z']);
     gameState.saveToLocalStorage();
     gameState.defaultParty = [];
@@ -538,7 +537,7 @@ describe('default party', () => {
 
 describe('floor unlocks', () => {
   beforeEach(() => {
-    gameState.initializeNewGame(['ironjaw']);
+    gameState.initializeNewGame(['kin_070']);
   });
 
   it('offers nothing to buy before any break is cleared', () => {
@@ -615,7 +614,7 @@ describe('floor unlocks', () => {
 
 describe('resolveRunStartFloor', () => {
   beforeEach(() => {
-    gameState.initializeNewGame(['ironjaw']);
+    gameState.initializeNewGame(['kin_070']);
   });
 
   it('is free at floor 1 and deducts nothing', () => {
@@ -661,13 +660,13 @@ describe('resolveRunStartFloor', () => {
 
 describe('canAffordStartFloor', () => {
   it('is always true for floor 1, even with no essence', () => {
-    gameState.initializeNewGame(['ironjaw']);
+    gameState.initializeNewGame(['kin_070']);
     gameState.essence = 0;
     expect(gameState.canAffordStartFloor(1)).toBe(true);
   });
 
   it('tracks the per-run fee for deeper floors', () => {
-    gameState.initializeNewGame(['ironjaw']);
+    gameState.initializeNewGame(['kin_070']);
     gameState.essence = depthRunFee(6);
     expect(gameState.canAffordStartFloor(6)).toBe(true);
     gameState.essence = depthRunFee(6) - 1;
@@ -700,14 +699,14 @@ describe('canDepartFrom', () => {
   }
 
   it('floor 1 is always departable, even with no essence and nothing unlocked', () => {
-    gameState.initializeNewGame(['ironjaw']);
+    gameState.initializeNewGame(['kin_070']);
     gameState.essence = 0;
     assertEquivalence(1);
     expect(gameState.canDepartFrom(1)).toBe(true);
   });
 
   it('a floor that is unlocked and affordable is departable', () => {
-    gameState.initializeNewGame(['ironjaw']);
+    gameState.initializeNewGame(['kin_070']);
     gameState.recordBreakCleared(5);
     gameState.essence = 10_000;
     gameState.purchaseFloorUnlock(6);
@@ -717,7 +716,7 @@ describe('canDepartFrom', () => {
   });
 
   it('a floor that is unlocked but unaffordable is not departable', () => {
-    gameState.initializeNewGame(['ironjaw']);
+    gameState.initializeNewGame(['kin_070']);
     gameState.recordBreakCleared(5);
     gameState.essence = 10_000;
     gameState.purchaseFloorUnlock(6);
@@ -727,7 +726,7 @@ describe('canDepartFrom', () => {
   });
 
   it('a floor that was never unlocked is not departable, even flush with essence', () => {
-    gameState.initializeNewGame(['ironjaw']);
+    gameState.initializeNewGame(['kin_070']);
     gameState.essence = 10_000;
     // Never unlocked floor 6 — set selectedStartFloor directly, bypassing the guard
     // in setSelectedStartFloor, the same way a stale/forced value could reach here.
@@ -736,38 +735,13 @@ describe('canDepartFrom', () => {
   });
 });
 
-describe('save v3 -> v4 migration', () => {
-  it('grants unlocked floors for breaks already cleared, so no depth is lost', () => {
+describe('floor ownership round-trips exactly as saved', () => {
+  // Depth is bought, never granted. Clearing a break only makes a floor
+  // purchasable — a player who cleared breaks and chose not to buy must load
+  // back owning nothing.
+  it('does not grant floors to a save that deliberately owns nothing', () => {
     localStorage.setItem('hollow_kin_save', JSON.stringify({
-      version: 3,
-      essence: 500,
-      deepestBreakCleared: 10,
-      selectedStartFloor: 1,
-      hasCompletedFirstRun: true,
-      creatureBox: [],
-      seenSpecies: [],
-      battleSpeed: 1,
-    }));
-    expect(gameState.loadFromLocalStorage()).toBe(true);
-    expect(gameState.unlockedStartFloors()).toEqual([1, 6, 11]);
-    expect(gameState.defaultParty).toEqual([]);
-    expect(gameState.essence).toBe(500);
-  });
-
-  it('grants nothing when no break was cleared', () => {
-    localStorage.setItem('hollow_kin_save', JSON.stringify({
-      version: 3, essence: 0, deepestBreakCleared: 0,
-      selectedStartFloor: 1, hasCompletedFirstRun: false,
-      creatureBox: [], seenSpecies: [], battleSpeed: 1,
-    }));
-    expect(gameState.loadFromLocalStorage()).toBe(true);
-    expect(gameState.unlockedStartFloors()).toEqual([1]);
-  });
-
-  it('does not re-grant on a v4 save that deliberately owns nothing', () => {
-    // A v4 player who cleared breaks but chose not to buy must stay unbought.
-    localStorage.setItem('hollow_kin_save', JSON.stringify({
-      version: 4, essence: 0, deepestBreakCleared: 10,
+      version: SAVE_VERSION, essence: 0, deepestBreakCleared: 10,
       selectedStartFloor: 1, hasCompletedFirstRun: true,
       creatureBox: [], seenSpecies: [], battleSpeed: 1,
       defaultParty: [], unlockedFloors: [],
@@ -776,57 +750,13 @@ describe('save v3 -> v4 migration', () => {
     expect(gameState.unlockedStartFloors()).toEqual([1]);
   });
 
-  it('resets a v3 save\'s selectedStartFloor to 1 while still granting the earned unlocks', () => {
-    // v3's selectedStartFloor: 11 was chosen under the old rules (auto-unlock + a
-    // different fee formula). It must not survive the migration verbatim, but the
-    // unlocked-floor grant (tested above) must still happen.
-    // Poison the in-memory field to something other than 1 first: gameState is a
-    // singleton and beforeEach happens to already leave it at 1, so without this the
-    // assertion below would pass by coincidence even if load() stopped touching the
-    // field entirely — it must be load() actively normalizing it, not an accident of
-    // prior state.
+  it('preserves selectedStartFloor as the player\'s own live choice', () => {
+    // Poison the in-memory field first: gameState is a singleton and beforeEach
+    // leaves this at 1, so without this the assertion could pass by coincidence
+    // even if load() stopped touching the field at all.
     gameState.selectedStartFloor = 999;
     localStorage.setItem('hollow_kin_save', JSON.stringify({
-      version: 3,
-      essence: 500,
-      deepestBreakCleared: 10,
-      selectedStartFloor: 11,
-      hasCompletedFirstRun: true,
-      creatureBox: [], seenSpecies: [], battleSpeed: 1,
-    }));
-    expect(gameState.loadFromLocalStorage()).toBe(true);
-    expect(gameState.selectedStartFloor).toBe(1);
-    expect(gameState.unlockedStartFloors()).toEqual([1, 6, 11]);
-  });
-
-  it('regression: a v3 save with low Essence no longer crashes resolveRunStartFloor on load', () => {
-    // Before the fix, selectedStartFloor: 11 carried over verbatim. A returning player
-    // whose Essence didn't cover the new (floor-1)*5 fee for floor 11 would hit an
-    // uncaught throw the moment RunScene.init() called resolveRunStartFloor() — no dev
-    // tools or manual state poking required, just an ordinary low-Essence returning player.
-    // Poisoned for the same reason as above: gameState is a singleton and beforeEach
-    // already leaves selectedStartFloor at 1, so this write is what makes the assertions
-    // below actually exercise load()'s migration logic instead of passing by coincidence.
-    gameState.selectedStartFloor = 999;
-    localStorage.setItem('hollow_kin_save', JSON.stringify({
-      version: 3,
-      essence: 1, // far below the fee for floor 11 under the new formula
-      deepestBreakCleared: 10,
-      selectedStartFloor: 11,
-      hasCompletedFirstRun: true,
-      creatureBox: [], seenSpecies: [], battleSpeed: 1,
-    }));
-    expect(gameState.loadFromLocalStorage()).toBe(true);
-    expect(() => gameState.resolveRunStartFloor()).not.toThrow();
-    expect(gameState.resolveRunStartFloor()).toBe(1);
-  });
-
-  it('preserves a v4 save\'s selectedStartFloor as-is (migration reset does not apply)', () => {
-    // A v4 save's selectedStartFloor is the player's own current, live choice and must
-    // not be clobbered — the reset is a migration-only decision for v3 saves.
-    gameState.selectedStartFloor = 999; // poison, see above
-    localStorage.setItem('hollow_kin_save', JSON.stringify({
-      version: 4, essence: 10_000, deepestBreakCleared: 10,
+      version: SAVE_VERSION, essence: 10_000, deepestBreakCleared: 10,
       selectedStartFloor: 6, hasCompletedFirstRun: true,
       creatureBox: [], seenSpecies: [], battleSpeed: 1,
       defaultParty: [], unlockedFloors: [6],
@@ -939,13 +869,13 @@ describe('trait slot unlocking (permanentLevel-driven)', () => {
 describe('escrowed trait round-trip: breed -> spendEssenceOnLevel unlocks it', () => {
   it('an inherited trait stuck in a locked slot survives to become active once permanentLevel opens that slot', () => {
     // Star 3 gives levelCap 30 == TRAIT_SLOT_LEVELS[3], the last slot's threshold.
-    const parentA = gameState.createCreatureInstance('ironjaw', 3);
-    const parentB = gameState.createCreatureInstance('ironjaw', 3);
+    const parentA = gameState.createCreatureInstance('kin_070', 3);
+    const parentB = gameState.createCreatureInstance('kin_070', 3);
     parentA.traitSlots[3] = { traitId: 'deep-trait', traitLevel: 1, unlocked: true };
     // parentB's slot 3 stays empty; both parents have essenceInvested 0, so the
     // offspring carries over to permanentLevel 1 — well below every threshold.
 
-    const child = breed(parentA, parentB, 'ironjaw', []);
+    const child = breed(parentA, parentB, 'kin_070', []);
 
     expect(child.levelCap).toBe(TRAIT_SLOT_LEVELS[3]);
     expect(child.permanentLevel).toBe(1);
@@ -968,8 +898,8 @@ describe('escrowed trait round-trip: breed -> spendEssenceOnLevel unlocks it', (
 
 describe('calculateStatsForLevel — stat trait bonuses', () => {
   it('an unlocked STR Up trait raises STR relative to the same creature without it', () => {
-    const plain = gameState.createCreatureInstance('ironjaw', 0);
-    const buffed = gameState.createCreatureInstance('ironjaw', 0);
+    const plain = gameState.createCreatureInstance('kin_070', 0);
+    const buffed = gameState.createCreatureInstance('kin_070', 0);
     buffed.traitSlots[0] = { traitId: 'str_up', traitLevel: 1, unlocked: true };
 
     const plainStats = gameState.calculateStatsForLevel(plain);
@@ -981,8 +911,8 @@ describe('calculateStatsForLevel — stat trait bonuses', () => {
   });
 
   it('a locked slot holding a traitId (an escrowed inherited trait) contributes nothing', () => {
-    const plain = gameState.createCreatureInstance('ironjaw', 0);
-    const escrowed = gameState.createCreatureInstance('ironjaw', 0);
+    const plain = gameState.createCreatureInstance('kin_070', 0);
+    const escrowed = gameState.createCreatureInstance('kin_070', 0);
     escrowed.traitSlots[0] = { traitId: 'str_up', traitLevel: 4, unlocked: false };
 
     const plainStats = gameState.calculateStatsForLevel(plain);
@@ -992,8 +922,8 @@ describe('calculateStatsForLevel — stat trait bonuses', () => {
   });
 
   it('an unlocked slot with a null traitId contributes nothing', () => {
-    const plain = gameState.createCreatureInstance('ironjaw', 0);
-    const empty = gameState.createCreatureInstance('ironjaw', 0);
+    const plain = gameState.createCreatureInstance('kin_070', 0);
+    const empty = gameState.createCreatureInstance('kin_070', 0);
     empty.traitSlots[0] = { traitId: null, traitLevel: 0, unlocked: true };
 
     const plainStats = gameState.calculateStatsForLevel(plain);
@@ -1003,8 +933,8 @@ describe('calculateStatsForLevel — stat trait bonuses', () => {
   });
 
   it('a higher trait level yields a larger bonus than a lower one', () => {
-    const low = gameState.createCreatureInstance('ironjaw', 0);
-    const high = gameState.createCreatureInstance('ironjaw', 0);
+    const low = gameState.createCreatureInstance('kin_070', 0);
+    const high = gameState.createCreatureInstance('kin_070', 0);
     low.traitSlots[0] = { traitId: 'str_up', traitLevel: 1, unlocked: true };
     high.traitSlots[0] = { traitId: 'str_up', traitLevel: 4, unlocked: true };
 
@@ -1015,7 +945,7 @@ describe('calculateStatsForLevel — stat trait bonuses', () => {
   });
 
   it('is applied automatically at the natural calculateStatsForLevel call sites (e.g. startRun)', () => {
-    const c = gameState.creatureBox[0]; // ironjaw
+    const c = gameState.creatureBox[0]; // Cat
     c.traitSlots[0] = { traitId: 'str_up', traitLevel: 4, unlocked: true };
     const withoutTrait = gameState.calculateStatsForLevel({ ...c, traitSlots: [] });
     gameState.setRunParty([c.instanceId]);

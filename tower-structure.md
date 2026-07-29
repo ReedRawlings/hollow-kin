@@ -2,9 +2,9 @@
 
 *Working Document — Subject to Change*
 
-> **Owns:** run length, depth bands, depth-jumps, encounter types, run shape, boss cadence and design, procedural generation rules.
-> **Defers to the GDD on:** currency, progression model, and what persists across runs.
-> **Last verified:** 2026-07-26.
+> **Owns:** run length, the band→floor mapping, depth-jumps, encounter types, run shape, boss cadence and design, procedural generation rules.
+> **Defers to the GDD on:** currency, progression model, and what persists across runs. Defers to `creature-roster-and-generation.md` on **which creatures** sit in each band and what they cost to capture there — this doc says where a band starts and ends, that one says what lives in it.
+> **Last verified:** 2026-07-28.
 
 ---
 
@@ -17,9 +17,11 @@ The tower is the procedurally generated environment where all runs take place. P
 ## **Run Length**
 
 * A run is **one continuous descent** — there are no discrete zones or zone walls.
-* The vertical slice is **30 floors** deep. This is **bounded now, endless later**: the 30-floor tower is designed so an endless mode can bolt on afterward without restructuring the descent.
+* The full tower is **100 floors, in 10 bands of 10**. This is **bounded now, endless later**: the descent is designed so an endless mode can bolt on afterward without restructuring it.
+* **Alpha stops at floor 20** — the deepest the authored roster reaches. This is the single constant `TOWER_FLOORS` in `src/types.ts`; descent generation, the Gatekeeper's grant loop, the results ledger and the tests all derive from it, so extending the tower is one edit plus the creatures to fill the new bands.
 * Each floor is a single encounter — combat, shop, rest point, or random event.
 * **Boss cadence:** a **mini-boss every 5 floors** and a **major boss every 10 floors** punctuate the descent (see Boss Design).
+* **Clearing the deepest floor is a real ending.** It is the third run outcome alongside fleeing and wiping, and it converts Obols at the full non-wipe rate exactly as a deliberate exit does. Under the alpha cap that ending arrives at floor 20.
 * Of the non-boss floors, roughly a third to a half are combat — the rest are shops, rest points, and random events.
 * Failed runs end earlier. Every fight drops **Obols** (the in-run currency); leftover Obols convert to permanent **Essence** on exit, so even a short run banks something — provided you didn't spend it all surviving.
 
@@ -29,16 +31,23 @@ The tower is the procedurally generated environment where all runs take place. P
 
 There are no hard zone walls. Instead, the enemy pool and visual identity **shift gradually by depth band** as the player descends.
 
+**A band is ten floors.** Band N covers floors `(N-1)×10 + 1` through `N×10`, so band 1 is floors 1–10, band 2 is 11–20, and so on to band 10 at floors 91–100. This mapping is the same thing the roster calls a creature's **Tower ID** — a creature with `Tower ID = 1,2` appears anywhere on floors 1–20. There is one function, `bandForFloor`, and both encounter generation and capture pricing read it, so the two can never disagree about where a band starts.
+
 * Enemy composition draws from **2–3 archetypes at a time**, and the mix rotates as the player goes deeper, adding variability to each run.
 * Deeper floors present stronger enemies with more complex ability sets, representing higher stats and tiers.
 * Early floors ease the player in: the first few combat floors of a run present just 1–3 enemy creatures, giving time to build up momentum before full-scale fights.
+
+**Which creatures are in a band is not a decision this doc makes.** Pools are derived from each species' `towerIds` rather than maintained as a separate list, so moving a creature between bands is a roster edit and nothing here changes. See `creature-roster-and-generation.md`.
+
+> **Alpha caveat.** All 30 authored creatures sit in bands 1 *and* 2, so the two pools are currently identical and the "mix rotates as you descend" promise above is not yet visible — depth changes enemy *level*, not enemy *variety*. That resolves as bands are authored, not by changing anything structural.
 
 ### **Depth-Jumps (Purchasable Start Points)**
 
 Rather than starting a later run in a pre-cleared zone, players buy a deeper **start point** with **essence**.
 
-* At each **5-floor break** (floor 5, 10, 15, 20, 25) the player can purchase a depth-jump from the Gatekeeper in town.
+* At each **5-floor break** the player can purchase a depth-jump from the Gatekeeper in town. Breaks run every 5 floors up to the tower's depth — under the alpha cap that means floors 5, 10 and 15.
 * **Buying a break starts you at the floor *after* it:** buy floor 5 → start at floor 6; buy floor 10 → start at floor 11.
+* A break whose next floor would fall past the bottom of the tower is not offered — there is nothing to descend into. That is why the deepest break under the alpha cap is 15 and not 20.
 * Depth-jumps are **gated by having cleared that break's boss** — you can only buy jumps to breaks you have already reached and beaten.
 * This replaces the old "start in a later zone by beating the previous zone boss" rule. There is no forced re-fight of a prior boss on entry; the gate is the essence purchase plus prior clear.
 
@@ -106,7 +115,7 @@ Within a single floor/encounter, the structure is minimal:
 
 ## **Boss Design**
 
-Bosses punctuate the single descent on a fixed cadence: a **mini-boss every 5 floors** (floors 5, 15, 25) and a **major boss every 10 floors** (floors 10, 20, 30).
+Bosses punctuate the single descent on a fixed cadence: a **major boss on every 10th floor**, and a **mini-boss on the other 5-floor breaks**. The cadence is derived from the floor number, not a list, so it holds at any tower depth. Under the alpha cap: mini-bosses on 5 and 15, majors on 10 and 20.
 
 ## **Mini-Bosses**
 
@@ -129,10 +138,11 @@ Bosses punctuate the single descent on a fixed cadence: a **mini-boss every 5 fl
 
 ### **Final Boss**
 
-* The floor-30 major boss caps the bounded vertical slice
+* The major boss on the **deepest floor** caps the bounded tower — floor 100 in the full game, floor 20 under the alpha cap.
 * Significantly harder than the earlier major bosses
 * Final boss design and mechanics are TBD — whether it has phases, unique mechanics, or is simply a stat-check is an open question
-* In endless mode, floor 30 becomes just another major boss and the descent continues
+* **Alpha's floor-20 boss is a terminus, not a designed finale.** It is an ordinary major boss that happens to sit on the last floor. Clearing it reuses the ordinary run-results ledger with a `TOWER CLEARED` header and nothing else changed — there is no bespoke completion screen, no acknowledgement that the tower is *finished* rather than merely exited. Worth writing before anyone plays to the bottom.
+* In endless mode, the deepest floor becomes just another major boss and the descent continues
 
 ---
 
@@ -151,4 +161,6 @@ Bosses punctuate the single descent on a fixed cadence: a **mini-boss every 5 fl
 
 ## **Open Questions**
 
-* Visual and thematic identity for each depth band, and where the bands transition along the 30-floor descent
+* Visual and thematic identity for each of the ten depth bands
+* **Whether 100 floors is one run.** The band table describes a 100-floor tower, but nothing has settled whether a player is expected to descend all of it in a single sitting or whether depth-jumps make the back half a series of shorter trips. Run-length pacing targets in `economy-balancing.md` were written against 30.
+* Enemy and XP scaling were tuned against a 30-floor curve. They need re-checking against 100 — and against 20, since the alpha cap means a run now ends a third of the way up the old curve.

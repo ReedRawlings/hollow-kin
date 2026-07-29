@@ -4,7 +4,7 @@
 
 > **Owns:** Obol earn weights, the Obols→Essence conversion rate, the permanent level cost curve, depth-jump prices, capture economy, essence sinks, progression pacing targets, and the balancing levers.
 > **Defers to the GDD on:** the progression model itself and what persists across runs.
-> **Last verified:** 2026-07-26.
+> **Last verified:** 2026-07-28 — conversion rate, wipe penalty, level-cost curve and depth-jump pricing re-checked against `types.ts` / `Economy.ts`.
 >
 > **Every number in this document is a placeholder for playtest tuning.** Pin relationships between constants, not the values.
 
@@ -114,21 +114,24 @@ Deeper in the tower, traits can drop already at Level 2–4, skipping some or al
 
 ## **Depth-Jumps**
 
-The tower is one continuous 30-floor descent with a **mini-boss every 5 floors** and a **major boss every 10 floors**. At each 5-floor break the player can purchase a **permanent start point** with essence. Buying a break starts future runs at the floor *after* it:
+The tower is one continuous descent — 100 floors in 10 bands, capped at 20 for alpha — with a **mini-boss every 5 floors** and a **major boss every 10 floors**. At each 5-floor break the player can purchase a **permanent start point** with essence. Buying a break starts future runs at the floor *after* it (a break with no floor below it is never offered, so the deepest purchasable break under the alpha cap is 15):
 
 * Buy floor 5 → start at floor 6
 * Buy floor 10 → start at floor 11
 * …and so on up the tower.
 
-Depth-jumps are gated by having cleared that break's boss — you can only select a start floor for a break you've already reached — but the Essence cost is **not** a one-time permanent purchase. It's charged **per run**, deducted from banked Essence at the moment the run begins (never from in-run Obols). Choosing floor 1 is always free; choosing a deeper unlocked start floor costs:
+Depth-jumps are gated by having cleared that break's boss — you can only buy a start floor for a break you've already reached. The cost comes in **two parts**, both paid in banked Essence and never from in-run Obols:
 
 ```
-depthJumpCost(startFloor) = max(0, (startFloor - 1) * 15)
+depthUnlockCost(floor) = max(0, (floor - 1) * DEPTH_UNLOCK_COST_PER_FLOOR)   // one-time, 40/floor
+depthRunFee(floor)     = max(0, (floor - 1) * DEPTH_RUN_FEE_PER_FLOOR)       // every run, 5/floor
 ```
 
-(placeholder). If the player can't afford the selected start floor's cost when the run begins, the run falls back to floor 1 (free) instead. Cost scales linearly with depth (deeper starts skip more Obol-earning fights, so they must cost more Essence than those fights would have yielded); e.g. floor 6 costs 75, floor 11 costs 150, floor 26 costs 375.
+(both placeholders). **Unlock** is a one-time permanent purchase at the Gatekeeper. **The run fee** is then charged again at the start of every run that departs from that floor. Floor 1 is always free on both counts. So floor 6 costs 200 to unlock and 25 each time you use it; floor 16 costs 600 and 75 per run.
 
-The per-run charge is a starting placeholder to be tuned so a jump is a real bank-vs-spend decision every run, not a one-time obvious purchase.
+The split is the point: the unlock is the big bank-vs-spend moment, and the recurring fee stops a bought depth from being a pure free win forever. If the player can't afford the fee when the run begins, the run falls back to floor 1 rather than failing.
+
+> An earlier draft charged a single per-run `(floor - 1) * 15` with no permanent unlock. That model is gone — do not reintroduce it. Anything still quoting ×15 is stale.
 
 ---
 
@@ -157,7 +160,7 @@ These are rough benchmarks to anchor design decisions. All numbers are subject t
 * Star 4–5 creatures with curated trait loadouts and high permanent-level floors
 * Breeding is about optimization — maximizing trait inheritance, targeting specific abilities
 * Depth-jumps mostly purchased; runs focus on the deepest floors and boss marks
-* The player is pushing for full 30-floor clears and mark collection
+* The player is pushing for full-depth clears and mark collection — floor 20 under the alpha cap, eventually floor 100
 
 ---
 
