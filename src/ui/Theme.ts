@@ -49,6 +49,26 @@ export function archetypeColor(archetype: Archetype): number {
   return ARCHETYPE_UI[archetype];
 }
 
+/**
+ * Accent colour and glyph for an item, chosen from its EFFECT rather than its id.
+ * Both shop scenes used to test `itemId === 'mending_draught'`, which silently
+ * mis-coloured every item added after it.
+ */
+export function itemAccent(kind: string): { color: number; glyph: string } {
+  switch (kind) {
+    case 'heal': return { color: UI.green, glyph: '+' };
+    case 'restore_mp': return { color: UI.teal, glyph: '~' };
+    case 'revive': return { color: UI.amber, glyph: '*' };
+    case 'cure_status': return { color: UI.green, glyph: 'C' };
+    case 'buff': return { color: UI.gold, glyph: 'STR' };
+    case 'percent_damage': return { color: UI.red, glyph: 'X' };
+    case 'strip_buffs': return { color: UI.orange, glyph: 'V' };
+    case 'escape_battle': return { color: UI.teal, glyph: '<' };
+    case 'depart': return { color: UI.gold, glyph: 'W' };
+    default: return { color: UI.lineBright, glyph: '?' };
+  }
+}
+
 export function stars(n: number): string {
   return '★'.repeat(Math.max(0, Math.min(5, n))) + '☆'.repeat(Math.max(0, 5 - n));
 }

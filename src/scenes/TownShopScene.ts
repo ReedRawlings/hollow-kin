@@ -4,7 +4,7 @@ import { getItem } from '../data/items';
 import { TOWN_ITEM_OFFERS, ItemOffer, tryBuyItem } from '../systems/Shop';
 import { capacity, isFull, isProtected, usedSlots } from '../systems/Backpack';
 import {
-  UI, BODY_FONT, DISPLAY_FONT, backButton, button, footer, header, panel,
+  UI, BODY_FONT, DISPLAY_FONT, backButton, footer, header, itemAccent, panel,
   screenFrame, spritePlate,
 } from '../ui/Theme';
 
@@ -49,7 +49,7 @@ export class TownShopScene extends Phaser.Scene {
       });
 
     TOWN_ITEM_OFFERS.forEach((offer, i) => {
-      this.drawOffer(264 + i * 432, 326, 404, 334, offer, i);
+      this.drawOffer(200 + (i % 3) * 280, 200 + Math.floor(i / 3) * 130, 260, 116, offer, i);
     });
 
     this.drawBagStrip();
@@ -66,62 +66,46 @@ export class TownShopScene extends Phaser.Scene {
   }
 
   private drawOffer(
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    offer: ItemOffer,
-    index: number,
+    x: number, y: number, w: number, h: number, offer: ItemOffer, index: number,
   ): void {
     const def = getItem(offer.itemId);
     const selected = this.selected === index;
     const state = this.offerState(offer);
-    const accent = offer.itemId === 'mending_draught' ? UI.green : UI.gold;
-    const glyph = offer.itemId === 'mending_draught' ? '+' : 'STR';
+    const { color: accent, glyph } = itemAccent(def.effect.kind);
 
     panel(this, x, y, w, h, selected);
-    this.add.text(x - w / 2 + 22, y - h / 2 + 20, `SUPPLY 0${index + 1}`, {
-      fontFamily: BODY_FONT, fontSize: '9px', color: UI.muted,
+    spritePlate(this, x - w / 2 + 34, y - 14, 44, 44,
+      state.enabled ? accent : UI.line, selected ? UI.gold : UI.line);
+    this.add.text(x - w / 2 + 34, y - 14, glyph, {
+      fontFamily: DISPLAY_FONT, fontSize: glyph.length > 2 ? '9px' : '16px',
+      color: state.enabled ? Phaser.Display.Color.IntegerToColor(accent).rgba : UI.muted,
+    }).setOrigin(0.5);
+
+    this.add.text(x - w / 2 + 66, y - h / 2 + 12, def.name.toUpperCase(), {
+      fontFamily: DISPLAY_FONT, fontSize: '9px',
+      color: state.enabled ? UI.hi : UI.muted,
     });
-    this.add.text(x + w / 2 - 22, y - h / 2 + 18, `${offer.cost} ESSENCE`, {
-      fontFamily: DISPLAY_FONT, fontSize: '8px',
+    this.add.text(x + w / 2 - 14, y - h / 2 + 12, `${offer.cost}`, {
+      fontFamily: DISPLAY_FONT, fontSize: '10px',
       color: state.enabled ? UI.tealCss : UI.muted,
     }).setOrigin(1, 0);
-    spritePlate(this, x, y - 62, 152, 112, state.enabled ? accent : UI.line,
-      selected ? UI.gold : UI.line);
-    this.add.text(x, y - 62, glyph, {
-      fontFamily: DISPLAY_FONT, fontSize: glyph.length > 2 ? '12px' : '24px',
-      color: state.enabled
-        ? Phaser.Display.Color.IntegerToColor(accent).rgba
-        : UI.muted,
-    }).setOrigin(0.5);
-    this.add.text(x, y + 19, def.name.toUpperCase(), {
-      fontFamily: DISPLAY_FONT, fontSize: '11px',
-      color: state.enabled ? UI.hi : UI.muted,
-    }).setOrigin(0.5);
-    this.add.text(x, y + 56, def.description, {
-      fontFamily: BODY_FONT, fontSize: '11px',
-      color: state.enabled ? UI.body : UI.muted,
-      align: 'center', wordWrap: { width: w - 52 },
-    }).setOrigin(0.5);
-    this.add.text(x, y + 94, state.reason, {
-      fontFamily: DISPLAY_FONT, fontSize: '8px',
-      color: state.enabled ? UI.greenCss : UI.redCss,
-    }).setOrigin(0.5);
-    button(this, x, y + 132, 220, 46,
-      state.enabled ? `BUY  ·  ${offer.cost}` : 'UNAVAILABLE',
-      state.enabled ? () => { this.selected = index; this.purchaseSelected(); } : null,
-      UI.teal, state.enabled);
+    this.add.text(x - w / 2 + 66, y - h / 2 + 32, def.description, {
+      fontFamily: BODY_FONT, fontSize: '9px',
+      color: state.enabled ? UI.body : UI.muted, wordWrap: { width: w - 84 },
+    });
+    this.add.text(x, y + h / 2 - 14,
+      state.enabled ? `BUY  ·  ${offer.cost} ESSENCE` : state.reason, {
+        fontFamily: DISPLAY_FONT, fontSize: '8px',
+        color: state.enabled ? UI.greenCss : UI.redCss,
+      }).setOrigin(0.5);
 
-    const hit = this.add.rectangle(x, y - 24, w, h - 72, 0xffffff, 0.001)
+    const hit = this.add.rectangle(x, y, w, h, 0xffffff, 0.001)
       .setInteractive({ useHandCursor: state.enabled });
     hit.on('pointerover', () => {
-      if (this.selected !== index) {
-        this.selected = index;
-        this.draw();
-      }
+      if (this.selected !== index) { this.selected = index; this.draw(); }
     });
     hit.on('pointerdown', () => {
+      if (!state.enabled) return;
       this.selected = index;
       this.purchaseSelected();
     });
