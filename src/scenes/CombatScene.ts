@@ -11,11 +11,12 @@ import {
 import {
   calculateTurnOrder, calculateDamage, applyDamage,
   applyAbilityEffects, tickStatusEffects, isSkipTurn,
-  createCombatCreature, resolveNonDamagingAbility, applyHeal, applyBuffDebuff,
+  createCombatCreature, resolveNonDamagingAbility,
 } from '../systems/CombatEngine';
 import { getEnemyAction, chooseAction } from '../systems/TacticsAI';
 import { obolsForEncounter } from '../systems/Economy';
 import { usedSlots, removeAt } from '../systems/Backpack';
+import { applyItemInCombat, canUseItem } from '../systems/Items';
 import {
   renderBattlefield, ChipSpec, CommandPanelView, RootCommandSpec, SubRowSpec,
 } from './combat/BattlefieldRenderer';
@@ -57,14 +58,20 @@ export class CombatScene extends Phaser.Scene {
   private subOpen: 'MAGIC' | 'ITEM' | null = null;
   private subRowIndex = 0;
   /**
-   * What's awaiting a click on a living ally: an ability (single_ally targeting,
-   * >1 candidate) or a bag item (both of today's item effects target one ally) —
-   * both funnel through the same ally-picker UI, so one field covers either.
+   * What's awaiting a click in the ALLY field. Items can now target the fallen as
+   * well as the living, so the pending action carries which picker is open.
+   *
+   * Enemy-targeted items are deliberately NOT represented here — they use the
+   * persistent `currentTarget` hover selection, exactly as enemy abilities do.
+   * See selectItem for why routing them through this field breaks targeting.
    */
   private pendingAllyAction:
     | { kind: 'ability'; abilityId: string }
-    | { kind: 'item'; itemId: string; slotIndex: number }
+    | { kind: 'item'; itemId: string; slotIndex: number; picker: 'living_ally' | 'downed_ally' }
     | null = null;
+
+  /** First row shown in the ITEM submenu; nine items no longer fit four rows. */
+  private itemPage = 0;
 
   private onEscKey = () => this.handleEscape();
   private onLeftKey = () => this.cycleTarget(-1);
@@ -102,6 +109,7 @@ export class CombatScene extends Phaser.Scene {
     this.subOpen = null;
     this.subRowIndex = 0;
     this.pendingAllyAction = null;
+    this.itemPage = 0;
   }
 
   create(): void {
@@ -301,6 +309,7 @@ export class CombatScene extends Phaser.Scene {
       this.cmdIndex = 2;
       this.subOpen = 'ITEM';
       this.subRowIndex = 0;
+      this.itemPage = 0;
       this.redraw();
     }
     // i === 3 (RUN): no escape mechanic exists mid-battle — disabled, unreachable.
@@ -364,64 +373,93 @@ export class CombatScene extends Phaser.Scene {
     this.time.delayedCall(scaledDelay(COMBAT_DELAY_ACTION, gameState.battleSpeed), () => this.finishTurn(attacker));
   }
 
-  /**
-   * Selecting an ITEM row. Both item effects today (heal, buff) target a single
-   * ally — same auto-target-when-unambiguous rule as a single_ally ability.
-   */
+  /** Selecting an ITEM row — routes to the picker (or auto-target) its `targeting` calls for. */
   private selectItem(itemId: string): void {
     const slotIndex = gameState.backpack.slots.findIndex(
-      s => s !== null && s.kind === 'item' && s.itemId === itemId,
-    );
-    if (slotIndex === -1) return; // bag changed under us (shouldn't happen mid-turn) — no-op
+      s => s !== null && s.kind === 'item' && s.itemId === itemId);
+    if (slotIndex === -1) return;
+    const def = getItem(itemId);
 
-    const livingAllies = this.playerParty.filter(p => !p.isKnockedOut);
-    if (livingAllies.length === 1) {
-      this.useItem(itemId, slotIndex, livingAllies[0]);
-    } else {
-      this.pendingAllyAction = { kind: 'item', itemId, slotIndex };
-      this.phase = BattlePhase.PLAYER_TARGETING;
-      this.redraw();
+    if (def.targeting === 'none') {
+      this.useItem(itemId, slotIndex, null);
+      return;
     }
+    if (def.targeting === 'enemy') {
+      // Mirrors chooseAbility's single_enemy branch exactly. Do NOT route this
+      // through pendingAllyAction: that flips the phase to PLAYER_TARGETING, and
+      // `enemyInteractive` is computed as `PLAYER_CHOOSING && !pendingAllyAction`
+      // — so the enemy field would go dead and strand the player with no way to
+      // pick a target and no way back.
+      const living = this.enemyParty.filter(e => !e.isKnockedOut);
+      if (living.length === 1) { this.useItem(itemId, slotIndex, living[0]); return; }
+      this.ensureValidTarget();
+      if (this.currentTarget) this.useItem(itemId, slotIndex, this.currentTarget);
+      return;
+    }
+    const wantDown = def.targeting === 'downed_ally';
+    const candidates = this.playerParty.filter(c => c.isKnockedOut === wantDown);
+    if (candidates.length === 0) return;
+    if (candidates.length === 1) { this.useItem(itemId, slotIndex, candidates[0]); return; }
+    this.pendingAllyAction = {
+      kind: 'item', itemId, slotIndex, picker: wantDown ? 'downed_ally' : 'living_ally',
+    };
+    this.phase = BattlePhase.PLAYER_TARGETING;
+    this.redraw();
   }
 
   /**
-   * Apply a bag item's effect to `target` and consume the acting creature's turn —
-   * same shape as executePlayerAction, minus MP cost. Reuses CombatEngine's existing
-   * heal/buff paths rather than a second implementation. The item is removed from
-   * `slotIndex` on use, which is the exact slot the row was built from at selection
+   * Apply a bag item's effect to `target` (null for effects that take none) and
+   * consume the acting creature's turn. All interpretation of what the item DOES
+   * lives in Items.ts — this method only routes the outcome to messages/turn
+   * state. `slotIndex` is the exact slot the row was built from at selection
    * time (selectItem re-resolves it fresh, so a stale index here would be a bug).
    */
-  private useItem(itemId: string, slotIndex: number, target: CombatCreature): void {
+  private useItem(itemId: string, slotIndex: number, target: CombatCreature | null): void {
     const actor = this.turnOrder[this.currentTurnIndex];
     if (!actor) return;
-    this.phase = BattlePhase.EXECUTING;
     const def = getItem(itemId);
-    actor.isDefending = false;
+    const ctx = { where: 'combat' as const, isBoss: this.encounter.type === 'boss' };
+    const outcome = applyItemInCombat(def, target, ctx);
 
-    if (def.effect.kind === 'heal') {
-      const healed = applyHeal(target, def.effect.amount);
-      this.addMessage(`${actor.template.name} used ${def.name} on ${target.template.name} — recovered ${healed} HP!`);
-    } else if (def.effect.kind === 'buff') {
-      applyBuffDebuff(target, def.effect.stat, def.effect.stages);
-      const dir = def.effect.stages > 0 ? 'rose' : 'fell';
-      this.addMessage(`${actor.template.name} used ${def.name} — ${target.template.name}'s ${def.effect.stat.toUpperCase()} ${dir}!`);
-    } else {
-      // BRIDGE — delete in Task 8. The catalog now carries seven effect kinds this
-      // scene cannot resolve yet; Task 8 replaces this whole method with a call to
-      // Items.applyItemInCombat. Until then, refuse rather than mis-apply, and
-      // return BEFORE the slot is consumed so nothing is destroyed for no effect.
-      this.addMessage(`${def.name} cannot be used here yet.`);
+    if (outcome.kind === 'refused') {
+      // Nothing consumed and nothing spent — hand the turn back rather than
+      // burning it on a mistake. Same rule tryBuyItem follows for payment.
+      this.addMessage(outcome.reason);
+      this.pendingAllyAction = null;
       this.phase = BattlePhase.PLAYER_CHOOSING;
       this.redraw();
       return;
     }
 
+    this.phase = BattlePhase.EXECUTING;
+    actor.isDefending = false;
+    this.pendingAllyAction = null;
     gameState.backpack = removeAt(gameState.backpack, slotIndex);
     gameState.saveToLocalStorage();
 
+    if (outcome.kind === 'escape_battle') {
+      // Free action: escapeBattle() never calls finishTurn(), so the turn is
+      // never passed and no enemy acts in response. The delay is for readability.
+      this.addMessage(`${actor.template.name} broke the ${def.name}!`);
+      this.redraw();
+      this.time.delayedCall(scaledDelay(COMBAT_DELAY_ACTION, gameState.battleSpeed),
+        () => this.escapeBattle());
+      return;
+    }
+    // 'depart' is in ItemOutcome's declared type but applyItemInCombat's own
+    // switch refuses the depart effect rather than ever returning it — this
+    // branch is unreachable from combat. Guarded rather than asserted so a
+    // future change to that switch fails a type check here instead of
+    // reading `outcome.message` off a variant that doesn't have one.
+    if (outcome.kind === 'depart') return;
+
+    this.addMessage(`${actor.template.name} used ${def.name} — ${outcome.message}`);
     this.redraw();
-    this.time.delayedCall(scaledDelay(COMBAT_DELAY_ACTION, gameState.battleSpeed), () => this.finishTurn(actor));
+    this.time.delayedCall(scaledDelay(COMBAT_DELAY_ACTION, gameState.battleSpeed),
+      () => this.finishTurn(actor));
   }
+
+  private escapeBattle(): void { /* Task 9 */ }
 
   private executeAutoTurn(creature: CombatCreature): void {
     // tactic is narrowed to TacticProfile — 'follow_orders' never reaches here.
@@ -586,19 +624,30 @@ export class CombatScene extends Phaser.Scene {
     return `FLOOR ${floor} — AMBUSH`;
   }
 
-  /** Unique item ids in the bag, in slot order — the same order both the footer
-   *  detail and the ITEM row list read from, so hovering row N always describes
-   *  the item row N will act on. */
+  /** Unique item ids usable in THIS battle, in slot order. */
   private bagItemIds(): string[] {
+    const ctx = { where: 'combat' as const, isBoss: this.encounter.type === 'boss' };
     const seen = new Set<string>();
     const ids: string[] = [];
     for (const slot of gameState.backpack.slots) {
       if (slot && slot.kind === 'item' && !seen.has(slot.itemId)) {
         seen.add(slot.itemId);
-        ids.push(slot.itemId);
+        if (canUseItem(getItem(slot.itemId), ctx)) ids.push(slot.itemId);
       }
     }
     return ids;
+  }
+
+  /** Usable-item ids for the current ITEM submenu page. Reused by both the
+   *  footer detail (which describes the hovered row) and the row builder,
+   *  so the two never disagree about which item row N is. */
+  private currentItemPage(): { shown: string[]; pages: number } {
+    const all = this.bagItemIds();
+    const PAGE = 3; // fourth row is the pager
+    const pages = Math.max(1, Math.ceil(all.length / PAGE));
+    this.itemPage = this.itemPage % pages;
+    const shown = all.slice(this.itemPage * PAGE, this.itemPage * PAGE + PAGE);
+    return { shown, pages };
   }
 
   private computeFooterDetail(): string {
@@ -618,8 +667,8 @@ export class CombatScene extends Phaser.Scene {
       return id ? getAbility(id).description : '';
     }
     if (this.subOpen === 'ITEM') {
-      const ids = this.bagItemIds();
-      const id = ids[this.subRowIndex];
+      const { shown } = this.currentItemPage();
+      const id = shown[this.subRowIndex];
       return id ? getItem(id).description : 'The bag holds no usable items.';
     }
     return ROOT_DETAIL[this.cmdIndex] ?? '';
@@ -694,18 +743,28 @@ export class CombatScene extends Phaser.Scene {
       for (const slot of bag.slots) {
         if (slot && slot.kind === 'item') counts.set(slot.itemId, (counts.get(slot.itemId) ?? 0) + 1);
       }
-      const entries = this.bagItemIds().map(id => [id, counts.get(id)!] as const);
-      const rows: SubRowSpec[] = entries.slice(0, 4).map(([itemId, count], i) => {
+      const { shown, pages } = this.currentItemPage();
+      const rows: SubRowSpec[] = shown.map((itemId, i) => {
         const def = getItem(itemId);
         return {
           label: def.name.toUpperCase(),
-          meta: `×${count}`,
+          meta: `×${counts.get(itemId) ?? 0}`,
           selected: i === this.subRowIndex,
           disabled: false,
           onHover: () => { this.subRowIndex = i; this.redraw(); },
           onClick: () => { this.subRowIndex = i; this.selectItem(itemId); },
         };
       });
+      if (pages > 1) {
+        rows.push({
+          label: `MORE (${this.itemPage + 1}/${pages})`,
+          meta: '',
+          selected: false,
+          disabled: false,
+          onHover: () => {},
+          onClick: () => { this.itemPage = (this.itemPage + 1) % pages; this.subRowIndex = 0; this.redraw(); },
+        });
+      }
       if (rows.length === 0) {
         rows.push({
           label: 'EMPTY', meta: '', selected: false, disabled: true, onHover: () => {}, onClick: () => {},
@@ -778,6 +837,10 @@ export class CombatScene extends Phaser.Scene {
       onEnemyHover: (enemy) => { this.currentTarget = enemy; this.redraw(); },
       onEnemyClick: (enemy) => { this.currentTarget = enemy; this.redraw(); },
       allyInteractive,
+      allyTargetable: (ally) =>
+        this.pendingAllyAction?.kind === 'item' && this.pendingAllyAction.picker === 'downed_ally'
+          ? ally.isKnockedOut
+          : !ally.isKnockedOut,
       onAllyHover: () => {},
       onAllyClick: (ally) => {
         if (!this.pendingAllyAction) return;
