@@ -45,3 +45,25 @@ export function applyTargetedRecovery(
   run.partyMp[creature.instanceId] = current + recovered;
   return recovered;
 }
+
+/**
+ * Bring a knocked-out creature back on the run map.
+ *
+ * The run-state twin of CombatEngine's `revive`: same contract, different state
+ * shape. Returns false and changes nothing when the target is still standing, so
+ * a caller can refuse rather than consume.
+ */
+export function reviveOnRun(
+  creature: CreatureInstance,
+  run: RunState,
+  hpFraction: number,
+  mpFraction: number,
+): boolean {
+  if (!run.partyKO[creature.instanceId]) return false;
+  run.partyKO[creature.instanceId] = false;
+  run.partyHp[creature.instanceId] = Math.max(
+    1, Math.floor(creature.currentStats.hp * hpFraction),
+  );
+  run.partyMp[creature.instanceId] = Math.floor(creature.currentStats.mp * mpFraction);
+  return true;
+}
