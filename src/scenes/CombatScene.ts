@@ -421,10 +421,16 @@ export class CombatScene extends Phaser.Scene {
     const ctx = { where: 'combat' as const, isBoss: this.encounter.type === 'boss' };
     const outcome = applyItemInCombat(def, target, ctx);
 
-    if (outcome.kind === 'refused') {
+    // A 'depart' outcome cannot occur here today — applyItemInCombat maps the depart
+    // effect to 'refused', and this method never calls applyItemOnMap. The case exists
+    // to close a narrowing gap across the function boundary, and it is grouped with
+    // 'refused' deliberately: if a future refactor ever did route depart through combat,
+    // refusing costs the player nothing, whereas handling it after consumption would
+    // silently eat the item and stall the turn with no message and no finishTurn.
+    if (outcome.kind === 'refused' || outcome.kind === 'depart') {
       // Nothing consumed and nothing spent — hand the turn back rather than
       // burning it on a mistake. Same rule tryBuyItem follows for payment.
-      this.addMessage(outcome.reason);
+      this.addMessage(outcome.kind === 'refused' ? outcome.reason : `${def.name} cannot be used here.`);
       this.pendingAllyAction = null;
       this.phase = BattlePhase.PLAYER_CHOOSING;
       this.redraw();
@@ -446,12 +452,6 @@ export class CombatScene extends Phaser.Scene {
         () => this.escapeBattle());
       return;
     }
-    // 'depart' is in ItemOutcome's declared type but applyItemInCombat's own
-    // switch refuses the depart effect rather than ever returning it — this
-    // branch is unreachable from combat. Guarded rather than asserted so a
-    // future change to that switch fails a type check here instead of
-    // reading `outcome.message` off a variant that doesn't have one.
-    if (outcome.kind === 'depart') return;
 
     this.addMessage(`${actor.template.name} used ${def.name} — ${outcome.message}`);
     this.redraw();
