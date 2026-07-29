@@ -143,9 +143,15 @@ export function merchantStockFor(encounter: Encounter, count = 3): ItemOffer[] {
 
   // A small deterministic mixer — enough to decorrelate neighbouring shops
   // without pulling in a seeded-RNG dependency for nine items.
-  let seed = (encounter.floor * 73856093) ^ (encounter.index * 19349663);
+  //
+  // Math.imul keeps the multiply inside 32 bits. A plain `seed * 1103515245`
+  // pushes the product past 2^53 (JS doubles' safe-integer ceiling) once seed
+  // itself reaches 2^31, silently destroying the low bits the `>>> 0` mask
+  // depends on — which flattened almost every draw to the same handful of
+  // stock lists.
+  let seed = ((encounter.floor * 73856093) ^ (encounter.index * 19349663)) >>> 0;
   const next = () => {
-    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
     return seed;
   };
 

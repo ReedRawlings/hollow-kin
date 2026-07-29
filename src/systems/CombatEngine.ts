@@ -124,7 +124,10 @@ export function revive(target: CombatCreature, hpFraction: number, mpFraction: n
   if (!target.isKnockedOut) return false;
   target.isKnockedOut = false;
   target.currentHp = Math.max(1, Math.min(target.maxHp, Math.floor(target.maxHp * hpFraction)));
-  target.currentMp = Math.min(target.maxMp, Math.floor(target.maxMp * mpFraction));
+  // Never LOWER MP: a knock-out only zeroes HP, so a creature felled at full MP
+  // keeps it, and a revive item must not turn into a stat penalty for whoever
+  // was carrying the most MP when they went down.
+  target.currentMp = Math.min(target.maxMp, Math.max(target.currentMp, Math.floor(target.maxMp * mpFraction)));
   return true;
 }
 

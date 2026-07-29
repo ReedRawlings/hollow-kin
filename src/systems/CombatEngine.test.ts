@@ -262,6 +262,15 @@ describe('item effect primitives', () => {
     expect(c.currentHp).toBeGreaterThanOrEqual(1);
   });
 
+  it('revive never lowers MP below what the creature was carrying when it fell', () => {
+    // A knock-out only ever zeroes HP; MP is whatever it was. A revive item's
+    // small MP fraction must not act as a penalty for someone felled at full MP.
+    const c = makeTestCreature({ hp: 0, mp: 20 });
+    const mpBefore = c.currentMp;
+    revive(c, 0.25, 0.1); // 0.1 * maxMp would be well below what was carried
+    expect(c.currentMp).toBeGreaterThanOrEqual(mpBefore);
+  });
+
   it('clearNegativeStatuses empties the list and reports what went', () => {
     const c = makeTestCreature();
     c.statusEffects = [

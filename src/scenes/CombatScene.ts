@@ -769,11 +769,18 @@ export class CombatScene extends Phaser.Scene {
       const { shown, pages } = this.currentItemPage();
       const rows: SubRowSpec[] = shown.map((itemId, i) => {
         const def = getItem(itemId);
+        // canUseItem (baked into bagItemIds) only checks CONTEXT — where the item
+        // may be used. It says nothing about whether a valid target exists right
+        // now, so a downed_ally item with nobody knocked out would otherwise reach
+        // selectItem's bare `return` on click: no message, no state change, a dead
+        // row that reads as a broken button.
+        const disabled = def.targeting === 'downed_ally'
+          && !this.playerParty.some(c => c.isKnockedOut);
         return {
           label: def.name.toUpperCase(),
           meta: `×${counts.get(itemId) ?? 0}`,
           selected: i === this.subRowIndex,
-          disabled: false,
+          disabled,
           onHover: () => { this.subRowIndex = i; this.redraw(); },
           onClick: () => { this.subRowIndex = i; this.selectItem(itemId); },
         };

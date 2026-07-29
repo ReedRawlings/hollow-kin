@@ -10,20 +10,25 @@ import { UI, BODY_FONT, DISPLAY_FONT, button, panel } from '../../ui/Theme';
 /**
  * The bag, lifted out of RunScene once it stopped being read-only.
  *
- * Follows the `scenes/combat/BattlefieldRenderer` precedent: a panel with its
- * own selection state, drawn into a scene it does not own. RunScene was already
- * 425 lines before departure gating landed on top of it, and the bag is the
- * self-contained piece.
+ * The real precedent: a panel drawn into a scene it does not own, owning its
+ * own selection state rather than reaching back into the scene for it.
+ * RunScene was already 425 lines before departure gating landed on top of it,
+ * and the bag is the self-contained piece.
  *
  * The panel never decides what an item does — `applyItemOnMap` does. It renders
- * the outcome and, on anything other than a refusal, consumes the slot.
+ * the outcome and, on anything other than a refusal, consumes the slot — except
+ * a waystone: that resolves to `depart`, and departing is irreversible and
+ * scene-owned, so this panel hands off to `onDepartRequest` and consumes nothing.
+ * `RunScene.confirmDeparture()` is the single site that removes the waystone.
  */
 
 export interface BagPanelOpts {
   run: RunState;
   onClose: () => void;
-  /** A waystone resolved to `depart` — the scene owns ending the run. */
-  onDepart: () => void;
+  /** A waystone was used — ask the scene to open its departure confirmation.
+   *  The item is NOT consumed here; confirmDeparture() removes it once the
+   *  player actually commits, matching the USE WAYSTONE button on the map. */
+  onDepartRequest: () => void;
   /** Something changed; the caller should redraw the map behind the modal. */
   onChanged: () => void;
 }
@@ -95,7 +100,15 @@ export function drawBagPanel(scene: Phaser.Scene, opts: BagPanelOpts): void {
 function beginUse(scene: Phaser.Scene, opts: BagPanelOpts, slotIndex: number): void {
   const slot = gameState.backpack.slots[slotIndex];
   if (slot?.kind !== 'item') return;
-  if (getItem(slot.itemId).targeting === 'none') {
+  const def = getItem(slot.itemId);
+  if (def.effect.kind === 'depart') {
+    // Same irreversible outcome as the run map's USE WAYSTONE button — route
+    // through the same confirmation instead of ending the run on one misclick.
+    resetBagPanel();
+    opts.onDepartRequest();
+    return;
+  }
+  if (def.targeting === 'none') {
     resolve(scene, opts, slotIndex, null);
     return;
   }
@@ -141,6 +154,11 @@ function drawTargetPicker(scene: Phaser.Scene, opts: BagPanelOpts, slotIndex: nu
  *
  * The slot is consumed on any outcome EXCEPT a refusal — the same rule
  * `tryBuyItem` follows for payment. A refusal reports why and keeps the item.
+ *
+ * Never called for a `depart`-effect item: `beginUse` intercepts those before
+ * reaching here (see `onDepartRequest`), so `outcome.kind === 'depart'` cannot
+ * occur in practice. It stays in `ItemOutcome`'s union regardless — this
+ * function just never produces or consumes for it.
  */
 function resolve(
   scene: Phaser.Scene,
@@ -161,12 +179,6 @@ function resolve(
 
   gameState.backpack = removeAt(gameState.backpack, slotIndex);
   pendingSlot = null;
-
-  if (outcome.kind === 'depart') {
-    resetBagPanel();
-    opts.onDepart();
-    return;
-  }
 
   lastMessage = outcome.kind === 'applied' ? outcome.message.toUpperCase() : '';
   gameState.saveToLocalStorage();

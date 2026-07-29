@@ -228,4 +228,34 @@ describe('merchantStockFor', () => {
   it('cannot ask for more than the catalog holds', () => {
     expect(merchantStockFor(shop(1, 0), 99)).toHaveLength(MERCHANT_ITEM_OFFERS.length);
   });
+
+  it('spreads the catalog across shops instead of one item dominating every draw', () => {
+    // A shape assertion, not a values one: no single item should crowd out the
+    // rest across a descent's worth of real (floor, index) pairs. `generateDescent`
+    // assigns index = floor - startFloor and startFloor is always 1, 6, 11 or 16
+    // (a run start or a depth-jump start) — so this mirrors what the mixer is
+    // actually fed in play, not an arbitrary grid.
+    //
+    // `seen.size > 1` (the pre-existing 'differs between shops' test below) passes
+    // even with the broken 32-bit-overflowing mixer, because SOME shops still
+    // differ — it just never catches that one item (Mending Draught) was in
+    // nearly every one of them. Measured directly: the broken mixer put it in
+    // 50/50 shops in this exact sample; a correct mixer keeps every item under
+    // half.
+    const startFloors = [1, 6, 11, 16];
+    const pairs: Array<[number, number]> = [];
+    for (const startFloor of startFloors) {
+      for (let floor = startFloor; floor <= 20; floor++) pairs.push([floor, floor - startFloor]);
+    }
+    const counts = new Map<string, number>();
+    for (const [floor, index] of pairs) {
+      for (const offer of merchantStockFor(shop(floor, index), 3)) {
+        counts.set(offer.itemId, (counts.get(offer.itemId) ?? 0) + 1);
+      }
+    }
+    expect(counts.size).toBe(MERCHANT_ITEM_OFFERS.length); // every item shows up somewhere
+    for (const [, n] of counts) {
+      expect(n / pairs.length).toBeLessThan(0.6);
+    }
+  });
 });

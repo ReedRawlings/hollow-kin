@@ -122,7 +122,7 @@ export class ShopScene extends Phaser.Scene {
       fontFamily: DISPLAY_FONT, fontSize: '9px', color: UI.hi,
     });
     offers.slice(3).forEach((offer, i) => {
-      this.drawOffer(252 + i * 456, 405, 432, 184, offer, i + 3);
+      this.drawOffer(176 + i * 304, 405, 286, 184, offer, i + 3);
     });
 
     this.drawBagStrip();

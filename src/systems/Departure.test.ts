@@ -47,6 +47,10 @@ describe('canDepart', () => {
   it('closes again once the party commits to the next room', () => {
     expect(canDepart(runAt(5))).toBe(false);
   });
+
+  it('reads closed for a run started deep too — depth-jumps do not get a free pass', () => {
+    expect(canDepart(runAt(-1, 6))).toBe(false);
+  });
 });
 
 describe('nextDepartureFloor', () => {

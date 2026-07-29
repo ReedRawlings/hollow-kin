@@ -70,7 +70,7 @@ export class RunScene extends Phaser.Scene {
       this.input.keyboard?.on('keydown-TAB', (e: KeyboardEvent) => { e.preventDefault(); this.toggleAuto(); });
       this.input.keyboard?.on('keydown-ESC', () => {
         if (this.ending) return;
-        if (this.showingBag) { this.showingBag = false; this.draw(); return; }
+        if (this.showingBag) { this.showingBag = false; resetBagPanel(); this.draw(); return; }
         if (this.confirmingCommit) {
           this.confirmingCommit = null;
           this.draw();
@@ -171,7 +171,11 @@ export class RunScene extends Phaser.Scene {
       drawBagPanel(this, {
         run,
         onClose: () => { this.showingBag = false; this.draw(); },
-        onDepart: () => { this.showingBag = false; this.showRunEnd('fled'); },
+        // The bag never ends the run itself — a waystone used here asks for the
+        // same confirmation as the map's USE WAYSTONE button. requestDeparture()
+        // draws its own modal, so leave the bag closed first rather than drawing
+        // the confirmation underneath it.
+        onDepartRequest: () => { this.showingBag = false; this.requestDeparture(); },
         onChanged: () => this.draw(),
       });
     }
