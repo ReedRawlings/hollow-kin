@@ -118,7 +118,7 @@ describe('getEnemyAction — characterization', () => {
 
 import {
   calculateDamage, baseDamage, isHostileAbility, resolveNonDamagingAbility,
-  rollAbilityHit,
+  rollAbilityHit, revive, clearNegativeStatuses, stripPositiveStages, applyPercentDamage,
 } from './CombatEngine';
 import { getAbility } from '../data/abilities';
 
@@ -240,5 +240,68 @@ describe('non-damaging ability accuracy', () => {
     // applyAbilityEffects still performs its effect-chance roll; there is no
     // additional ability-accuracy roll for the friendly move.
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('item effect primitives', () => {
+  it('revive refuses a creature that is still standing', () => {
+    const c = makeTestCreature();
+    expect(revive(c, 0.25, 0.25)).toBe(false);
+  });
+
+  it('revive brings back a downed creature above zero HP', () => {
+    const c = makeTestCreature({ hp: 0 });
+    expect(revive(c, 0.25, 0.25)).toBe(true);
+    expect(c.isKnockedOut).toBe(false);
+    expect(c.currentHp).toBeGreaterThan(0);
+  });
+
+  it('revive never returns someone at zero HP even on a tiny fraction', () => {
+    const c = makeTestCreature({ hp: 0 });
+    revive(c, 0.0001, 0);
+    expect(c.currentHp).toBeGreaterThanOrEqual(1);
+  });
+
+  it('clearNegativeStatuses empties the list and reports what went', () => {
+    const c = makeTestCreature();
+    c.statusEffects = [
+      { type: 'poison', turnsRemaining: 3 },
+      { type: 'burn', turnsRemaining: 2 },
+    ];
+    const removed = clearNegativeStatuses(c);
+    expect(removed).toEqual(['poison', 'burn']);
+    expect(c.statusEffects).toEqual([]);
+  });
+
+  it('clearNegativeStatuses on a clean creature reports nothing', () => {
+    expect(clearNegativeStatuses(makeTestCreature())).toEqual([]);
+  });
+
+  it('stripPositiveStages clears buffs but leaves debuffs alone', () => {
+    const c = makeTestCreature();
+    c.buffStages = { str: 2, def: -1, spd: 3 };
+    const cleared = stripPositiveStages(c);
+    expect(cleared.sort()).toEqual(['spd', 'str']);
+    expect(c.buffStages.str).toBe(0);
+    expect(c.buffStages.spd).toBe(0);
+    expect(c.buffStages.def).toBe(-1); // a debuff is the enemy's problem, not ours to fix
+  });
+
+  it('applyPercentDamage scales with the target maximum HP', () => {
+    const small = makeTestCreature({ stats: { hp: 100 } });
+    const large = makeTestCreature({ stats: { hp: 400 } });
+    expect(applyPercentDamage(large, 0.25)).toBeGreaterThan(applyPercentDamage(small, 0.25));
+  });
+
+  it('applyPercentDamage ignores DEF entirely', () => {
+    const soft = makeTestCreature({ stats: { hp: 200, def: 1 } });
+    const armoured = makeTestCreature({ stats: { hp: 200, def: 999 } });
+    expect(applyPercentDamage(armoured, 0.25)).toBe(applyPercentDamage(soft, 0.25));
+  });
+
+  it('applyPercentDamage knocks out and reports only the damage actually dealt', () => {
+    const c = makeTestCreature({ stats: { hp: 100 }, hp: 10 });
+    expect(applyPercentDamage(c, 0.5)).toBe(10); // dealt, not the notional 50
+    expect(c.isKnockedOut).toBe(true);
   });
 });
