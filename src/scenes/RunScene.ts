@@ -1,16 +1,16 @@
 import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
-import { getItem } from '../data/items';
 import { generateDescent, generatePickNextChoices } from '../systems/RunGenerator';
-import { usedSlots, capacity, isProtected, removeAt } from '../systems/Backpack';
+import { usedSlots, removeAt } from '../systems/Backpack';
 import { convertObolsToEssence } from '../systems/Economy';
 import { canDepart, hasWaystone, nextDepartureFloor } from '../systems/Departure';
-import { BackpackSlot, Encounter, RunState, TOWER_FLOORS } from '../types';
+import { Encounter, RunState, TOWER_FLOORS } from '../types';
 import {
   UI, BODY_FONT, DISPLAY_FONT, archetypeColor, button, compactPartyCard,
   footer, header, hpColor, panel, screenFrame, spritePlate,
 } from '../ui/Theme';
+import { drawBagPanel, resetBagPanel } from './run/BagPanel';
 
 export class RunScene extends Phaser.Scene {
   private selected = 0;
@@ -31,6 +31,7 @@ export class RunScene extends Phaser.Scene {
     this.confirmingDeparture = false;
     this.confirmingCommit = null;
     this.showingBag = false;
+    resetBagPanel();
     if (!data?.continueRun || !gameState.currentRun) {
       const startFloor = gameState.resolveRunStartFloor();
       gameState.startRun();
@@ -110,7 +111,7 @@ export class RunScene extends Phaser.Scene {
     // collides with the OBOLS readout. The count belongs inside the bag screen.
     const carried = usedSlots(gameState.backpack);
     button(this, 812, 42, 92, 34, 'BAG',
-      () => { this.showingBag = true; this.draw(); },
+      () => { resetBagPanel(); this.showingBag = true; this.draw(); },
       carried > 0 ? UI.gold : UI.lineBright);
 
     this.drawTrail(run);
@@ -160,63 +161,16 @@ export class RunScene extends Phaser.Scene {
     }).setOrigin(0, 0.5);
     footer(this, '← → CHOOSE  ·  ENTER COMMIT  ·  TAB AUTO  ·  ESC DEPART',
       this.offerName(run.choices[this.selected]));
-    if (this.showingBag) this.drawBag(run);
+    if (this.showingBag) {
+      drawBagPanel(this, {
+        run,
+        onClose: () => { this.showingBag = false; this.draw(); },
+        onDepart: () => { this.showingBag = false; this.showRunEnd('fled'); },
+        onChanged: () => this.draw(),
+      });
+    }
     if (this.confirmingDeparture) this.drawDepartureConfirmation();
     if (this.confirmingCommit) this.drawCommitConfirmation(this.confirmingCommit);
-  }
-
-  /**
-   * The bag. Shows Obols alongside the carried slots because offering Obols to an enemy
-   * will happen from here during the combat pass, rather than as a separate action.
-   *
-   * Guaranteed slots are drawn distinctly: their contents survive a wipe, and that is
-   * the only thing the player can do about the single random loss.
-   */
-  private drawBag(run: RunState): void {
-    this.add.rectangle(480, 320, 952, 632, UI.void, 0.82).setInteractive();
-    panel(this, 480, 320, 620, 420, true);
-
-    this.add.text(480, 138, 'THE BAG', {
-      fontFamily: DISPLAY_FONT, fontSize: '16px', color: UI.hi,
-    }).setOrigin(0.5);
-    const bag = gameState.backpack;
-    this.add.text(480, 174, `${run.obols} OBOLS  ·  ${usedSlots(bag)}/${capacity(bag)} SLOTS USED`, {
-      fontFamily: DISPLAY_FONT, fontSize: '8px', color: UI.goldCss,
-    }).setOrigin(0.5);
-
-    bag.slots.forEach((slot, i) => {
-      const x = 260 + (i % 3) * 148;
-      const y = 232 + Math.floor(i / 3) * 84;
-      const safe = isProtected(bag, i);
-      this.add.rectangle(x, y, 136, 72, UI.panel)
-        .setStrokeStyle(2, slot ? (safe ? UI.teal : UI.line) : UI.line);
-      if (safe) {
-        this.add.text(x, y - 26, 'SECURED', {
-          fontFamily: BODY_FONT, fontSize: '8px', color: UI.tealCss,
-        }).setOrigin(0.5);
-      }
-      this.add.text(x, y + 6, this.slotLabel(slot), {
-        fontFamily: BODY_FONT, fontSize: '8px',
-        color: slot ? UI.body : UI.muted, align: 'center', wordWrap: { width: 124 },
-      }).setOrigin(0.5);
-    });
-
-    this.add.text(480, 452,
-      'SECURED SLOTS SURVIVE A WIPE. EVERYTHING ELSE RISKS ONE RANDOM LOSS.', {
-        fontFamily: BODY_FONT, fontSize: '8px', color: UI.mutedBright, align: 'center',
-      }).setOrigin(0.5);
-    button(this, 480, 500, 170, 44, 'CLOSE',
-      () => { this.showingBag = false; this.draw(); }, UI.lineBright);
-  }
-
-  private slotLabel(slot: BackpackSlot): string {
-    if (!slot) return 'empty';
-    switch (slot.kind) {
-      case 'creature': return getTemplate(slot.instance.speciesId).name.toUpperCase();
-      case 'item': return getItem(slot.itemId).name.toUpperCase();
-      case 'mark': return `MARK · ${slot.markId.toUpperCase()}`;
-      case 'trait': return `${slot.traitId.toUpperCase()} L${slot.traitLevel}`;
-    }
   }
 
   private drawTrail(run: RunState): void {
