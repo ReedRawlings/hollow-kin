@@ -86,7 +86,7 @@ src/
     abilities.ts             — 31 abilities (subset of 72; MP costs tuned)
     creatures.ts             — 30 creatures across 11 archetypes + FAMILY_RITES; pools from towerIds
     traits.ts                — 22-trait library (stat/battle-start/resistance/affinity/type/economy)
-    items.ts                 — 2 carryable items
+    items.ts                 — 9 expedition consumables; `usableIn`/`targeting` drive both UIs
   managers/
     GameState.ts             — Singleton: box, party, essence, permanent levels, backpack,
                                obol→essence conversion, depth-jump, save v7 (no migration)
@@ -98,6 +98,9 @@ src/
     Economy.ts               — Obol→Essence conversion, level cost curve, depth costs, carry-over
     Traits.ts                — Slot unlocking, stat bonuses, pool gating, derived breed-readiness
     Backpack.ts              — Slots, protected slots, single-random wipe loss, capture unload
+    Departure.ts             — Derived: canDepart / nextDepartureFloor / hasWaystone (no state)
+    Items.ts                 — Resolves an item in combat OR on the map; returns outcomes,
+                               never consumes and never ends a battle or run itself
     Capture.ts               — Rite evaluation + band-keyed pricing (NOT wired into any scene)
     Bestiary.ts              — Monsterpedia entries, archetype ordering, paging
     Shop.ts / Recovery.ts    — Purchase and heal/revive resolution
@@ -105,7 +108,8 @@ src/
   scenes/
     BootScene (single starter hand), TownScene (essence hub), PartySelectScene,
     DepartureScene (depth + party confirm), RunScene ("TOWER — Floor N/20"),
-    CombatScene + combat/BattlefieldRenderer, PostCombatScene, ShopScene (tower, Obols),
+    CombatScene + combat/BattlefieldRenderer, RunScene + run/BagPanel (usable bag),
+    PostCombatScene, ShopScene (tower, Obols),
     TownShopScene (Provisioner, Essence), RestScene, BreedingScene, LevelerScene,
     GatekeeperScene (depth-jumps), BestiaryScene (Monsterpedia)
   ui/
@@ -122,8 +126,13 @@ src/
 - Damage formula: `(ATK - DEF/2) × (Power/50) × TypeMultiplier`; per-creature resistances/weaknesses
 - localStorage **save v7**, with **no migration path**: the roster swap invalidated every species id a save could hold, so anything below v7 is discarded and the stale blob removed. The v2→v6 field-by-field migrations were deleted with it
 - **Auto-combat / tactics (DQ-style):** per-creature standing tactic (Fight Wisely / All Out / Conserve MP / Heal First / Follow Orders), set in Party Select and persisted; global AUTO toggle in combat and on the run map, with `follow_orders` creatures still prompting manually while AUTO is on. One side-agnostic `TacticsAI.chooseAction()` drives **both** player tactics and enemy AI (`enemy_default` is a literal port of the old `getEnemyAction`, pinned by characterization tests). Knowledge fog: auto only exploits resistances/weaknesses of species already fought — recorded at battle end, so the first encounter with a species is genuinely blind. Persisted **1×/2×/4× battle speed** scales all combat pacing with a 100 ms floor.
+- **Departure commitment — free flight is gone.** `FLEE` after every encounter is replaced by a gate that is open **only on a boss floor just cleared**; between bosses the way out is a carried **Waystone**. State is *derived* (`canDepart` reads whether the current encounter is a boss) — committing to a room closes it as a side effect, so nothing is stored and `RunState` gained no field. The map always shows the commitment (`NO WAYSTONE — NEXT GUARANTEED DEPARTURE: FLOOR n`), and picking a room while departure is open raises a **PRESS ON?** confirmation. `nextDepartureFloor` scans the generated descent rather than computing multiples of five, so it can never promise an exit floor that isn't there.
+- **9 expedition consumables**, up from 2, with `usableIn`/`targeting` as data so no scene branches on an item id. **Only three are map-usable** — Mending Draught, Moonwater, Hollow Candle — because `RunState` carries only `partyHp`/`partyMp`/`partyKO`; buff stages and statuses die with the battle, so anything else would consume the item and silently do nothing. `applyItemOnMap` *refuses* those rather than no-opping. **Consumption happens only on a non-`refused` outcome**, at every call site.
+- **The run-map bag is usable**, not just readable (`run/BagPanel.ts`): USE buttons, a target picker, and a short reason on items that are for fights only. It still shows which slots are `SECURED` — the only lever against the single random wipe loss.
+- **Smoke Husk** ends a *battle* as a free action (no enemy acts in response) and deliberately **records no species knowledge** — otherwise "enter, read the enemy, escape, re-enter informed" would be free scouting against the auto-combat fog. Unavailable on boss floors, enforced by `usableIn: 'combat_non_boss'` and structurally unreachable there.
+- **Both shops stock the pool:** the town Provisioner sells all nine (so a Waystone is *always* buyable before descending — this is what makes the departure lock fair rather than hostage to map RNG), the tower merchant a deterministic 3 per encounter, derived from the encounter's `floor`/`index` so hovering never reshuffles the stock.
 - **31 abilities** (MP costs cut ~40% for a healthier MP economy), **30 creatures** across 11 archetypes, all in tower bands 1–2
-- vitest test suite — 350 tests across 15 files, including roster authoring invariants in `src/data/creatures.test.ts` (every ability id resolves, every band is priced, every archetype shares one family rite) and pool invariants in `Traits.test.ts`
+- vitest test suite — 409 tests across 18 files, including roster authoring invariants in `src/data/creatures.test.ts` (every ability id resolves, every band is priced, every archetype shares one family rite) and pool invariants in `Traits.test.ts`
 
 **Removed in the pivot:** Plasm, Longevity, Breeding Stones, Enhancer, Leathersmith, the 3-zone structure.
 
@@ -145,6 +154,7 @@ These are the ones most likely to be misjudged in either direction. The logic ex
 - **Marks system** + Mark-binder vendor (earn-then-lock; Floor Marks on bosses). No `earnedMarks` or `activeMarkId` field exists; the town tile is shuttered. Note `marks-catalog.md` flags two open issues to settle first: the deepest Floor Mark is a dead bonus at any tower height, and `mark_physical`/`mark_fighting` are the same mark twice.
 - **Run relics** (temporary power-ups) — no code, no data.
 - **Onboarding tutorial** (old-man flow in `onboarding.md`) — no code, no data.
+- **The rest of `expedition-items-pitch.md`.** Slice 1 (departure commitment + the nine consumables) shipped; four subsystems from that pitch are deliberately deferred, each needing its own spec: the **post-battle reward offer** (the two-boon `PostCombatScene` is untouched), **charged Preparations** (a new `BackpackContents` kind with mutable charges plus a pre-battle commit step — the first thing here that forces a save bump), **Heirlooms**, and **Marks-as-unlocks**. Marks is last for a reason: its whole reward vocabulary is "unlock a Relic / Heirloom / Preparation", none of which exist. Spec for what did ship: `docs/superpowers/specs/2026-07-29-expedition-commitment-and-consumables-design.md`.
 - **Quartermaster vendor** — no town tile. The backpack it would sell against *is* built: `guaranteedSlots` protects the first N slots from wipe loss and `BACKPACK_START_CAPACITY`/`_GUARANTEED` are the placeholders it would raise. Neither capacity nor guaranteed count is purchasable, and the Obols→Essence conversion-rate upgrades are likewise unimplemented — `convertObolsToEssence` applies the flat base rate with no trait, upgrade or depth bonus.
 
 #### Content gaps
@@ -152,7 +162,7 @@ These are the ones most likely to be misjudged in either direction. The logic ex
 - Remaining ~41 abilities from `Abilities.csv` (31 of 72 in code)
 - Remaining creatures (30 of 134) and tower bands 3–10 (floors 21–100)
 - **`resistances`/`weaknesses` are empty on all 30** — the type chart is flat, so `RESISTANCE_MULTIPLIER` never applies and auto-combat's knowledge fog has nothing to withhold. Biggest live content gap.
-- Only 2 items exist (`power_increase`, `mending_draught`)
+- 9 items exist. The pool answers recognisable dangers but has no depth-band variety — the same nine are sold at floor 1 and floor 20
 - Signature rites — unwritten for every species (family rites are done)
 - Any art/sprites — every creature is a coloured rectangle
 
@@ -164,7 +174,7 @@ These are the ones most likely to be misjudged in either direction. The logic ex
 
 **Resolved (2026-07-25):** the combat "freeze after one action" is **not** a bug and **not** an HMR artifact. Chrome throttles `requestAnimationFrame` to zero in a backgrounded or unfocused tab, so Phaser's game loop stops stepping and the Scene Clock never advances — every `this.time.delayedCall` in `CombatScene` (which is how turns advance) simply never fires. Measured directly: `document.hidden === true`, `game.loop.frame` advancing 0 frames per second, `scene.time.now` frozen. The canvas still *appears* to update because DOM input events keep dispatching and a screenshot forces a paint, which is exactly what makes it look like a logic hang. **Keep the tab focused and visible when playtesting combat.** Verify before assuming it's a real turn-loop bug.
 
-**Placeholder numbers to tune (playtest)** — a non-exhaustive list; see the alpha note at the top of this file. Obol base rewards 5/25/75 now scaled by depth as `base × SCALAR × floor^EXPONENT` (`OBOL_REWARD_EXPONENT` is derived from `LEVEL_COST_EXPONENT` — retune the pair together, never separately), conversion rate 0.5, wipe penalty 50%, level cost `10·L^1.5`, depth-jump unlock `(floor-1)×40` plus a per-run fee `(floor-1)×5`, breeding carry-over 50%, MP costs across all 31 abilities, the tactic ladder thresholds (Fight Wisely's half-current-MP budget, Conserve MP's ⅓-max-MP ceiling and 50% party-danger gate, Heal First's 60%/2×-cheapest-heal reserve), battle speed steps, and enemy/XP scaling by floor/depth band.
+**Placeholder numbers to tune (playtest)** — a non-exhaustive list; see the alpha note at the top of this file. **Start with the Smoke Husk's price (60 Obols / 30 Essence).** It escapes a battle as a *free action* — the strongest form of the item, chosen deliberately — so its scarcity is the only thing carrying the tension the departure lock is meant to create. If a free-action escape proves too strong, raise the price; do not change the rule. After that: the nine item prices generally, Grave Ash's 0.25 / 0.08 boss split (only `bossFraction < fraction` is real design), and the Waystone at 80/40. Then Obol base rewards 5/25/75 now scaled by depth as `base × SCALAR × floor^EXPONENT` (`OBOL_REWARD_EXPONENT` is derived from `LEVEL_COST_EXPONENT` — retune the pair together, never separately), conversion rate 0.5, wipe penalty 50%, level cost `10·L^1.5`, depth-jump unlock `(floor-1)×40` plus a per-run fee `(floor-1)×5`, breeding carry-over 50%, MP costs across all 31 abilities, the tactic ladder thresholds (Fight Wisely's half-current-MP budget, Conserve MP's ⅓-max-MP ceiling and 50% party-danger gate, Heal First's 60%/2×-cheapest-heal reserve), battle speed steps, and enemy/XP scaling by floor/depth band.
 
 ## Key Design Rules (Don't Violate These)
 
@@ -193,7 +203,7 @@ These are the ones most likely to be misjudged in either direction. The logic ex
 
 ## Roadmap / Next Steps
 
-**Done:** essence pivot Phases 1–4a (currency, permanent levels, the continuous descent, Leveler + Gatekeeper vendors, breeding carry-over) + playtest tuning, then the alpha roster swap (30 authored creatures, 11 archetypes, derived pools, 20-floor cap).
+**Done:** essence pivot Phases 1–4a (currency, permanent levels, the continuous descent, Leveler + Gatekeeper vendors, breeding carry-over) + playtest tuning, then the alpha roster swap (30 authored creatures, 11 archetypes, derived pools, 20-floor cap), then expedition slice 1 (boss-gated departure, Waystone/Smoke Husk, the nine-item pool, the usable bag).
 
 **Next, in rough priority:**
 1. **Capture — wire the built engine into combat.** Spec: `docs/superpowers/specs/2026-07-25-capture-system-design.md`. `Capture.ts` and the backpack's creature-cargo handling are done and tested; what remains is a capture action on the combat turn, a bidding UI, and **populating the `RiteLog` fields nothing writes yet** — without that last piece seven of the eleven family rites can never be satisfied and every creature prices at full freight. `newRiteLog()` names each missing write site. Note the spec cites `docs/superpowers/research/capture-mechanics-research.md`, which is **not in the repo** — treat the spec as self-contained.
