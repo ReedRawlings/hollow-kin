@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CreatureInstance, RunState } from '../types';
 import {
-  applyTargetedRecovery, canReceiveRecovery, eligibleRecoveryTargets,
+  applyTargetedRecovery, canReceiveRecovery, eligibleRecoveryTargets, reviveOnRun,
 } from './Recovery';
 
 function creature(instanceId: string): CreatureInstance {
@@ -88,5 +88,40 @@ describe('targeted recovery', () => {
 
     expect(applyTargetedRecovery('mp', 1, selected, run)).toBe(17);
     expect(run.partyMp).toEqual({ selected: 20, other: 4 });
+  });
+});
+
+describe('reviveOnRun', () => {
+  it('refuses a creature that is still standing', () => {
+    const c = creature('c');
+    const run = runFor([c]);
+    expect(reviveOnRun(c, run, 0.25, 0.25)).toBe(false);
+  });
+
+  it('never returns someone at zero HP, and never above their max', () => {
+    const c = creature('c');
+    const run = runFor([c]);
+    run.partyKO.c = true;
+    run.partyHp.c = 0;
+
+    expect(reviveOnRun(c, run, 0.0001, 0)).toBe(true);
+    expect(run.partyHp.c).toBeGreaterThanOrEqual(1);
+    expect(run.partyHp.c).toBeLessThanOrEqual(c.currentStats.hp);
+  });
+
+  it('never lowers MP below what the creature was carrying when it fell', () => {
+    // A knock-out on the map only ever zeroes partyHp; partyMp is left as-is.
+    // A revive item's small MP fraction must not act as a penalty for someone
+    // felled at full MP — mirrors the CombatEngine `revive` twin.
+    const c = creature('c');
+    const run = runFor([c]);
+    run.partyKO.c = true;
+    run.partyHp.c = 0;
+    run.partyMp.c = c.currentStats.mp; // fell at full MP
+
+    const mpBefore = run.partyMp.c;
+    reviveOnRun(c, run, 0.25, 0.1); // 0.1 * maxMp would be well below what was carried
+    expect(run.partyMp.c).toBeGreaterThanOrEqual(mpBefore);
+    expect(run.partyMp.c).toBeLessThanOrEqual(c.currentStats.mp);
   });
 });

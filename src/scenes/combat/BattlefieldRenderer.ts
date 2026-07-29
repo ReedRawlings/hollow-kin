@@ -81,6 +81,8 @@ export interface BattlefieldView {
   onEnemyHover: (enemy: CombatCreature) => void;
   onEnemyClick: (enemy: CombatCreature) => void;
   allyInteractive: boolean;
+  /** Which allies may be clicked while `allyInteractive`. Defaults to the living. */
+  allyTargetable?: (ally: CombatCreature) => boolean;
   onAllyHover: (ally: CombatCreature) => void;
   onAllyClick: (ally: CombatCreature) => void;
   command: CommandPanelView;
@@ -280,7 +282,8 @@ function drawPartyCard(
 
   scene.add.rectangle(x, cy, PARTY_CARD_W, h, plateColor).setStrokeStyle(3, frame);
 
-  if (view.allyInteractive && !ko) {
+  const targetable = view.allyTargetable ? view.allyTargetable(creature) : !ko;
+  if (view.allyInteractive && targetable) {
     const hotspot = scene.add.rectangle(x, cy, PARTY_CARD_W, h, 0x000000, 0)
       .setInteractive({ useHandCursor: true });
     hotspot.on('pointerover', () => view.onAllyHover(creature));

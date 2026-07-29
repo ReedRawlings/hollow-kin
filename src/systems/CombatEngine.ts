@@ -1,5 +1,5 @@
 import {
-  CombatCreature, Ability, AbilityEffect, BaseStats, StatName,
+  CombatCreature, Ability, AbilityEffect, BaseStats, StatName, StatusType,
   BUFF_MULTIPLIERS, RESISTANCE_MULTIPLIER, WEAKNESS_MULTIPLIER,
   CRIT_MULTIPLIER, BASE_CRIT_RATE, HIGH_CRIT_RATE, MIN_HIT_CHANCE,
   DamageType,
@@ -110,6 +110,64 @@ export function applyHeal(target: CombatCreature, percentage: number): number {
 export function applyBuffDebuff(target: CombatCreature, stat: StatName, stages: number): void {
   const current = target.buffStages[stat] ?? 0;
   target.buffStages[stat] = Math.max(-3, Math.min(3, current + stages));
+}
+
+/**
+ * Bring a knocked-out creature back. Returns false — and changes nothing — when
+ * the target is still standing, so a caller can refuse the item rather than
+ * consuming it for no effect.
+ *
+ * The HP floor of 1 matters: a low fraction against a low-HP creature otherwise
+ * floors to 0, which would revive someone directly back into a knockout.
+ */
+export function revive(target: CombatCreature, hpFraction: number, mpFraction: number): boolean {
+  if (!target.isKnockedOut) return false;
+  target.isKnockedOut = false;
+  target.currentHp = Math.max(1, Math.min(target.maxHp, Math.floor(target.maxHp * hpFraction)));
+  // Never LOWER MP: a knock-out only zeroes HP, so a creature felled at full MP
+  // keeps it, and a revive item must not turn into a stat penalty for whoever
+  // was carrying the most MP when they went down.
+  target.currentMp = Math.min(target.maxMp, Math.max(target.currentMp, Math.floor(target.maxMp * mpFraction)));
+  return true;
+}
+
+/** Remove every status, reporting what was cleared. All statuses are negative today. */
+export function clearNegativeStatuses(target: CombatCreature): StatusType[] {
+  const removed = target.statusEffects.map(s => s.type);
+  target.statusEffects = [];
+  return removed;
+}
+
+/**
+ * Zero out positive stat stages only, reporting which stats were cleared.
+ *
+ * Leaving negative stages untouched is the point: this counters a buffed elite,
+ * it is not a cleanse. Clearing debuffs too would hand the enemy a favour.
+ */
+export function stripPositiveStages(target: CombatCreature): StatName[] {
+  const cleared: StatName[] = [];
+  for (const stat of Object.keys(target.buffStages) as StatName[]) {
+    if ((target.buffStages[stat] ?? 0) > 0) {
+      target.buffStages[stat] = 0;
+      cleared.push(stat);
+    }
+  }
+  return cleared;
+}
+
+/**
+ * Damage as a fraction of the target's maximum HP, returning the damage actually
+ * dealt (capped at the target's remaining HP).
+ *
+ * Deliberately bypasses `calculateDamage`: ignoring DEF and the type chart is
+ * exactly what earns a fixed-damage item a backpack slot when the party's
+ * abilities are being resisted, and is why it cannot just be a zero-MP ability.
+ */
+export function applyPercentDamage(target: CombatCreature, fraction: number): number {
+  const intended = Math.max(1, Math.floor(target.maxHp * fraction));
+  const dealt = Math.min(intended, target.currentHp);
+  applyDamage(target, intended);
+  return dealt;
 }
 
 export function applyAbilityEffects(

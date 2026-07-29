@@ -4,11 +4,11 @@ import { getItem } from '../data/items';
 import { Encounter } from '../types';
 import {
   SHOP_ITEMS, ShopItem, canBenefitFromShopItem, tryPurchaseShopItem,
-  MERCHANT_ITEM_OFFERS, ItemOffer, tryBuyItem,
+  merchantStockFor, ItemOffer, tryBuyItem,
 } from '../systems/Shop';
 import { capacity, isFull, isProtected, usedSlots } from '../systems/Backpack';
 import {
-  UI, BODY_FONT, DISPLAY_FONT, button, footer, header, panel, screenFrame,
+  UI, BODY_FONT, DISPLAY_FONT, button, footer, header, itemAccent, panel, screenFrame,
   spritePlate,
 } from '../ui/Theme';
 
@@ -48,13 +48,15 @@ const SERVICE_COPY: Record<ShopItem['id'], { description: string; glyph: string;
 export class ShopScene extends Phaser.Scene {
   private selected = 0;
   private keyboardBound = false;
+  private encounter!: Encounter;
 
   constructor() {
     super({ key: 'ShopScene' });
   }
 
-  create(_data: { encounter: Encounter }): void {
+  create(data: { encounter: Encounter }): void {
     this.selected = 0;
+    this.encounter = data.encounter;
     this.draw();
     if (!this.keyboardBound) {
       this.keyboardBound = true;
@@ -80,15 +82,16 @@ export class ShopScene extends Phaser.Scene {
         service,
       };
     });
-    const items: MerchantOffer[] = MERCHANT_ITEM_OFFERS.map(item => {
+    const items: MerchantOffer[] = merchantStockFor(this.encounter).map(item => {
       const def = getItem(item.itemId);
+      const { color: accent, glyph } = itemAccent(def.effect.kind);
       return {
         kind: 'item',
         name: def.name,
         description: def.description,
         cost: item.cost,
-        accent: item.itemId === 'mending_draught' ? UI.green : UI.gold,
-        glyph: item.itemId === 'mending_draught' ? '+' : 'STR',
+        accent,
+        glyph,
         item,
       };
     });
@@ -119,7 +122,7 @@ export class ShopScene extends Phaser.Scene {
       fontFamily: DISPLAY_FONT, fontSize: '9px', color: UI.hi,
     });
     offers.slice(3).forEach((offer, i) => {
-      this.drawOffer(252 + i * 456, 405, 432, 184, offer, i + 3);
+      this.drawOffer(176 + i * 304, 405, 286, 184, offer, i + 3);
     });
 
     this.drawBagStrip();
