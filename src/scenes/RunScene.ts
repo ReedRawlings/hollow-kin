@@ -5,6 +5,7 @@ import { generateDescent, generatePickNextChoices } from '../systems/RunGenerato
 import { usedSlots, removeAt } from '../systems/Backpack';
 import { convertObolsToEssence } from '../systems/Economy';
 import { canDepart, hasWaystone, nextDepartureFloor } from '../systems/Departure';
+import { activeBoonSummaries } from '../systems/Boons';
 import { Encounter, RunState, TOWER_FLOORS } from '../types';
 import {
   UI, BODY_FONT, DISPLAY_FONT, archetypeColor, button, compactPartyCard,
@@ -39,7 +40,7 @@ export class RunScene extends Phaser.Scene {
       gameState.currentRun = {
         startFloor, currentEncounterIndex: -1, encounters, choices: [],
         obols: 0, partyHp: {}, partyMp: {}, partyKO: {},
-        xpEarned: 0, autoCombat: false,
+        xpEarned: 0, autoCombat: false, activeBoons: [],
       };
       for (const c of gameState.runParty) {
         gameState.currentRun.partyHp[c.instanceId] = c.currentStats.hp;
@@ -115,6 +116,7 @@ export class RunScene extends Phaser.Scene {
       carried > 0 ? UI.gold : UI.lineBright);
 
     this.drawTrail(run);
+    this.drawBoonStrip(run);
     this.add.text(24, 143, 'CHOOSE THE NEXT ROOM', {
       fontFamily: DISPLAY_FONT, fontSize: '10px', color: UI.hi,
     });
@@ -203,6 +205,33 @@ export class RunScene extends Phaser.Scene {
         fontFamily: BODY_FONT, fontSize: '9px', color: UI.mutedBright,
       }).setOrigin(0, 0.5);
     }
+  }
+
+  /**
+   * A single row of active boons between the TRAIL row (rectangles centered at
+   * y=106, 26px tall, so their bottom edge is y=119 — not y=106 itself) and the
+   * "CHOOSE THE NEXT ROOM" heading (top edge y=143). That leaves a 24px band,
+   * not the ~37px a naive `143 - 106` implies. Centering this row at y=131 —
+   * the midpoint — gives roughly equal clearance on both sides for the small
+   * (8-9px) text used here. Renders nothing when no boon is active, so the
+   * heading does not visibly shift when the strip is empty.
+   */
+  private drawBoonStrip(run: RunState): void {
+    const boons = activeBoonSummaries(run.activeBoons);
+    if (!boons.length) return;
+    const y = 131;
+    this.add.text(24, y, 'IN EFFECT', {
+      fontFamily: BODY_FONT, fontSize: '9px', color: UI.muted,
+    }).setOrigin(0, 0.5);
+    boons.forEach((b, i) => {
+      const label = b.battlesLeft === null
+        ? b.name.toUpperCase()
+        : `${b.name.toUpperCase()}  ${b.battlesLeft}`;
+      this.add.text(96 + i * 176, y, label, {
+        fontFamily: DISPLAY_FONT, fontSize: '8px',
+        color: Phaser.Display.Color.IntegerToColor(UI.orange).rgba,
+      }).setOrigin(0, 0.5);
+    });
   }
 
   private drawOffer(e: Encounter, x: number, y: number, w: number, selected: boolean, index: number): void {

@@ -457,13 +457,23 @@ describe('generateOffer', () => {
     expect(kinds).not.toContain('mana');
   });
 
-  it('returns fewer than three cards rather than padding with dead ones', () => {
-    // Only obols, item and boon remain viable — still three, so drop to two kinds
-    // by also proving the count shrinks when viability shrinks further is covered
-    // below; here we assert no dead card is ever emitted.
+  it('never emits a card the party cannot use', () => {
+    // With nobody hurt and nobody short of MP, only obols/item/boon are viable —
+    // and those three are ALWAYS viable, so the offer is still exactly three.
+    // The point is that neither relief kind leaks in, not that the count shrank.
     const cards = generateOffer(ctx({ anyHurt: false, anyMpMissing: false }), rolls([0.5]));
-    expect(cards.length).toBeLessThanOrEqual(3);
+    expect(cards).toHaveLength(3);
     for (const c of cards) expect(['obols', 'item', 'boon']).toContain(c.kind);
+  });
+
+  it('offers as many cards as there are viable kinds, capped at three', () => {
+    // obols/item/boon are unconditionally viable, so the floor is three and the
+    // `remaining.length > 0` guard in the draw loop is defensive, never load-bearing.
+    // If a future change makes a third kind conditional, this is the test that
+    // catches the offer silently shrinking.
+    expect(generateOffer(ctx(), rolls([0.5]))).toHaveLength(3);
+    expect(generateOffer(ctx({ anyHurt: false }), rolls([0.5]))).toHaveLength(3);
+    expect(generateOffer(ctx({ anyMpMissing: false }), rolls([0.5]))).toHaveLength(3);
   });
 
   it('emits a resolvable payload on every card', () => {
@@ -1201,6 +1211,8 @@ A boon the player cannot see is a boon they will not believe in. `RunScene.draw(
 **Note `UI.orange` is a number, not a CSS string.** `Theme.ts` exposes `orange: 0xde5d3a` with no `orangeCss` companion (unlike `gold`/`teal`/`green`, which have both). Converting via `Phaser.Display.Color.IntegerToColor(...).rgba` is the pattern this file already uses elsewhere — see `drawTrail` and `offerMeta`. Writing `UI.orangeCss` will not compile.
 
 The trailing number is battles remaining. With four boons and one of each kind the strip holds at most four entries, so 176px each fits the 912px band.
+
+**Verify the vertical placement against the real scene before committing** — do not trust y=126 because this plan says so. `RunScene.draw()` puts the TRAIL row near y=106 and the "CHOOSE THE NEXT ROOM" heading near y=143, so the strip is threading a ~37px gap. Read the actual coordinates, compute the clearances above and below, and report them. If it does not fit cleanly, move the heading down or shorten the strip rather than letting text overlap. Two off-canvas/overlapping-layout bugs shipped on the previous slice from exactly this kind of assumed coordinate.
 
 - [ ] **Step 2: Verify and commit**
 

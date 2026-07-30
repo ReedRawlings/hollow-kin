@@ -43,6 +43,7 @@ function mapRun(hp = 50, mp = 5, ko = false): RunState {
     partyKO: { c1: ko },
     xpEarned: 0,
     autoCombat: false,
+    activeBoons: [],
   };
 }
 

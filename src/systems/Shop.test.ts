@@ -43,6 +43,7 @@ function runFor(party: CreatureInstance[], obols = 100): RunState {
     partyKO: Object.fromEntries(party.map(c => [c.instanceId, false])),
     xpEarned: 0,
     autoCombat: false,
+    activeBoons: [],
   };
 }
 
