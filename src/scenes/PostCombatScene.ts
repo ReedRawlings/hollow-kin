@@ -67,7 +67,12 @@ export class PostCombatScene extends Phaser.Scene {
       this.input.keyboard?.on('keydown-RIGHT', () => this.move(1));
       this.input.keyboard?.on('keydown-ENTER', () => this.takeSelected());
       this.input.keyboard?.on('keydown-ESC', () => {
-        if (this.selectingTarget) {
+        if (this.swappingFor !== null) {
+          // Same outcome as clicking KEEP MY BAG: the card was already taken,
+          // so ESC forfeits the reward rather than returning to a live offer.
+          this.swappingFor = null;
+          this.continueRun();
+        } else if (this.selectingTarget) {
           this.selectingTarget = false;
           this.draw();
         }
