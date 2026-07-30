@@ -214,6 +214,19 @@ export interface RunState {
   partyKO: Record<string, boolean>;
   xpEarned: number;
   autoCombat: boolean;    // AUTO toggle state; persists across encounters within a run
+  activeBoons: ActiveBoon[];  // timed modifiers; expire with the run
+}
+
+/**
+ * A timed modifier active for the current run, chosen at the post-battle offer.
+ *
+ * `battlesLeft: null` means "lasts the whole run". Nothing produces that today —
+ * it exists because a Relic is the same shape with no expiry, so Relics can reuse
+ * this layer instead of duplicating it.
+ */
+export interface ActiveBoon {
+  boonId: string;
+  battlesLeft: number | null;
 }
 
 export const STAR_LEVEL_CAPS: Record<number, number> = {

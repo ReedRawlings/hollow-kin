@@ -39,7 +39,7 @@ export class RunScene extends Phaser.Scene {
       gameState.currentRun = {
         startFloor, currentEncounterIndex: -1, encounters, choices: [],
         obols: 0, partyHp: {}, partyMp: {}, partyKO: {},
-        xpEarned: 0, autoCombat: false,
+        xpEarned: 0, autoCombat: false, activeBoons: [],
       };
       for (const c of gameState.runParty) {
         gameState.currentRun.partyHp[c.instanceId] = c.currentStats.hp;
