@@ -3,6 +3,29 @@
 > **Owns:** how marks are earned, the earn-then-lock permanence model, mark types, and the marks/breeding interaction. Individual mark entries live in `marks-catalog.md`.
 > **Defers to the GDD on:** currency, progression model, and what persists across runs. **Unbound marks resetting at run end is deliberate** — see "What Persists, What Resets".
 > **Last verified:** 2026-07-26.
+>
+> ⚠️ **Status (2026-07-30): not built, and PAUSED. There are two competing designs on
+> file — this document describes the older one.**
+>
+> Zero code exists for marks. There is no `earnedMarks` or `activeMarkId` field, the
+> Mark-binder town tile is shuttered, and the `kind: 'mark'` backpack slot declared in
+> `types.ts` is never constructed.
+>
+> **This document describes the earn-then-lock model:** marks are creature-specific
+> bonuses, earned in-run, temporary until Essence makes them permanent, one slot per
+> creature.
+>
+> **`expedition-items-pitch.md` proposes replacing that** with marks as *mysterious
+> permanent discoveries* — a recorded deed that unlocks content for the player rather than
+> an equipped bonus on a creature, permanent immediately with no Essence payment, and no
+> slot at all. That redesign is **paused**, so neither model is settled and neither is
+> built.
+>
+> Anyone resuming this must pick one first. Two things worth knowing before that choice:
+> the pitch's version depends on Relics and Heirlooms existing to unlock, and neither
+> does; and `marks-catalog.md` still carries two unresolved issues either model inherits
+> — the deepest Floor Mark grants damage "deeper than" a floor with nothing below it, and
+> `mark_physical` / `mark_fighting` are the same mark twice.
 
 ---
 

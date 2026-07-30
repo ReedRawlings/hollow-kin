@@ -243,6 +243,14 @@ Longevity has been **removed** from the design. Permanent essence progression is
 
 ## **Marks System**
 
+> ⚠️ **Not built, and paused as of 2026-07-30. Two competing designs are on file and
+> neither is settled.** What follows describes the **earn-then-lock** model.
+> `expedition-items-pitch.md` proposes replacing it with marks as permanent *discoveries*
+> that unlock content for the player — no creature slot, no Essence payment, permanent on
+> discovery. That redesign is paused, partly because its rewards unlock Relics and
+> Heirlooms, neither of which exists. See `marks-system.md` for the full comparison and
+> what a resumption has to decide first. No code references marks in any form.
+
 ### **What Marks Are**
 
 * **Earned** during runs through specific accomplishments — temporary by default  
@@ -486,6 +494,8 @@ Specs in `docs/superpowers/specs/` record **how a decision was reached**, includ
 | `2026-07-25-monsterpedia-design.md` | Bestiary UI over `gameState.seenSpecies` | **Designed only** |
 | `2026-07-26-doc-realignment-design.md` | Documentation pass — GDD re-promotion and contradiction sweep | — |
 | `2026-07-26-traits-system-design.md` | Trait slots by permanent level, traits found-and-imbued, Trait-keeper's role, stars kept | **Designed only** |
+| `2026-07-29-expedition-commitment-and-consumables-design.md` | Departure earned at boss floors or bought as a Waystone; the item pool 2 → 9; the run-map bag made usable | Yes |
+| *(no spec — design agreed in conversation; rationale inline in* `docs/superpowers/plans/2026-07-29-post-battle-offers-and-boons.md`*)* | The post-battle three-card reward offer, and **timed boons** replacing the pitch's charged Preparations | Yes |
 
 > **Note:** the capture spec cites `docs/superpowers/research/capture-mechanics-research.md`, which is **not in this repo**. Treat that spec as self-contained.
 

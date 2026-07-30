@@ -4,9 +4,30 @@
 
 > **Owns:** the relic catalog, relic rules, and design guidelines for new relics.
 > **Defers to the GDD on:** the progression model.
-> **Last verified:** 2026-07-26. **Not yet built.**
+> **Last verified:** 2026-07-30. **Not yet built** — but see the note on boons below.
 >
 > ⚠️ **Relics are run-only by design.** They are lost at the end of every run regardless of outcome. This is the roguelite element the game deliberately keeps — it is **not** an unconverted leftover from the pre-pivot design. Do not make relics persist.
+>
+> ⚠️ **Half of this system already exists under another name. Read `src/systems/Boons.ts`
+> before building relics.**
+>
+> Slice 2 of `expedition-items-pitch.md` shipped **timed boons** — run-scoped modifiers
+> chosen at the post-battle reward screen that take effect immediately and expire after a
+> set number of battles. Mechanically a boon *is* a relic with an expiry: same automatic
+> application, same run-only lifetime, same neutral-valued query layer feeding the same
+> combat hook sites.
+>
+> The code was written anticipating this. `ActiveBoon.battlesLeft` is typed
+> `number | null`, where **`null` means "lasts the whole run"** — nothing produces it
+> today, and it exists precisely so a relic is expressible as a boon that never counts
+> down. `grantBoon` already enforces one-of-each-effect-kind (re-granting refreshes rather
+> than stacks), which is the same anti-stacking rule this document's guidelines want.
+>
+> So relics should **extend that layer, not duplicate it.** What genuinely needs building
+> is the relic-specific part: a catalog, the acquisition points (this document's earning
+> rules), any effect kinds boons don't already cover, and whatever UI distinguishes a
+> permanent-for-the-run relic from a counting-down boon. Adding a second parallel
+> modifier system would mean two places to hook every combat calculation.
 
 ---
 

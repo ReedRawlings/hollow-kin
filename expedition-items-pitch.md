@@ -1,8 +1,38 @@
 # Hollow Kin — Expedition Items & Heirloom Pitch
 
-> **Status:** Pitch for discussion — not yet an approved design.
+> **Status (2026-07-30): partly shipped, remainder paused.** This document is now a
+> historical record of what was proposed. Where it disagrees with the shipped code, the
+> code wins — the sections below were **not** rewritten to match.
 >
-> **Direction proposed here:** Keep **Marks**, but reshape them into mysterious permanent discoveries rather than another equipped combat-bonus system. **Breeding Stones are already formally cut.** Traits, breeding inheritance, and run-only Relics remain.
+> | Part of this pitch | Status |
+> | --- | --- |
+> | Departure commitment — boss-gated exits, Waystone, Smoke Husk | **Built** (slice 1) |
+> | Expedition item pool — 2 items → 9 | **Built** (slice 1) |
+> | Post-battle reward offer | **Built** (slice 2) |
+> | Charged Preparations | **Superseded** — see below |
+> | Heirlooms | **Paused** |
+> | Marks as mysterious permanent discoveries | **Paused** |
+>
+> **Preparations did not ship as described, and the section below is superseded.** The
+> pitch specifies backpack items with charges that the player arms before a chosen
+> encounter. During design that was cut in favour of **timed boons**: options offered at
+> the post-battle reward screen that take effect the moment they are chosen and expire
+> after a set number of battles. No backpack slot, no charges, no arming step.
+>
+> That change collapses this pitch's "Preparations differ from Relics in four ways" table
+> — none of those four distinctions survive. A boon is functionally a **short-duration
+> Relic**, and the code anticipates that: `ActiveBoon.battlesLeft` already accepts `null`
+> for "lasts the whole run", so Relics should reuse `src/systems/Boons.ts` rather than
+> duplicate it.
+>
+> **Heirlooms and the Marks redesign are paused, not cancelled.** Nothing was built for
+> either, and no code references them. Marks is the harder of the two to resume: the
+> reward vocabulary this pitch gives it is "unlock a Relic / Heirloom / Preparation", and
+> Relics and Heirlooms still do not exist while Preparation no longer means what this
+> document meant by it. Whoever resumes it should re-derive the reward list from what
+> actually exists at that point.
+>
+> **Original framing, preserved:** Keep **Marks**, but reshape them into mysterious permanent discoveries rather than another equipped combat-bonus system. **Breeding Stones are already formally cut.** Traits, breeding inheritance, and run-only Relics remain.
 
 ## Current-System Check
 
