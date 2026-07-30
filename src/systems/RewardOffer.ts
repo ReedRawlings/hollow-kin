@@ -40,9 +40,12 @@ export interface OfferContext {
 
 /**
  * Which items each tier may hand out. Explicit rather than derived from price so
- * it can be tuned without moving shop costs. Extraction items are boss-only: a
- * Waystone after an ordinary fight would quietly undo the departure lock that
- * slice 1 exists to create.
+ * it can be tuned without moving shop costs. Extraction items (Waystone, Smoke
+ * Husk) are major-tier only: a Waystone after an ordinary fight would quietly
+ * undo the departure lock that slice 1 exists to create. Mini-bosses are
+ * excluded too, deliberately, not just missed — they occur every 5 floors versus
+ * every 10 for majors, so gating the two most expensive items (one of which ends
+ * the run early) to majors alone is the safer economy call.
  */
 export const REWARD_ITEM_POOLS: Record<RewardTier, string[]> = {
   normal: ['mending_draught', 'moonwater', 'power_increase', 'clearroot'],

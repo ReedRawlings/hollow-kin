@@ -98,10 +98,14 @@ describe('reward item pools', () => {
     }
   });
 
-  it('offers the rarer extraction items only at boss tiers', () => {
+  it('offers the rarer extraction items only at major tier', () => {
     // Waystones and Smoke Husks are the most expensive things the shops sell;
     // handing one out after an ordinary fight would undercut the departure lock.
+    // Minis are excluded too — they occur twice as often as majors, so gating
+    // the pair to majors alone is the safer economy call.
     expect(REWARD_ITEM_POOLS.normal).not.toContain('waystone');
     expect(REWARD_ITEM_POOLS.normal).not.toContain('smoke_husk');
+    expect(REWARD_ITEM_POOLS.mini).not.toContain('waystone');
+    expect(REWARD_ITEM_POOLS.mini).not.toContain('smoke_husk');
   });
 });
