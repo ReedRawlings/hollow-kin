@@ -651,6 +651,7 @@ export class CombatScene extends Phaser.Scene {
       this.savePartyState(run);
       this.scene.start('PostCombatScene', {
         floor: this.encounter.floor,
+        tier: obolKind,
         obolGain,
         xpPerCreature,
         levelUpMessage: levelUpMsg.trim(),
