@@ -15,6 +15,10 @@ import {
 } from '../systems/CombatEngine';
 import { getEnemyAction, chooseAction } from '../systems/TacticsAI';
 import { obolsForEncounter } from '../systems/Economy';
+import {
+  damageDealtMultiplier, damageTakenMultiplier, obolMultiplier,
+  postVictoryHealFraction, tickAfterBattle,
+} from '../systems/Boons';
 import { usedSlots, removeAt } from '../systems/Backpack';
 import { applyItemInCombat, canUseItem } from '../systems/Items';
 import {
@@ -479,6 +483,9 @@ export class CombatScene extends Phaser.Scene {
   private escapeBattle(): void {
     this.destroyAll();
     const run = gameState.currentRun!;
+    // A Smoke Husk escape spent a battle even though it paid nothing. Not
+    // counting it would quietly make the husk a duration-extender for boons.
+    run.activeBoons = tickAfterBattle(run.activeBoons);
     this.savePartyState(run);
     gameState.saveToLocalStorage();
     this.scene.start('RunScene', { continueRun: true });
@@ -534,13 +541,24 @@ export class CombatScene extends Phaser.Scene {
         this.addMessage(`${attacker.template.name} used ${ability.name} — MISS!`);
         return;
       }
-      applyDamage(target, result.damage);
-      let msg = `${attacker.template.name} used ${ability.name} → ${result.damage} dmg to ${target.template.name}`;
+
+      // Boons are the player's. `damageDealt` applies only when one of the
+      // player's kin is swinging; `damageTaken` only when one of them is being
+      // hit. resolveAbility runs for enemy turns as well, so keying on ownership
+      // rather than assuming the player is what keeps an enemy from riding the
+      // player's War Chorus.
+      const boons = gameState.currentRun?.activeBoons ?? [];
+      const dealt = attacker.isPlayerOwned ? damageDealtMultiplier(boons) : 1;
+      const taken = target.isPlayerOwned ? damageTakenMultiplier(boons, this.roundNumber) : 1;
+      const damage = Math.max(1, Math.round(result.damage * dealt * taken));
+
+      applyDamage(target, damage);
+      let msg = `${attacker.template.name} used ${ability.name} → ${damage} dmg to ${target.template.name}`;
       if (result.isCrit) msg += ' CRIT!';
       this.addMessage(msg);
 
       // Apply secondary effects
-      const effectMsgs = applyAbilityEffects(ability, attacker, target, result.damage);
+      const effectMsgs = applyAbilityEffects(ability, attacker, target, damage);
       effectMsgs.forEach(m => this.addMessage(m));
     } else {
       // Status/buff move
@@ -596,7 +614,10 @@ export class CombatScene extends Phaser.Scene {
       const obolKind = this.encounter.type === 'boss'
         ? (this.encounter.bossTier ?? 'mini')
         : 'normal';
-      const obolGain = obolsForEncounter(obolKind, this.encounter.floor);
+      const boons = run.activeBoons;
+      const obolGain = Math.max(
+        1, Math.round(obolsForEncounter(obolKind, this.encounter.floor) * obolMultiplier(boons)),
+      );
       run.obols += obolGain;
 
       if (this.encounter.type === 'boss') {
@@ -615,6 +636,17 @@ export class CombatScene extends Phaser.Scene {
           }
         }
       }
+
+      // Post-victory heal, then count every boon down one battle. Both happen
+      // here so the ledger the player is about to see already reflects them.
+      const healFraction = postVictoryHealFraction(boons);
+      if (healFraction > 0) {
+        for (const pc of this.playerParty) {
+          if (pc.isKnockedOut) continue;
+          pc.currentHp = Math.min(pc.maxHp, pc.currentHp + Math.floor(pc.maxHp * healFraction));
+        }
+      }
+      run.activeBoons = tickAfterBattle(boons);
 
       this.savePartyState(run);
       this.scene.start('PostCombatScene', {
