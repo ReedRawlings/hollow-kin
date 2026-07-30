@@ -306,9 +306,15 @@ export class PostCombatScene extends Phaser.Scene {
 
   /** Drop `index`, put the incoming item in its place, and move on. */
   private resolveSwap(index: number, incomingId: string): void {
-    const dropped = removeAt(gameState.backpack, index);
+    const before = gameState.backpack;
+    const dropped = removeAt(before, index);
     const result = addToBackpack(dropped, { kind: 'item', itemId: incomingId });
-    gameState.backpack = result ? result.bag : dropped;
+    // Fall back to the UNTOUCHED bag, not the post-removal one: if the add ever
+    // failed, committing `dropped` would lose the dropped item and the reward both.
+    // Unreachable today — removeAt runs on a verified-occupied index, so a slot is
+    // guaranteed free — but a no-op is the right shape for a failure that costs
+    // the player something.
+    gameState.backpack = result ? result.bag : before;
     this.swappingFor = null;
     this.continueRun();
   }
@@ -397,6 +403,12 @@ export class PostCombatScene extends Phaser.Scene {
    * a full bag opens the swap overlay instead of silently refusing.
    */
   private takeSelected(): void {
+    // While the swap overlay is open, taking a card is never what the player meant.
+    // Guarding here rather than at each call site is deliberate: this method is
+    // reached from card clicks, the CTA button and the ENTER key, and guarding
+    // per-site is what let two of those through in the first place.
+    if (this.swappingFor !== null) return;
+
     const run = gameState.currentRun!;
     const card = this.offer[this.selected];
     if (!card) { this.continueRun(); return; }
