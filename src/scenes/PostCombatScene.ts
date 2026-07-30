@@ -8,8 +8,8 @@ import { generateOffer, RewardCard, RewardTier } from '../systems/RewardOffer';
 import { grantBoon } from '../systems/Boons';
 import { getBoon } from '../data/boons';
 import { getItem } from '../data/items';
-import { add as addToBackpack, isFull } from '../systems/Backpack';
-import { RunState } from '../types';
+import { add as addToBackpack, isFull, isProtected, removeAt } from '../systems/Backpack';
+import { BackpackSlot, RunState } from '../types';
 import {
   UI, BODY_FONT, DISPLAY_FONT, archetypeColor, button, footer, header, hpColor,
   panel, screenFrame, spritePlate,
@@ -30,8 +30,9 @@ export class PostCombatScene extends Phaser.Scene {
   private selectingTarget = false;
   private targetIndex = 0;
   private keyboardBound = false;
-  /** No behaviour until Task 5's item-swap overlay. Guards hover/click while an
-   *  overlay sits over the (still-interactive) cards underneath it. */
+  /** Set when the player took an item card with no room — pick a slot to drop.
+   *  Guards hover/click while the swap overlay sits over the (still-interactive)
+   *  cards underneath it. */
   private swappingFor: string | null = null;
 
   constructor() {
@@ -78,6 +79,7 @@ export class PostCombatScene extends Phaser.Scene {
     this.children.removeAll(true);
     if (this.selectingTarget) this.drawTargetSelection();
     else this.drawOfferSelection();
+    if (this.swappingFor !== null) this.drawSwap(this.swappingFor);
   }
 
   private drawOfferSelection(): void {
@@ -245,6 +247,72 @@ export class PostCombatScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * Choose what to drop so the new item fits. Deliberately shows the SECURED
+   * marking, because which slot the player gives up changes what a wipe can take
+   * — that is the whole reason guaranteed slots exist.
+   */
+  private drawSwap(incomingId: string): void {
+    const bag = gameState.backpack;
+    this.add.rectangle(480, 320, 952, 632, UI.void, 0.82).setInteractive();
+    panel(this, 480, 320, 640, 420, true);
+
+    this.add.text(480, 138, 'THE BAG IS FULL', {
+      fontFamily: DISPLAY_FONT, fontSize: '14px', color: UI.hi,
+    }).setOrigin(0.5);
+    this.add.text(480, 170, `DROP SOMETHING TO MAKE ROOM FOR ${getItem(incomingId).name.toUpperCase()}`, {
+      fontFamily: BODY_FONT, fontSize: '10px', color: UI.body,
+    }).setOrigin(0.5);
+
+    bag.slots.forEach((slot, i) => {
+      const x = 260 + (i % 3) * 148;
+      const y = 240 + Math.floor(i / 3) * 92;
+      const safe = isProtected(bag, i);
+      const cell = this.add.rectangle(x, y, 136, 80, UI.panel)
+        .setStrokeStyle(2, safe ? UI.teal : UI.line);
+      if (safe) {
+        this.add.text(x, y - 28, 'SECURED', {
+          fontFamily: BODY_FONT, fontSize: '8px', color: UI.tealCss,
+        }).setOrigin(0.5);
+      }
+      this.add.text(x, y - 4, this.slotLabel(slot), {
+        fontFamily: BODY_FONT, fontSize: '8px', color: slot ? UI.body : UI.muted,
+        align: 'center', wordWrap: { width: 124 },
+      }).setOrigin(0.5);
+      if (slot !== null) {
+        this.add.text(x, y + 26, 'DROP', {
+          fontFamily: DISPLAY_FONT, fontSize: '8px', color: UI.redCss,
+        }).setOrigin(0.5);
+        cell.setInteractive({ useHandCursor: true });
+        cell.on('pointerdown', () => this.resolveSwap(i, incomingId));
+      }
+    });
+
+    button(this, 480, 500, 200, 44, 'KEEP MY BAG', () => {
+      this.swappingFor = null;
+      this.continueRun();
+    }, UI.lineBright);
+  }
+
+  private slotLabel(slot: BackpackSlot): string {
+    if (!slot) return 'empty';
+    switch (slot.kind) {
+      case 'creature': return getTemplate(slot.instance.speciesId).name.toUpperCase();
+      case 'item': return getItem(slot.itemId).name.toUpperCase();
+      case 'mark': return `MARK · ${slot.markId.toUpperCase()}`;
+      case 'trait': return `${slot.traitId.toUpperCase()} L${slot.traitLevel}`;
+    }
+  }
+
+  /** Drop `index`, put the incoming item in its place, and move on. */
+  private resolveSwap(index: number, incomingId: string): void {
+    const dropped = removeAt(gameState.backpack, index);
+    const result = addToBackpack(dropped, { kind: 'item', itemId: incomingId });
+    gameState.backpack = result ? result.bag : dropped;
+    this.swappingFor = null;
+    this.continueRun();
+  }
+
   private drawTargetSelection(): void {
     const run = gameState.currentRun!;
     const card = this.offer[this.selected];
@@ -325,8 +393,8 @@ export class PostCombatScene extends Phaser.Scene {
    * Take the selected card. `heal` and `mana` need a target first; everything
    * else resolves immediately.
    *
-   * The item path is deliberately the only one that can fail — a full bag is
-   * handled in Task 5. Until then it refuses without consuming the offer.
+   * The item path is deliberately the only one that can fail outright once —
+   * a full bag opens the swap overlay instead of silently refusing.
    */
   private takeSelected(): void {
     const run = gameState.currentRun!;
@@ -357,7 +425,13 @@ export class PostCombatScene extends Phaser.Scene {
         run.activeBoons = grantBoon(run.activeBoons, card.boonId);
         break;
       case 'item': {
-        if (isFull(gameState.backpack)) return;   // Task 5 replaces this with a swap
+        if (isFull(gameState.backpack)) {
+          // The pitch's rule: taking an item with a full bag means using,
+          // replacing or abandoning something. Offer the replace.
+          this.swappingFor = card.itemId;
+          this.draw();
+          return;
+        }
         const result = addToBackpack(gameState.backpack, { kind: 'item', itemId: card.itemId });
         if (!result) return;
         gameState.backpack = result.bag;
