@@ -76,13 +76,23 @@ describe('grantBoon', () => {
   });
 
   it('does not mutate the list it was given', () => {
-    const original: ActiveBoon[] = [];
-    grantBoon(original, idWithEffect('damage_dealt'));
-    expect(original).toHaveLength(0);
+    const original = grantBoon(grantBoon([], idWithEffect('damage_dealt')), idWithEffect('obol_bonus'));
+    const snapshot = original.map(a => ({ ...a }));
+    grantBoon(original, idWithEffect('post_victory_heal'));
+    expect(original).toHaveLength(snapshot.length);
+    expect(original).toEqual(snapshot);
   });
 });
 
 describe('tickAfterBattle', () => {
+  it('does not mutate the list it was given', () => {
+    const original = grantBoon(grantBoon([], idWithEffect('damage_dealt')), idWithEffect('obol_bonus'));
+    const snapshot = original.map(a => ({ ...a }));
+    tickAfterBattle(original);
+    expect(original).toHaveLength(snapshot.length);
+    expect(original).toEqual(snapshot);
+  });
+
   it('counts a boon down by one battle', () => {
     const id = idWithEffect('obol_bonus');
     const active = tickAfterBattle(grantBoon([], id));
