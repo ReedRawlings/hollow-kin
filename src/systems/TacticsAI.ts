@@ -273,7 +273,7 @@ function conserveMp(
   allies: CombatCreature[],
   foes: CombatCreature[],
   known: KnownSpecies,
-): CombatAction {
+): CombatAction | null {
   // 1. Patch itself up when it is the one in danger.
   const selfHeal = healCandidates(actor, allies)
     .filter(o => o.target === actor && hpFraction(actor) <= 0.35 && actor.currentHp < actor.maxHp);
@@ -316,7 +316,7 @@ function healFirst(
   allies: CombatCreature[],
   foes: CombatCreature[],
   known: KnownSpecies,
-): CombatAction {
+): CombatAction | null {
   // 1. Keep the party standing.
   const heal = healAction(bestHeal(actor, allies, 0.60));
   if (heal) return heal;
@@ -360,7 +360,7 @@ function fightWisely(
   allies: CombatCreature[],
   foes: CombatCreature[],
   known: KnownSpecies,
-): CombatAction {
+): CombatAction | null {
   // 1. Rescue an ally in real danger.
   const rescue = healAction(bestHeal(actor, allies, 0.30));
   if (rescue) return rescue;
@@ -404,7 +404,7 @@ function allOut(
   actor: CombatCreature,
   foes: CombatCreature[],
   known: KnownSpecies,
-): CombatAction {
+): CombatAction | null {
   const options = damageCandidates(actor, foes, known);
 
   // 1. Kill, hitting as hard as possible while doing it.
@@ -446,17 +446,32 @@ function enemyDefault(actor: CombatCreature, foes: CombatCreature[]): CombatActi
   return { kind: 'ability', abilityId: 'basic_attack', target };
 }
 
-/** Last-resort action: swing with basic attack at the weakest living foe. */
-function fallback(actor: CombatCreature, foes: CombatCreature[], known: KnownSpecies): CombatAction {
+/**
+ * Last-resort action: swing with basic attack at the weakest living foe.
+ *
+ * Returns null when there is nothing to swing at. This used to return a defend
+ * action; defend was cut (2026-07-30), and null is the honest answer — "this
+ * creature has no move this turn" — rather than inventing one. Callers skip
+ * the turn.
+ */
+function fallback(
+  actor: CombatCreature,
+  foes: CombatCreature[],
+  known: KnownSpecies,
+): CombatAction | null {
   const basic = damageCandidates(actor, foes, known)
     .filter(o => o.abilityId === 'basic_attack');
-  return toAction(bestBy(basic, o => o.damage)) ?? { kind: 'defend' };
+  return toAction(bestBy(basic, o => o.damage)) ?? null;
 }
 
 /**
  * Decide what `actor` does this turn. Side-agnostic: `allies` is the actor's own
  * side (including itself) and `foes` is the opposing side. Returns an action —
  * never mutates anything.
+ *
+ * Returns **null** when the actor has no legal move — in practice only when every
+ * foe is already knocked out, which means the battle is over and the caller should
+ * simply end the turn. Callers must handle null rather than assuming an action.
  */
 export function chooseAction(
   actor: CombatCreature,
@@ -464,8 +479,8 @@ export function chooseAction(
   foes: CombatCreature[],
   profile: TacticProfile,
   known: KnownSpecies,
-): CombatAction {
-  if (living(foes).length === 0) return { kind: 'defend' };
+): CombatAction | null {
+  if (living(foes).length === 0) return null;
 
   switch (profile) {
     case 'enemy_default':
@@ -516,7 +531,7 @@ export function getEnemyAction(
   playerParty: CombatCreature[],
 ): { abilityId: string; target: CombatCreature } {
   const action = chooseAction(enemy, [enemy], playerParty, 'enemy_default', NO_KNOWLEDGE);
-  if (action.kind === 'defend') {
+  if (action === null) {
     return { abilityId: 'basic_attack', target: playerParty[0] };
   }
   return { abilityId: action.abilityId, target: action.target };

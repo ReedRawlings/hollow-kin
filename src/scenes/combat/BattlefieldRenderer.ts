@@ -42,7 +42,12 @@ export interface ChipSpec {
 export interface RootCommandSpec {
   label: string;
   selected: boolean;
-  disabled: boolean;
+  /**
+   * Optional: no root command is disabled today. RUN was the only one, and it
+   * was cut. Kept because a future root action (capture) may need to grey out
+   * when it is unavailable.
+   */
+  disabled?: boolean;
   onHover: () => void;
   onClick: () => void;
 }
@@ -397,7 +402,7 @@ function drawCommandPanel(
         fontFamily: DISPLAY_FONT, fontSize: '11px',
         color: c.disabled ? UI.muted : (c.selected ? UI.voidCss : UI.text),
       }).setOrigin(0.5);
-      // Hover works even when disabled (RUN) so its footer detail can explain
+      // Hover works even when disabled so a greyed row's footer detail can explain
       // why; only the click itself is gated on being enabled.
       if (cmd.interactive) {
         rect.setInteractive({ useHandCursor: !c.disabled });

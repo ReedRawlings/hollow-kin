@@ -1,18 +1,4 @@
-export type Archetype =
-  | 'Kami' | 'Spirits' | 'Flora' | 'Fauna' | 'Rock' | 'Mecha' | 'Food' | 'Human'
-  | 'Devils' | 'Dragon' | 'Slimes';
-
-/**
- * The second content axis, orthogonal to archetype. Archetype decides element
- * identity, trait pool and first ability; role decides the stat shape and the
- * second ability. The nine roles collapse to four stat profiles — the Buff and
- * Debuff modifiers change what a creature does, never how it is statted.
- */
-export type Role =
-  | 'Tank' | 'Tank Buff' | 'Tank Debuff'
-  | 'Mage' | 'Mage Buff' | 'Mage Debuff'
-  | 'Healer Buff' | 'Healer Debuff'
-  | 'Fighter';
+export type Archetype = 'Kami' | 'Spirits' | 'Flora' | 'Fauna' | 'Rock' | 'Mecha' | 'Food' | 'Human';
 
 export type DamageType = 'Fighting' | 'Electric' | 'Wind' | 'Fire' | 'Ice' | 'Ghost';
 
@@ -95,14 +81,6 @@ export interface CreatureTemplate {
   id: string;
   name: string;
   archetype: Archetype;
-  role: Role;
-  /**
-   * Tower bands this species can be encountered in. Band N covers floors
-   * (N-1)*10+1 .. N*10, so `[1, 2]` means anywhere on floors 1-20. This is the
-   * single source of encounter placement — pools are derived from it rather
-   * than maintained alongside it.
-   */
-  towerIds: number[];
   baseStats: BaseStats;
   defaultAbilities: string[];
   resistances: DamageType[];
@@ -111,14 +89,11 @@ export interface CreatureTemplate {
   /** Trait ids this species may be imbued with. Compatibility is curated, never random. */
   naturalTraitPool: string[];
   /**
-   * Base Obol price before rite band and HP, keyed by tower band. One entry per
-   * band in `towerIds`, drawn from that band's range at authoring time and then
-   * fixed — depth is already priced in by which band you meet the creature in,
-   * so nothing recomputes at encounter time. A band whose entry is 0 (or absent)
-   * cannot be taken in the wild there, which is how boss-exclusive and
-   * breed-only species are expressed.
+   * Base Obol price before depth, band and HP. Omitted falls back to
+   * DEFAULT_CAPTURE_BASE_PRICE; an explicit 0 means uncapturable in the wild,
+   * which is how boss-exclusive and breed-only species are expressed.
    */
-  captureBasePrice: Record<number, number>;
+  captureBasePrice?: number;
   /** Rites that discount this species. Omitted means it can only be bought at full freight. */
   rites?: RiteDef[];
 }
@@ -146,8 +121,7 @@ export interface CreatureInstance {
    *
    * Optional because several construction sites do not set it yet and readers already
    * fall back (`instance.statBaseline ?? template.baseStats`). Tighten to required once
-   * every construction site populates it — loading already backfills it from the
-   * species template, so persisted creatures always carry one.
+   * every construction site populates it and the save migration has backfilled.
    */
   statBaseline?: BaseStats;
   currentStats: BaseStats;
@@ -174,18 +148,14 @@ export interface CombatCreature {
   buffStages: Partial<Record<StatName, number>>;
   statusEffects: ActiveStatus[];
   isKnockedOut: boolean;
+  isDefending: boolean;
   isPlayerOwned: boolean;
 }
 
-/**
- * What the tactics AI decides to do. The AI never applies it — the scene does.
- *
- * A single-variant union on purpose: `kind` is the discriminator future actions
- * hang off (capture is the next one). There is deliberately no `defend` — the
- * mechanic was cut, not merely unexposed. See the note in CombatEngine.baseDamage.
- */
+/** What the tactics AI decides to do. The AI never applies it — the scene does. */
 export type CombatAction =
-  | { kind: 'ability'; abilityId: string; target: CombatCreature };
+  | { kind: 'ability'; abilityId: string; target: CombatCreature }
+  | { kind: 'defend' };
 
 export enum BattlePhase {
   STARTING = 'STARTING',
@@ -213,24 +183,12 @@ export interface RunState {
   encounters: Encounter[];
   choices: Encounter[];       // current pick-next choices
   obols: number;
+  capturedCreatures: CreatureInstance[];
   partyHp: Record<string, number>;
   partyMp: Record<string, number>;
   partyKO: Record<string, boolean>;
   xpEarned: number;
   autoCombat: boolean;    // AUTO toggle state; persists across encounters within a run
-  activeBoons: ActiveBoon[];  // timed modifiers; expire with the run
-}
-
-/**
- * A timed modifier active for the current run, chosen at the post-battle offer.
- *
- * `battlesLeft: null` means "lasts the whole run". Nothing produces that today —
- * it exists because a Relic is the same shape with no expiry, so Relics can reuse
- * this layer instead of duplicating it.
- */
-export interface ActiveBoon {
-  boonId: string;
-  battlesLeft: number | null;
 }
 
 export const STAR_LEVEL_CAPS: Record<number, number> = {
@@ -253,9 +211,6 @@ export const ARCHETYPE_COLORS: Record<Archetype, number> = {
   Mecha: 0xcc3333,
   Food: 0xcccc33,
   Human: 0xccaa77,
-  Devils: 0xcc3366,
-  Dragon: 0x338866,
-  Slimes: 0x66ddcc,
 };
 
 export const RESISTANCE_MULTIPLIER = 0.5;
@@ -273,27 +228,7 @@ export const OBOL_TO_ESSENCE_RATE = 0.5;
 // Obol rewards scale with depth — see OBOL_REWARD_EXPONENT below LEVEL_COST_EXPONENT.
 
 // --- Tower structure ---
-/**
- * The full tower is 100 floors in 10 bands. Alpha stops at 20 — the deepest the
- * Tower ID 1,2 roster reaches. Raise this as bands are authored; nothing else
- * needs to change with it.
- */
-export const TOWER_FLOORS = 20;
-
-/** Floors per tower band. Band N covers floors (N-1)*BAND_SIZE+1 .. N*BAND_SIZE. */
-export const TOWER_BAND_SIZE = 10;
-
-/** Highest band the full 100-floor tower reaches. */
-export const TOWER_BAND_COUNT = 10;
-
-/**
- * Which tower band a floor sits in. Shared by encounter generation and capture
- * pricing so the two can never disagree about where a band starts.
- */
-export function bandForFloor(floor: number): number {
-  const band = Math.floor((floor - 1) / TOWER_BAND_SIZE) + 1;
-  return Math.max(1, Math.min(TOWER_BAND_COUNT, band));
-}
+export const TOWER_FLOORS = 30;
 
 /** A floor is a boss floor iff it is a multiple of 5. */
 export function isBossFloor(floor: number): boolean {
@@ -361,47 +296,6 @@ export function scaledDelay(baseMs: number, speed: BattleSpeed): number {
   return Math.max(COMBAT_DELAY_FLOOR, Math.round(baseMs / speed));
 }
 
-// --- Backpack ---
-
-/**
- * One thing carried on the descent. Everything the player brings home shares these
- * slots, which is what makes carrying capacity a real decision rather than a number:
- * a captured creature and the consumable that might have saved the run compete for
- * the same space.
- *
- * `creature` and `item` are both live today. `mark` and `trait` are declared now
- * because each is already specified elsewhere and each must be wipe-eligible when
- * it arrives — marks earned in-run and carried out to be bound with Essence in
- * town, and traits dropped by bosses and events.
- *
- * The bag itself lives on `GameStateManager.backpack`, not on `RunState` — it is
- * carried cargo, not run-scoped state, so it persists across runs (town purchases
- * sit in it until the next descent; a capture that doesn't fit the Box waits in it
- * for room). It is included in the save.
- */
-export type BackpackContents =
-  | { kind: 'creature'; instance: CreatureInstance }
-  | { kind: 'item'; itemId: string }
-  | { kind: 'mark'; markId: string; earnedBy: string }
-  | { kind: 'trait'; traitId: string; traitLevel: number };
-
-/** A slot is empty (`null`) or holds exactly one thing. */
-export type BackpackSlot = BackpackContents | null;
-
-export interface Backpack {
-  slots: BackpackSlot[];
-  /**
-   * The first `guaranteedSlots` slots survive a wipe. This is the hedge the design
-   * rules promise, and what Quartermaster upgrades will eventually sell — capacity
-   * buys room, guaranteed capacity buys certainty.
-   */
-  guaranteedSlots: number;
-}
-
-/** Placeholders. Capacity and guaranteed count both become Quartermaster-purchasable. */
-export const BACKPACK_START_CAPACITY = 6;
-export const BACKPACK_START_GUARANTEED = 2;
-
 // --- Capture: rites and pricing ---
 
 /**
@@ -433,19 +327,7 @@ export type RiteCondition =
   | { kind: 'has_not_acted' }
   | { kind: 'survived_turns'; turns: number }
   | { kind: 'ally_knocked_out' }
-  | { kind: 'solo_actor' }
-  // The five below were added for the authored family rites. They read log
-  // fields the combat scene does not write yet — see the note on RiteLog.
-  /** An item was used on this creature (`self`) or on one of its allies (`ally`). */
-  | { kind: 'item_consumed'; scope: 'self' | 'ally' }
-  /** A damage type was USED this battle, by either side. `times` defaults to 1. */
-  | { kind: 'damage_type_dealt'; damageType: DamageType; times?: number }
-  /** This creature struck an enemy whose stage in `stat` was at least `stage`. */
-  | { kind: 'struck_enemy_stat_stage_at_least'; stat: StatName; stage: number }
-  /** The side opposing this creature fields the given archetype. */
-  | { kind: 'enemy_party_contains_archetype'; archetype: Archetype }
-  /** Any creature took a stat-stage debuff this battle. */
-  | { kind: 'debuff_applied' };
+  | { kind: 'solo_actor' };
 
 /** All conditions must hold for the rite to be satisfied. */
 export interface RiteDef {
@@ -459,10 +341,6 @@ export interface RiteDef {
  * Per-enemy battle record the rite conditions are evaluated against. Owned by the
  * combat scene for the duration of one battle, keyed by instance id. Never
  * persisted — runs are not saved.
- *
- * The last five fields are read by the authored family rites but are NOT written
- * by anything yet: capture is not wired into CombatScene. Whoever does that
- * wiring owns populating them, and `newRiteLog` names the write site for each.
  */
 export interface RiteLog {
   damageTypesTaken: DamageType[];
@@ -474,25 +352,6 @@ export interface RiteLog {
   /** Bids this creature has rejected. At CAPTURE_ENRAGE_AFTER it enrages. */
   rejectedBids: number;
   isEnraged: boolean;
-  /**
-   * How many times each damage type has been USED this battle, by either side.
-   * Distinct from `damageTypesTaken`, which records only what this creature
-   * received — a tally rather than a set, because "twice" cannot be expressed
-   * by a membership check.
-   */
-  damageTypesDealt: Partial<Record<DamageType, number>>;
-  /** An item was used on this creature. */
-  itemConsumedOnSelf: boolean;
-  /** An item was used on one of this creature's allies. */
-  itemConsumedByAlly: boolean;
-  /**
-   * The highest stage this creature has seen in each stat on an enemy it struck.
-   * Read at the moment of the hit — the struck creature's stages are out of
-   * scope by the time a rite is evaluated.
-   */
-  struckStatStages: Partial<Record<StatName, number>>;
-  /** Any creature on either side has taken a stat-stage debuff this battle. */
-  debuffApplied: boolean;
 }
 
 /** Facts about the player's side that some rites key off. */
@@ -500,29 +359,21 @@ export interface CaptureParty {
   anyKnockedOut: boolean;
   /** How many of the player's creatures have acted this battle. */
   actorCount: number;
-  /** Archetypes fielded, for rites that read the opposing team's composition. */
-  archetypes: Archetype[];
 }
 
 /** What a rejected bid tells the player. Never a number. */
 export type BidReaction = 'insulted' | 'wavers';
 
 /**
- * Capture price = towerBandPrice * riteBandMultiplier * hpNudge.
+ * Capture price = base * floor^CAPTURE_DEPTH_EXPONENT * bandMultiplier * hpNudge.
  *
- * There used to be a continuous `floor^CAPTURE_DEPTH_EXPONENT` term here, tracking
- * OBOL_REWARD_EXPONENT so captures could not get relatively cheaper with depth.
- * The per-band price table in `CreatureTemplate.captureBasePrice` replaced it —
- * depth is priced by which band you meet the creature in, and keeping both would
- * count depth twice. The coupling concern still holds, but it now lives in the
- * band ranges (20-40 at band 1 climbing to 201-220 at band 10), which have to
- * stay ahead of Obol income at depth.
+ * The depth exponent tracks OBOL_REWARD_EXPONENT deliberately: Obol income grows
+ * as floor^0.5, so a price growing more slowly would make captures relatively
+ * cheaper with depth and turn deep floors into the farmable ones. Move them together.
  */
+export const CAPTURE_DEPTH_EXPONENT = OBOL_REWARD_EXPONENT;
 
-/**
- * Multipliers on the base price by satisfied RITE tier — not tower band. The two
- * senses of "band" are unrelated; see `bandForFloor` for the tower one.
- */
+/** Band multipliers on the base price. Unsatisfied is full freight. */
 export const CAPTURE_BAND_MULTIPLIER: Record<'unsatisfied' | RiteBand, number> = {
   unsatisfied: 1.0,
   family: 0.4,
@@ -538,9 +389,5 @@ export const CAPTURE_ENRAGE_AFTER = 3;
 /** A bid below this fraction of the price insults rather than tempts. */
 export const CAPTURE_INSULT_FRACTION = 0.5;
 
-// There is no DEFAULT_CAPTURE_BASE_PRICE any more. It existed to cover species
-// with no authored price back when the price was a single scalar. Prices are now
-// authored per tower band, and a band with no price means "not takeable here"
-// rather than "charge the default" — so a fallback would silently make a
-// deliberately uncapturable species purchasable. `creatures.test.ts` pins that
-// every band a species appears in carries a real price.
+/** Used when a species has no authored price yet. 0 on a template means uncapturable. */
+export const DEFAULT_CAPTURE_BASE_PRICE = 20;

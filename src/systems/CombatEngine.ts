@@ -18,10 +18,15 @@ export function getEffectiveStat(creature: CombatCreature, stat: StatName): numb
 }
 
 /**
- * Deterministic damage core: stat matchup, power, optional type multiplier,
- * and the defend halving. No RNG — no hit roll, no crit, no accuracy weighting.
+ * Deterministic damage core: stat matchup, power, and the optional type
+ * multiplier. No RNG — no hit roll, no crit, no accuracy weighting.
  * Shared by calculateDamage (which layers the rolls on top) and the AI's
  * estimateDamage (which layers accuracy on top).
+ *
+ * There is no defend halving. Defend was cut outright (2026-07-30): it had a
+ * full engine implementation and no way for a player to ever pick it, so only
+ * the AI and enemies could use it. Damage mitigation belongs to items and
+ * buff stages now — do not reintroduce a defend branch here.
  *
  * `useTypeMultiplier` is false when the caller must not assume knowledge of the
  * defender's resistances — that is how the AI's knowledge fog is enforced.
@@ -48,11 +53,6 @@ export function baseDamage(
     } else if (defender.instance.weaknesses.includes(dmgType)) {
       damage *= WEAKNESS_MULTIPLIER;
     }
-  }
-
-  // Defend halves damage
-  if (defender.isDefending) {
-    damage *= 0.5;
   }
 
   return damage;
@@ -313,7 +313,6 @@ export function createCombatCreature(
     buffStages: {},
     statusEffects: [],
     isKnockedOut: (currentHp ?? instance.currentStats.hp) <= 0,
-    isDefending: false,
     isPlayerOwned: isPlayer,
   };
 }

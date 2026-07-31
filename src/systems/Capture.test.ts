@@ -27,7 +27,7 @@ function foe(overrides: Partial<CombatCreature> = {}): CombatCreature {
     template: template(),
     currentHp: 30, maxHp: 30, currentMp: 10, maxMp: 10,
     buffStages: {}, statusEffects: [],
-    isKnockedOut: false, isDefending: false, isPlayerOwned: false,
+    isKnockedOut: false, isPlayerOwned: false,
     ...overrides,
   };
 }

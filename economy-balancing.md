@@ -4,7 +4,7 @@
 
 > **Owns:** Obol earn weights, the Obols→Essence conversion rate, the permanent level cost curve, depth-jump prices, capture economy, essence sinks, progression pacing targets, and the balancing levers.
 > **Defers to the GDD on:** the progression model itself and what persists across runs.
-> **Last verified:** 2026-07-28 — conversion rate, wipe penalty, level-cost curve and depth-jump pricing re-checked against `types.ts` / `Economy.ts`.
+> **Last verified:** 2026-07-30 — conversion rate, wipe penalty, level-cost curve, Obol depth scaling, depth-jump pricing and the capture price model all re-checked against `types.ts` / `Economy.ts` / `Capture.ts`. Corrected in that pass: the removed FLEE TOWER button, the superseded capture-probability formula, the missing Obol depth-scaling term, and two rounding errors in the level-cost table.
 >
 > **Every number in this document is a placeholder for playtest tuning.** Pin relationships between constants, not the values.
 
@@ -24,15 +24,40 @@ Hollow Kin runs on **two currencies with one direction of flow**. **Obols** are 
 
 ### **Earning Obols**
 
-Obols are harvested from **every fight**. The total earned per run scales with the **number of battles completed**, weighted by fight type:
+Obols are harvested from **every fight**. The total earned per run scales with the **number of battles completed**, weighted by fight type — **and with the depth the fight happened at**:
 
-| Fight type | Cadence | Obols (placeholder) |
-| ----- | ----- | ----- |
-| Normal encounter | Most floors | 5 |
-| Mini-boss | Every 5 floors | 25 |
-| Major boss | Every 10 floors | 75 |
+```
+obols(kind, floor) = OBOL_REWARDS[kind] × OBOL_REWARD_SCALAR × floor^OBOL_REWARD_EXPONENT
+```
 
-Weighting is always `normal < mini-boss < major boss`. These values are starting placeholders to be tuned against the conversion rate and level-cost curve below.
+| Fight type | Cadence | Base (placeholder) | At floor 1 | At floor 20 |
+| ----- | ----- | ----- | ----- | ----- |
+| Normal encounter | Most floors | 5 | 5 | 22 |
+| Mini-boss | Every 5 floors | 25 | 25 | 112 |
+| Major boss | Every 10 floors | 75 | 75 | 335 |
+
+Weighting is always `normal < mini-boss < major boss`. The base values are starting placeholders to be tuned against the conversion rate and level-cost curve below.
+
+> **`OBOL_REWARD_EXPONENT` is not a free parameter — it is derived.**
+>
+> ```
+> OBOL_REWARD_EXPONENT === LEVEL_COST_EXPONENT - 1
+> ```
+>
+> A creature that clears floor F is roughly level F, so the marginal cost of one more
+> floor of reach is ~`LEVEL_COST_BASE × F^LEVEL_COST_EXPONENT`. A run to floor F earns the
+> sum of its floors, which grows as `F^(OBOL_REWARD_EXPONENT + 1)`. Progression pace holds
+> constant only when those match. **Retune the two together, never separately.**
+>
+> At an exponent of 0 — flat rewards, the behaviour before depth scaling landed — every
+> floor of progress costs more runs than the last, floors 1–10 pay exactly what floors
+> 21–30 pay, and the EV-optimal exit sits around floor 20, making the deepest third of the
+> tower not worth attempting.
+>
+> `OBOL_REWARD_SCALAR` is the independent knob: it sets total game length and has no
+> effect on pace. At 1.0, floor 1 pays exactly the base reward, so the scaling is purely
+> additive — no floor pays less than it did before; depth simply pays more. Lower it to
+> lengthen the game.
 
 ### **Spend Now vs. Bank for Conversion**
 
@@ -40,7 +65,7 @@ Obols can be spent **right now** to survive the descent (heals, revives, capture
 
 * **Obols never persist.** They are a run-local resource. What you don't spend converts to Essence on exit; what you do spend is simply gone.
 * **Essence is permanent and non-refundable.** Once spent on a pet (a permanent level, trait, or bound mark), it is locked to that pet — it cannot be reclaimed for a future pet.
-* A **full wipe loses 50% of leftover Obols** — only half converts to Essence if the run ends in a wipe rather than a chosen exit (a deliberate exit — including fleeing the tower via the **FLEE TOWER** button — or a win converts 100%). On a wipe the player also loses **exactly one thing at random from unprotected inventory** — **not the whole inventory**. That one thing may be a consumable, an item, or a **captured creature**; only the guaranteed inventory space protects against it, and the three creatures the player entered with are never at risk. The 50% figure and the one-loss rule are placeholder push-your-luck levers, tunable in playtest.
+* A **full wipe loses 50% of leftover Obols** — only half converts to Essence if the run ends in a wipe rather than a chosen exit (a deliberate departure or a win converts 100%). ⚠️ **Departure is no longer free.** The old FLEE TOWER button that was available after every encounter is gone: the way out is open only on a **boss floor just cleared**, or bought as a carried **Waystone**. See `expedition-items-pitch.md` and `systems/Departure.ts`. On a wipe the player also loses **exactly one thing at random from unprotected inventory** — **not the whole inventory**. That one thing may be a consumable, an item, or a **captured creature**; only the guaranteed inventory space protects against it, and the three creatures the player entered with are never at risk. The 50% figure and the one-loss rule are placeholder push-your-luck levers, tunable in playtest.
 
 > **Resolved:** the earlier single-shared-pool model (one essence pool spent both in-run and permanently) was rejected as too punishing. The two-tier Obols→Essence model with leftover-only conversion replaces it.
 
@@ -75,21 +100,23 @@ Essence raises a pet's **permanent starting-level floor** — the level it begin
 The **cost per level rises classically** so leveling naturally decelerates. Starting placeholder formula:
 
 ```
-essence_cost(next_level) = base * next_level^exponent
+essence_cost(level -> level + 1) = floor(base * level^exponent)
 base = 10, exponent = 1.5
 ```
+
+Note the cost is keyed on the level you are leaving, **not** the one you are buying — `essenceCostForLevel(level)` in `Economy.ts`. An earlier draft of this formula said `next_level^exponent`, which disagreed with both the table below and the code.
 
 | Level bought | Cost (placeholder) | Cumulative |
 | ----- | ----- | ----- |
 | 1 → 2 | 10 | 10 |
 | 2 → 3 | 28 | 38 |
-| 3 → 4 | 52 | 90 |
-| 4 → 5 | 80 | 170 |
-| 5 → 6 | 112 | 282 |
+| 3 → 4 | 51 | 89 |
+| 4 → 5 | 80 | 169 |
+| 5 → 6 | 111 | 280 |
 
 **Target pace:** a strong early run (clearing to ~floor 10) should net roughly **2–3 permanent levels** — enough that a run feels rewarding and enemies have something to scale against, without trivializing long-term progression. Note the essence for these levels no longer comes straight from fights: it is *converted from leftover Obols on exit*. So this target depends on **three** knobs together — the Obol earn weights, how much the player banks rather than spends, and the **conversion rate** — not just the `base`/`exponent` of the curve.
 
-A pet's level is ceilinged by its **star rating** (the existing sigmoid cap). Essence fills *toward* that cap but cannot exceed it; breeding still raises stars. Stars are staying, and because trait slots unlock at permanent levels 5/10/20/30, the star cap also decides how many traits a pet can ever hold — which makes the level curve a **trait**-pacing lever as well as a stat one.
+A pet's level is ceilinged by its **star rating** (`STAR_LEVEL_CAPS` — a lookup table, 0★=5 rising to 12★=99, not a computed curve). Essence fills *toward* that cap but cannot exceed it; breeding still raises stars. Stars are staying, and because trait slots unlock at permanent levels 5/10/20/30, the star cap also decides how many traits a pet can ever hold — which makes the level curve a **trait**-pacing lever as well as a stat one.
 
 ---
 
@@ -181,12 +208,31 @@ Total run yield scales with how many battles the player completes, so pushing de
 
 Capture is an **in-run Obol spend** (the same run-scoped wallet used for heals, revives, and shop items).
 
-* Spending more Obols on a capture attempt raises its odds — the player weighs capture against survival and against keeping Obols to convert on exit
-* Capture probability: `base_chance = (obols_spent / capture_threshold) * (1 - target_hp_percent)`
-* This means more Obols committed and lower target HP both increase the chance
-* `capture_threshold` is a tuning constant that rises with depth — deeper floors demand more Obols per capture
-* Failed captures consume a portion of the Obols committed (proposed: 25%)
-* This creates tension: spend Obols to capture now, heal to survive, or hoard them to convert into permanent Essence
+> ⚠️ **The threshold/probability model below was replaced.** An earlier draft specified
+> `base_chance = (obols_spent / capture_threshold) × (1 - target_hp_percent)` with a
+> `capture_threshold` constant that rose with depth. **That is not what was built.** The
+> shipped model in `systems/Capture.ts` is a **price you bid against**, and depth is
+> priced by a per-band table rather than a continuous exponent. Anything still quoting
+> `capture_threshold` is stale.
+
+The built model:
+
+```
+capturePrice = captureBasePrice[towerBand] × riteBandMultiplier × hpNudge
+captureChance(bid, price) = clamp(bid / price, 0, 1)
+```
+
+* **Base price is per tower band**, authored once per species per band it appears in (band 1: 20–40, climbing to band 10: 201–220). Depth is priced by *which band you meet the creature in* — there is deliberately no continuous depth exponent on top, because that would count depth twice.
+* **Rites are the real lever, not coins.** Satisfying a rite replaces the multiplier rather than stacking: `unsatisfied` 1.0 → `family` 0.4 → `signature` 0.1. A satisfied signature rite is a **90% discount**, which is the point — capture is a puzzle with a price attached, not a purchase.
+* **HP is a nudge, not a lever** — at most +25% at full HP (`CAPTURE_HP_NUDGE`). Lower HP still means cheaper, but it cannot substitute for a rite.
+* **Bidding the full price is a certainty**; bid under it and you get exactly that fraction as your chance.
+* **A rejected bid is not consumed as Obols.** It increments a rejection counter — after `CAPTURE_ENRAGE_AFTER` (3) rejections the creature **enrages** and refuses every further bid. Only satisfying a rite clears enrage, which is what stops brute-force probing. A bid below 50% of the price *insults* rather than tempts.
+* A base price of exactly `0` for a band means the species cannot be taken there at all — that is how boss-exclusive and breed-only species are expressed. There is no default fallback price.
+
+This creates the intended tension: spend Obols to capture now, heal to survive, or hoard them to convert into permanent Essence — with the rite puzzle as the way to make capture cheap enough to be worth all three.
+
+> **Not yet reachable.** `Capture.ts` is complete and tested but is wired into no scene.
+> See the capture entry in `CLAUDE.md` for what remains.
 
 ---
 
@@ -226,11 +272,13 @@ The Quartermaster inherits the Leathersmith's old job — backpack/inventory cap
 
 Key variables that can be tuned during playtesting:
 
-* **Obol earn weights** — normal / mini-boss / major-boss values; controls total run yield
+* **Obol earn weights** — normal / mini-boss / major-boss base values; controls total run yield
+* **`OBOL_REWARD_SCALAR`** — sets total game length without affecting progression pace. The *exponent* is derived from the level curve and is not independently tunable — see above
 * **Obols→Essence conversion rate** — base rate plus the trait / Quartermaster-upgrade / depth bonuses; controls how much of a hoarded run becomes permanent power
 * **Level cost curve steepness** (`base`, `exponent`) — controls how fast permanent leveling decelerates and whether a strong run hits the 2–3-level target
 * **Depth-jump prices per 5-floor break** — controls how eagerly players skip early floors
-* **Capture threshold per depth** — controls capture difficulty scaling
+* **Capture band price ranges** — the per-band `captureBasePrice` tables; controls how capture cost scales with depth, and has to stay ahead of Obol income at depth
+* **Capture rite multipliers** — `family` 0.4 / `signature` 0.1; controls how much a solved rite is worth against raw coin
 * **Level cap per star** — controls how high essence can raise a pet before breeding is needed, and therefore how many trait slots it can ever open
 * **Trait upgrade costs** — controls how expensive it is to max a trait vs. hunting a pre-levelled drop
 * **Trait drop rates and depth-to-drop-level mapping** — controls how much of trait power comes from luck and depth vs. essence

@@ -136,8 +136,8 @@ After each encounter the player chooses between 2–3 offered next encounters. T
 
 ### **Non-Combat Encounters**
 
-* **Shops** — Spend resources gathered during the run on items, stones, or capture supplies
-* **Rest Points** — Restore HP/MP, or teach a random ability to one creature
+* **Shops** — Spend Obols gathered during the run on heals, revives and carryable items. *("Stones" here meant Breeding Stones, which are cut.)*
+* **Rest Points** — Restore HP or MP. *(Teaching a random ability was designed and never built.)*
 * **Random Events** — Narrative encounters with risk/reward choices
 
 ### **Relics**
@@ -164,15 +164,17 @@ Run-based relics are earned during a run and provide stackable or conditional bo
 
 | Field | Description |
 | ----- | ----- |
-| `id` | Unique creature identifier |
+| `id` | Unique creature identifier — `kin_NNN`, zero-padded from the master sheet's row id. Opaque; never parse meaning out of the number |
 | `name` | Display name |
-| `archetype` | One of eight archetypes |
+| `archetype` | One of eleven archetypes. Content decision — authored, never derived |
+| `role` | One of nine roles, orthogonal to archetype. **This is what base stats are generated from.** Content decision — authored, never derived |
+| `towerIds` | Tower bands this species can be encountered in. The single source of encounter placement — pools derive from it |
 | `hp` | Hit points |
 | `mp` | Magic points |
 | `str` | Physical attack power |
 | `def` | Physical defense |
 | `wis` | Magic defense / healing power |
-| `spd` | Turn order and evasion modifier |
+| `spd` | Turn order and crit-chance bonus. **Not** evasion — see the Resolved Design Decisions note below |
 | `int` | Magic attack power |
 | `star_rating` | Genealogy depth indicator, increases under breeding conditions |
 | `level_cap` | Maximum level this creature can reach — the ceiling essence fills toward (currently derived from star rating) |
@@ -211,7 +213,7 @@ Longevity has been **removed** from the design. Permanent essence progression is
 * Two creatures are combined to produce one offspring  
 * Both parent creatures are **retired** upon breeding  
 * **Essence carry-over (jump-start):** the parents' invested essence/levels partially carry to the offspring, so a new bloodline doesn't start from zero. Breeding is still a real trade — you give up two developed creatures — but no longer a hard reset of progress.
-* Players may **summon the base form** of any retired creature at any time — you get the shell but not the accumulated progress  
+* Players may **summon the base form** of any retired creature at any time — you get the shell but not the accumulated progress. ⚠️ **Not built** — there is no summon path in code; retired parents stay in the box as tombstones and nothing can re-instantiate them  
 * Offspring inherit abilities from parents — players choose at creation time whether to add inherited abilities  
 * Parent abilities can override the offspring's default ability set  
 * Since any creature can theoretically learn any ability, a single unified ability library is used  
@@ -340,7 +342,9 @@ The system splits three ways with no overlap: **permanent level buys capacity, a
 
 ## **Archetypes**
 
-Eight archetypes define a creature's general identity, combat role, and default ability pool. There is no archetype-level rock-paper-scissors. Individual resistances and weaknesses on each creature provide tactical variation.
+**Eleven** archetypes define a creature's element identity, trait pool, and first default ability. There is no archetype-level rock-paper-scissors. Individual resistances and weaknesses on each creature provide tactical variation.
+
+Archetype is one of **two** content axes. The other is **role**, which is orthogonal to it and is what stats are generated from — see `creature-roster-and-generation.md`.
 
 | Archetype | Combat Identity |
 | ----- | ----- |
@@ -352,6 +356,13 @@ Eight archetypes define a creature's general identity, combat role, and default 
 | **Mecha** | Flame and electricity, low HP, high speed |
 | **Food** | Buffs and physical attacks — buffs are stronger but shorter duration than Flora |
 | **Human** | Physical attacks and ice |
+| **Devils** | Combat identity TBD |
+| **Dragon** | Combat identity TBD |
+| **Slimes** | Combat identity TBD |
+
+> The last three arrived with the 2026-07-28 alpha roster swap and do not yet have an
+> authored combat identity. Full per-archetype counts for the 134-creature roster live in
+> `creature-roster-and-generation.md`.
 
 ---
 
@@ -404,12 +415,12 @@ Town is a hub of "folks" who turn essence into permanent upgrades. The Enhancer 
 
 * Browser-based using **Phaser 3** (canvas framework), TypeScript, built with Vite
 * 960×640 logical resolution, `zoom: devicePixelRatio` for crisp HiDPI rendering
-* Scene registry as built: **Boot, Town, PartySelect, Run, Combat, Shop, Rest, Breeding, Leveler, Gatekeeper**
+* Scene registry as built: **Boot, Town, PartySelect, Departure, Run, Combat, PostCombat, Shop, TownShop, Rest, Breeding, Leveler, Gatekeeper, Bestiary**
 * Shared state lives in the `GameState` singleton; per-scene data is passed via Phaser's scene manager
 
 ### **Data-Driven Design**
 
-* All creature stats live in a master spreadsheet exported as JSON  
+* All creature stats live in a master spreadsheet (`Hollow Kins`, sheet `Kin`), which is the source of truth for numeric balance  
 * Stats are separated from behavior — the spreadsheet holds numbers, the code holds logic  
 * Each creature is a data container (plain JS object/class) instantiated from JSON at runtime  
 * A single generic creature class handles all combat behavior, reading from the data container  
@@ -423,6 +434,13 @@ Town is a hub of "folks" who turn essence into permanent upgrades. The Enhancer 
 4. Generic creature class initializes from data object at spawn time  
 5. Rebalancing means editing the spreadsheet, re-exporting, and re-running the importer
 
+> ⚠️ **Steps 2–3 are the intended pipeline, not what exists.** There is no exported JSON
+> in the repo and no importer script — `src/data/creatures.ts` is checked-in TypeScript,
+> generated from the spreadsheet by hand at roster-swap time. The authored-vs-generated
+> split is still real and still binding (**do not hand-tune a generated value in
+> `creatures.ts`** — change the table and regenerate), but "regenerate" is currently a
+> manual step. See `creature-roster-and-generation.md`.
+
 ### **Trait and Ability Architecture**
 
 * Traits and abilities are stored as IDs on the creature object
@@ -432,7 +450,7 @@ Town is a hub of "folks" who turn essence into permanent upgrades. The Enhancer 
 
 ### **Save System**
 
-**As built:** player data persists to **localStorage** (save v2, with migration from the pre-pivot format). This is what exists today.
+**As built:** player data persists to **localStorage** at **save v7**, with **no migration path**. The alpha roster swap invalidated every species id a save could hold, so anything below v7 is discarded and the stale blob removed; the old v2→v6 field-by-field migrations were deleted with it. Saves are disposable during alpha — bump `SAVE_VERSION` freely rather than designing around migration.
 
 **Planned:** migrate to **Supabase** (hosted PostgreSQL + auth + realtime) so saves tie to authenticated accounts and players can resume on any browser. Not built.
 
@@ -452,9 +470,9 @@ Under either backend:
 * Save architecture — Supabase (see Technical Architecture)
 * Ability archetype distribution — DQM-style wide overlap with basic abilities available across all archetypes
 * Tension / Psyche Up — cut. Existing buff abilities (Bold, Overdrive, Focus) already cover the "spend a turn to hit harder" dynamic without adding a separate system
-* Accuracy — uses the Accuracy column from the ability CSV. Evasion is trait-driven only (Evasion Up trait + Blind status). SPD does not affect evasion — it handles turn order and crit chance only
+* Accuracy — uses the Accuracy column from the ability CSV. SPD does not affect evasion; it handles turn order and crit chance only. ⚠️ **Evasion does not exist in code at all** — there is no target term in the hit roll, so the Evasion Up trait and the Blind status both have no effect. See `combat-system.md`
 * Buff/debuff stages — capped at ±3, ranging from 0.75x to 1.5x. Tighter than Pokémon's system to prevent snowballing
-* Critical hits — player-only (enemies cannot crit). 5% base rate, 15% for high-crit abilities, SPD scaling. 1.5x damage that ignores target's defensive buffs
+* Critical hits — player-only (enemies cannot crit). 5% base rate, 15% for high-crit abilities, SPD scaling, 1.5x damage. ⚠️ The "ignores the target's defensive buffs" clause was specified and **never built** — `calculateDamage` crits off the target's buffed stats. See `combat-system.md`
 * Damage formula terminology — standardized on STR/INT/DEF/WIS throughout combat doc
 
 ## **Open Questions**
@@ -491,7 +509,7 @@ Specs in `docs/superpowers/specs/` record **how a decision was reached**, includ
 | `2026-07-24-auto-combat-tactics-design.md` | Tactic ladders, knowledge fog, persisted battle speed | Yes |
 | `2026-07-25-departure-flow-design.md` | Standing default party, pre-run departure screen | Yes |
 | `2026-07-25-capture-system-design.md` | Capture threshold model, duplicate Essence grant, box capacity, pending-capture queue | **Designed only** |
-| `2026-07-25-monsterpedia-design.md` | Bestiary UI over `gameState.seenSpecies` | **Designed only** |
+| `2026-07-25-monsterpedia-design.md` | Bestiary UI over `gameState.seenSpecies` | Yes — `BestiaryScene`, reachable from THE ARCHIVE |
 | `2026-07-26-doc-realignment-design.md` | Documentation pass — GDD re-promotion and contradiction sweep | — |
 | `2026-07-26-traits-system-design.md` | Trait slots by permanent level, traits found-and-imbued, Trait-keeper's role, stars kept | **Designed only** |
 | `2026-07-29-expedition-commitment-and-consumables-design.md` | Departure earned at boss floors or bought as a Waystone; the item pool 2 → 9; the run-map bag made usable | Yes |

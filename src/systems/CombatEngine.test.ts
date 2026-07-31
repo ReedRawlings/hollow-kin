@@ -147,13 +147,6 @@ describe('baseDamage', () => {
     expect(baseDamage(a, tough, ember, true)).toBeCloseTo(baseDamage(a, tough, ember, false) * 0.5);
   });
 
-  it('halves damage against a defending target', () => {
-    const a = makeTestCreature({ speciesId: 'a' });
-    const d = makeTestCreature({ speciesId: 'd' });
-    const open = baseDamage(a, d, getAbility('smash'), true);
-    d.isDefending = true;
-    expect(baseDamage(a, d, getAbility('smash'), true)).toBeCloseTo(open * 0.5);
-  });
 });
 
 describe('calculateDamage — RNG contract', () => {

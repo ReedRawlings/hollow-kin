@@ -60,8 +60,12 @@ function makeEncounter(type: EncounterType, floor: number, index: number): Encou
 
 /**
  * Build the tower descent from `startFloor` (default 1) through TOWER_FLOORS.
- * One encounter per floor. First floor = combat; floor before any boss = rest;
- * boss floors (multiples of 5) are mini/major; the rest are combat/shop/event.
+ * One encounter per floor. First floor = combat; boss floors (multiples of 5)
+ * are mini/major; every other floor is weighted filler — combat/shop/rest/event.
+ *
+ * There is deliberately NO guaranteed rest before a boss. That rule existed once
+ * and was removed after playtest showed it made bosses too predictable and safe;
+ * rests are ordinary filler now (see `fillerType`). Do not reintroduce it.
  */
 export function generateDescent(startFloor = 1): Encounter[] {
   const encounters: Encounter[] = [];

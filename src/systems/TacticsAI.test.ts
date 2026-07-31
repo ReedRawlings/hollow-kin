@@ -72,11 +72,11 @@ describe('chooseAction — enemy_default', () => {
     expect(action).toMatchObject({ abilityId: 'thrash' });
   });
 
-  it('defends when no foe is alive', () => {
+  it('returns null when no foe is alive', () => {
     const enemy = makeTestCreature({ speciesId: 'foe', isPlayer: false });
     const dead = makeTestCreature({ speciesId: 'hero', hp: 0 });
     expect(chooseAction(enemy, [enemy], [dead], 'enemy_default', NO_KNOWLEDGE))
-      .toEqual({ kind: 'defend' });
+      .toBeNull();
   });
 });
 

@@ -26,20 +26,18 @@ import {
 } from './combat/BattlefieldRenderer';
 import { UI, BODY_FONT } from '../ui/Theme';
 
-const ROOT_LABELS = ['FIGHT', 'MAGIC', 'ITEM', 'RUN'] as const;
-
 /**
- * Root-menu detail lines, verbatim from the mockup — except RUN. The mockup's
- * RUN row cites a fabricated escape percentage; there is no mid-battle flee
- * mechanic in this codebase (flee only exists between encounters, on
- * RunScene), so per the task's instruction this row reads as unavailable
- * rather than inventing one.
+ * Root menu. There is deliberately no RUN row: the mockup carried one citing a
+ * fabricated escape percentage, it was shipped permanently disabled, and it was
+ * cut outright (2026-07-30). Escaping a battle is an ITEM (Smoke Husk) and any
+ * future escape stays in that channel — do not add a RUN command back.
  */
+const ROOT_LABELS = ['FIGHT', 'MAGIC', 'ITEM'] as const;
+
 const ROOT_DETAIL: readonly string[] = [
   'FIGHT — basic attack, no MP cost.',
   'MAGIC — spend MP on a spell.',
   'ITEM — use something from the shared bag.',
-  'RUN — no escape available mid-battle.',
 ];
 
 function emptyRow(): SubRowSpec {
@@ -235,7 +233,6 @@ export class CombatScene extends Phaser.Scene {
       this.addMessage(`${current.template.name} is ${statusName}ed and can't move!`);
       const msgs = tickStatusEffects(current);
       msgs.forEach(m => this.addMessage(m));
-      current.isDefending = false;
       this.currentTurnIndex++;
       this.redraw();
       this.time.delayedCall(scaledDelay(COMBAT_DELAY_STATUS_SKIP, gameState.battleSpeed), () => this.nextTurn());
@@ -316,7 +313,6 @@ export class CombatScene extends Phaser.Scene {
       this.itemPage = 0;
       this.redraw();
     }
-    // i === 3 (RUN): no escape mechanic exists mid-battle — disabled, unreachable.
   }
 
   /**
@@ -361,7 +357,6 @@ export class CombatScene extends Phaser.Scene {
     const ability = getAbility(abilityId);
 
     attacker.currentMp -= ability.mpCost;
-    attacker.isDefending = false;
 
     if (ability.targeting === 'all_enemies') {
       for (const enemy of this.enemyParty.filter(e => !e.isKnockedOut)) {
@@ -442,7 +437,6 @@ export class CombatScene extends Phaser.Scene {
     }
 
     this.phase = BattlePhase.EXECUTING;
-    actor.isDefending = false;
     this.pendingAllyAction = null;
     gameState.backpack = removeAt(gameState.backpack, slotIndex);
     gameState.saveToLocalStorage();
@@ -502,9 +496,9 @@ export class CombatScene extends Phaser.Scene {
       gameState.seenSpecies,
     );
 
-    if (action.kind === 'defend') {
-      creature.isDefending = true;
-      this.addMessage(`${creature.template.name} defends!`);
+    // null means no legal move — every foe is already down, so the battle is
+    // ending anyway. End the turn rather than inventing an action.
+    if (action === null) {
       this.finishTurn(creature);
       return;
     }
@@ -516,7 +510,6 @@ export class CombatScene extends Phaser.Scene {
     const ability = getAbility(abilityId);
 
     enemy.currentMp -= ability.mpCost;
-    enemy.isDefending = false;
 
     if (ability.targeting === 'all_enemies') {
       for (const player of this.playerParty.filter(p => !p.isKnockedOut)) {
@@ -848,7 +841,6 @@ export class CombatScene extends Phaser.Scene {
     const rootCommands: RootCommandSpec[] = ROOT_LABELS.map((label, i) => ({
       label,
       selected: i === this.cmdIndex,
-      disabled: i === 3, // RUN — no escape mechanic mid-battle
       onHover: () => { this.cmdIndex = i; this.redraw(); },
       onClick: () => this.handleRootCommand(i, actor),
     }));
