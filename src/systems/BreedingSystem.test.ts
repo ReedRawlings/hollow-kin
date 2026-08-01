@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   breed, carryoverForParents, calculateOffspringStar, calculateOffspringStats,
-  resolveInheritedTraitSlots,
+  resolveInheritedTraitSlots, breedingAvailability, breedingBlockedReason,
+  MIN_LIVING_TO_BREED,
 } from './BreedingSystem';
+import { PARTY_SIZE } from './PartyStatus';
 import { CreatureInstance, TraitSlot } from '../types';
 import { unlockedSlotCount, MAX_TRAIT_SLOTS, TRAIT_SLOT_LEVELS, applyStatTraitBonuses } from './Traits';
 import { calculateLevelScaledStats } from '../managers/GameState';
@@ -274,5 +276,48 @@ describe('breed() trait slot wiring (no star-based unlocking)', () => {
     const child = breed(a, b, 'kin_070', []);
     expect(child.traitSlots[0].traitId).toBe('sturdy');
     expect(child.traitSlots[0].traitLevel).toBe(1);
+  });
+});
+
+describe('breedingAvailability — the strand guard', () => {
+  const living = (n: number) => Array.from({ length: n }, (_, i) =>
+    makeParent({ instanceId: `live-${i}` }));
+  const retired = (n: number) => Array.from({ length: n }, (_, i) =>
+    makeParent({ instanceId: `dead-${i}`, isRetired: true }));
+
+  it('blocks at the starting box, because breeding would leave an unfieldable party', () => {
+    // The soft-lock this guard exists for: 3 starters -> breed -> 2 living -> the
+    // party gate needs PARTY_SIZE and there is no way back up without capture.
+    const a = breedingAvailability(living(PARTY_SIZE));
+    expect(a.kind).toBe('would_strand');
+  });
+
+  it('allows breeding once the box can spare one', () => {
+    expect(breedingAvailability(living(MIN_LIVING_TO_BREED)).kind).toBe('available');
+  });
+
+  it('leaves exactly a fieldable party behind when it does allow it', () => {
+    const box = living(MIN_LIVING_TO_BREED);
+    expect(breedingAvailability(box).kind).toBe('available');
+    // net -1: two parents retire, one offspring is born
+    expect(box.length - 1).toBeGreaterThanOrEqual(PARTY_SIZE);
+  });
+
+  it('reports too_few rather than would_strand when there is not even a pair', () => {
+    expect(breedingAvailability(living(1)).kind).toBe('too_few');
+    expect(breedingAvailability([]).kind).toBe('too_few');
+  });
+
+  it('ignores retired tombstones when counting', () => {
+    // Tombstones stay in the box forever, so counting raw length would let a player
+    // breed straight into the soft-lock after a few generations.
+    expect(breedingAvailability([...living(PARTY_SIZE), ...retired(10)]).kind)
+      .toBe('would_strand');
+  });
+
+  it('gives a reason for every blocked state and none when available', () => {
+    expect(breedingBlockedReason(breedingAvailability(living(1)))).toBeTruthy();
+    expect(breedingBlockedReason(breedingAvailability(living(PARTY_SIZE)))).toBeTruthy();
+    expect(breedingBlockedReason(breedingAvailability(living(MIN_LIVING_TO_BREED)))).toBeNull();
   });
 });

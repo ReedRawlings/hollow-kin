@@ -1,4 +1,4 @@
-import { BOON_LIST } from '../data/boons';
+import { REWARD_BOON_LIST } from '../data/boons';
 import { obolsForEncounter } from './Economy';
 
 /**
@@ -98,7 +98,8 @@ function payload(kind: RewardKind, ctx: OfferContext, roll: () => number): Rewar
       return { kind: 'item', itemId };
     }
     case 'boon': {
-      const boonId = pick(BOON_LIST.map(b => ({ value: b.id, weight: 1 })), roll) ?? BOON_LIST[0].id;
+      const boonId = pick(REWARD_BOON_LIST.map(b => ({ value: b.id, weight: 1 })), roll)
+        ?? REWARD_BOON_LIST[0].id;
       return { kind: 'boon', boonId };
     }
   }

@@ -3,7 +3,7 @@ import { ActiveBoon } from '../types';
 import { BOON_LIST, BOONS, getBoon } from '../data/boons';
 import {
   activeBoonSummaries, damageDealtMultiplier, damageTakenMultiplier,
-  grantBoon, obolMultiplier, postVictoryHealFraction, tickAfterBattle,
+  effectiveMaxHp, grantBoon, maxHpBonus, obolMultiplier, postVictoryHealFraction, tickAfterBattle,
 } from './Boons';
 
 /** The id of the first boon carrying each effect kind, so tests never hard-code names. */
@@ -18,17 +18,17 @@ describe('boon catalog authoring', () => {
     for (const [key, def] of Object.entries(BOONS)) expect(def.id).toBe(key);
   });
 
-  it('gives every boon a name, a description and a positive duration', () => {
+  it('gives every boon a name, a description and a positive or run-long duration', () => {
     for (const def of BOON_LIST) {
       expect(def.name.length).toBeGreaterThan(0);
       expect(def.description.length).toBeGreaterThan(0);
-      expect(def.battles).toBeGreaterThan(0);
+      if (def.battles !== null) expect(def.battles).toBeGreaterThan(0);
     }
   });
 
-  it('covers all four effect kinds', () => {
+  it('covers all effect kinds', () => {
     const kinds = new Set(BOON_LIST.map(b => b.effect.kind));
-    for (const k of ['damage_dealt', 'damage_taken', 'obol_bonus', 'post_victory_heal']) {
+    for (const k of ['damage_dealt', 'damage_taken', 'obol_bonus', 'post_victory_heal', 'max_hp_flat']) {
       expect(kinds.has(k as any)).toBe(true);
     }
   });
@@ -45,6 +45,7 @@ describe('neutral values with no boons', () => {
   it('multiplies obols by one', () => expect(obolMultiplier(none)).toBe(1));
   it('heals nothing after a victory', () => expect(postVictoryHealFraction(none)).toBe(0));
   it('summarises to an empty list', () => expect(activeBoonSummaries(none)).toEqual([]));
+  it('adds no maximum HP', () => expect(maxHpBonus(none)).toBe(0));
 });
 
 describe('grantBoon', () => {
@@ -96,13 +97,13 @@ describe('tickAfterBattle', () => {
   it('counts a boon down by one battle', () => {
     const id = idWithEffect('obol_bonus');
     const active = tickAfterBattle(grantBoon([], id));
-    expect(active[0].battlesLeft).toBe(getBoon(id).battles - 1);
+    expect(active[0].battlesLeft).toBe(getBoon(id).battles! - 1);
   });
 
   it('drops a boon once it is spent', () => {
     const id = idWithEffect('obol_bonus');
     let active = grantBoon([], id);
-    for (let i = 0; i < getBoon(id).battles; i++) active = tickAfterBattle(active);
+    for (let i = 0; i < getBoon(id).battles!; i++) active = tickAfterBattle(active);
     expect(active).toHaveLength(0);
   });
 
@@ -115,6 +116,11 @@ describe('tickAfterBattle', () => {
 });
 
 describe('effect queries', () => {
+  it('adds flat maximum HP through the generic effect layer', () => {
+    const active = grantBoon([], idWithEffect('max_hp_flat'));
+    expect(maxHpBonus(active)).toBeGreaterThan(0);
+    expect(effectiveMaxHp(75, active)).toBe(75 + maxHpBonus(active));
+  });
   it('raises damage dealt above neutral', () => {
     expect(damageDealtMultiplier(grantBoon([], idWithEffect('damage_dealt')))).toBeGreaterThan(1);
   });

@@ -13,11 +13,15 @@ import { GatekeeperScene } from './scenes/GatekeeperScene';
 import { BestiaryScene } from './scenes/BestiaryScene';
 import { DepartureScene } from './scenes/DepartureScene';
 import { PostCombatScene } from './scenes/PostCombatScene';
+import { DialogueScene } from './scenes/DialogueScene';
+import { BattleChamberScene } from './scenes/BattleChamberScene';
 import { gameState } from './managers/GameState';
 import { capacity, usedSlots } from './systems/Backpack';
+import { STARTER_TRIO_A } from './data/creatures';
 
 const GAME_WIDTH = 960;
 const GAME_HEIGHT = 640;
+const IS_TEST_MODE = new URLSearchParams(window.location.search).has('test');
 
 /**
  * Pixel-perfect scaling.
@@ -85,11 +89,14 @@ const config: Phaser.Types.Core.GameConfig = {
   height: 640,
   backgroundColor: '#10121c',
   parent: document.body,
-  scene: [BootScene, TownScene, PartySelectScene, RunScene, CombatScene, PostCombatScene, ShopScene, TownShopScene, RestScene, BreedingScene, LevelerScene, GatekeeperScene, BestiaryScene, DepartureScene],
+  scene: [BootScene, TownScene, PartySelectScene, RunScene, CombatScene, PostCombatScene, ShopScene, TownShopScene, RestScene, BreedingScene, LevelerScene, GatekeeperScene, DialogueScene, BestiaryScene, DepartureScene, BattleChamberScene],
   // Bitmap fonts and pixel art need the renderer to stop smoothing. `pixelArt: true`
   // is Phaser's shortcut for antialias:false + antialiasGL:false + roundPixels:true.
   render: {
     pixelArt: true,
+    // The playtest harness captures the WebGL canvas directly. Preserve it only
+    // in opt-in test sessions so screenshots are real frames rather than black.
+    preserveDrawingBuffer: IS_TEST_MODE,
   },
   scale: {
     // NONE, not FIT — FIT scales by a fraction and destroys the pixel grid.
@@ -129,10 +136,23 @@ Promise.all([
 
   // Lightweight integration hooks used by the screenshot/playtest loop.
   (window as any).render_game_to_text = () => {
-    const active = game.scene.getScenes(true)[0];
+    // LAST active scene, not the first. More than one can be running at once (a
+    // scene started over another does not stop it), and getScenes returns them in
+    // start order — so [0] reports whatever is underneath rather than what the
+    // player is looking at, and combat/chamber state read as null mid-battle.
+    const activeScenes = game.scene.getScenes(true);
+    const active = activeScenes[activeScenes.length - 1];
     return JSON.stringify({
       coordinateSystem: 'origin top-left; x right; y down; 960x640',
       scene: active?.scene.key ?? 'loading',
+      playerName: gameState.playerName,
+      gary: {
+        stage: gameState.garyRelationship().stage,
+        pendingDialogue: gameState.nextGaryDialogue(),
+        dialogue: active?.scene.key === 'DialogueScene'
+          ? (active as DialogueScene).dialogueState()
+          : null,
+      },
       essence: gameState.essence,
       backpack: {
         used: usedSlots(gameState.backpack),
@@ -140,6 +160,12 @@ Promise.all([
         contents: gameState.backpack.slots.map(slot =>
           slot?.kind === 'item' ? slot.itemId : slot?.kind ?? null),
       },
+      combat: active?.scene.key === 'CombatScene'
+        ? (active as CombatScene).combatState()
+        : null,
+      chamber: active?.scene.key === 'BattleChamberScene'
+        ? (active as BattleChamberScene).chamberState()
+        : null,
       run: gameState.currentRun ? {
         floor: gameState.currentRun.currentEncounterIndex >= 0
           ? gameState.currentRun.encounters[gameState.currentRun.currentEncounterIndex]?.floor
@@ -149,6 +175,10 @@ Promise.all([
         partyHp: gameState.currentRun.partyHp,
         partyMp: gameState.currentRun.partyMp,
         partyKO: gameState.currentRun.partyKO,
+        activeBoons: gameState.currentRun.activeBoons,
+        storyEncounters: gameState.currentRun.encounters
+          .filter(e => e.storyEventId)
+          .map(e => ({ floor: e.floor, type: e.type, eventId: e.storyEventId })),
       } : null,
     });
   };
@@ -161,6 +191,11 @@ Promise.all([
       game.scene.getScenes(true).forEach(scene => game.scene.stop(scene.scene.key));
     };
     const testControls = {
+      ensureNewGame: () => {
+        if (gameState.creatureBox.length > 0) return;
+        gameState.initializeNewGame(STARTER_TRIO_A, 'Keeper');
+        gameState.setDefaultParty(gameState.creatureBox.map(c => c.instanceId));
+      },
       openProvisioner: (essence = 24) => {
         gameState.essence = essence;
         stopActiveScenes();
@@ -181,25 +216,77 @@ Promise.all([
         game.scene.stop('RunScene');
         game.scene.start('ShopScene', {});
       },
+      openGaryRun: (stage = 4) => {
+        testControls.ensureNewGame();
+        gameState.garyRelationship().stage = stage;
+        gameState.setRunParty(gameState.defaultParty);
+        stopActiveScenes();
+        game.scene.start('RunScene');
+      },
+      openGaryGate: (stage = 2, deepestBreak = 5, essence = 1000) => {
+        testControls.ensureNewGame();
+        gameState.garyRelationship().stage = stage;
+        gameState.deepestBreakCleared = deepestBreak;
+        gameState.essence = essence;
+        stopActiveScenes();
+        game.scene.start('GatekeeperScene');
+      },
+      openCombat: () => {
+        testControls.ensureNewGame();
+        gameState.setRunParty(gameState.defaultParty);
+        stopActiveScenes();
+        game.scene.start('RunScene');
+        const run = gameState.currentRun;
+        if (!run) return;
+        const encounter = {
+          type: 'combat' as const,
+          enemies: ['kin_013', 'kin_087'],
+          enemyLevels: 1,
+          floor: 1,
+          index: 0,
+        };
+        run.encounters = [encounter];
+        run.currentEncounterIndex = 0;
+        game.scene.stop('RunScene');
+        game.scene.start('CombatScene', { encounter });
+      },
+      openChamber: () => {
+        stopActiveScenes();
+        game.scene.start('BattleChamberScene');
+      },
     };
     (window as any).hollowKinTest = testControls;
     window.addEventListener('hollow-kin-test', ((event: CustomEvent<{
-      screen: 'provisioner' | 'merchant';
+      screen: 'provisioner' | 'merchant' | 'gary-run' | 'gary-gate' | 'combat' | 'chamber';
       funds?: number;
     }>) => {
       if (event.detail.screen === 'provisioner') {
         testControls.openProvisioner(event.detail.funds);
       } else if (event.detail.screen === 'merchant') {
         testControls.openMerchant(event.detail.funds);
+      } else if (event.detail.screen === 'gary-run') {
+        testControls.openGaryRun(event.detail.funds);
+      } else if (event.detail.screen === 'gary-gate') {
+        testControls.openGaryGate(event.detail.funds);
+      } else if (event.detail.screen === 'combat') {
+        testControls.openCombat();
+      } else if (event.detail.screen === 'chamber') {
+        testControls.openChamber();
       }
     }) as EventListener);
     const requestedScreen = testParams.get('screen');
     const requestedFunds = Number(testParams.get('funds'));
-    if (requestedScreen === 'provisioner' || requestedScreen === 'merchant') {
+    if (requestedScreen === 'provisioner' || requestedScreen === 'merchant'
+      || requestedScreen === 'gary-run' || requestedScreen === 'gary-gate'
+      || requestedScreen === 'combat' || requestedScreen === 'chamber') {
       window.setTimeout(() => {
         const funds = Number.isFinite(requestedFunds) ? requestedFunds : undefined;
         if (requestedScreen === 'provisioner') testControls.openProvisioner(funds);
-        else testControls.openMerchant(funds);
+        else if (requestedScreen === 'merchant') testControls.openMerchant(funds);
+        else if (requestedScreen === 'gary-run') testControls.openGaryRun(funds);
+        else if (requestedScreen === 'gary-gate') testControls.openGaryGate(funds);
+        else if (requestedScreen === 'combat') testControls.openCombat();
+        else testControls.openChamber();
       }, 100);
     }
   }

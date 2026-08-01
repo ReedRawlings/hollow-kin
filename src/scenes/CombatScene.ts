@@ -4,7 +4,7 @@ import { getTemplate } from '../data/creatures';
 import { getAbility } from '../data/abilities';
 import { getItem } from '../data/items';
 import {
-  CombatCreature, BattlePhase, Encounter, CreatureInstance, bandForFloor,
+  CombatCreature, CombatAction, BattlePhase, Encounter, CreatureInstance, bandForFloor,
   generateId, STAR_LEVEL_CAPS, TacticId, COMBAT_DELAY_AUTO_THINK,
   scaledDelay, COMBAT_DELAY_ACTION, COMBAT_DELAY_TURN_END, COMBAT_DELAY_STATUS_SKIP,
 } from '../types';
@@ -18,30 +18,60 @@ import { obolsForEncounter } from '../systems/Economy';
 import {
   damageDealtMultiplier, damageTakenMultiplier, obolMultiplier,
   postVictoryHealFraction, tickAfterBattle,
+  effectiveMaxHp,
 } from '../systems/Boons';
 import { usedSlots, removeAt } from '../systems/Backpack';
 import { applyItemInCombat, canUseItem } from '../systems/Items';
+import {
+  RiteLogBook, newLogBook, recordDamageTypeUsed, recordDamageTaken, recordStrike,
+  recordItemUsed, recordEffectOutcome, snapshotEffects, recordActed, recordRoundSurvived,
+} from '../systems/RiteRecorder';
+import {
+  PackTempoState, TempoGenerationReason, beginTempoRound, canSpendRelay,
+  createPackTempoState, generateTempo, relayCandidates, relayTimeline, spendRelay, spendTempo,
+} from '../systems/PackTempo';
+import {
+  BattleChamberContext, sharedTempoAbilityCost,
+} from '../systems/BattleChamber';
+import { createSeededRandom, RandomSource } from '../systems/SeededRandom';
 import {
   renderBattlefield, ChipSpec, CommandPanelView, RootCommandSpec, SubRowSpec,
 } from './combat/BattlefieldRenderer';
 import { UI, BODY_FONT } from '../ui/Theme';
 
-/**
- * Root menu. There is deliberately no RUN row: the mockup carried one citing a
- * fabricated escape percentage, it was shipped permanently disabled, and it was
- * cut outright (2026-07-30). Escaping a battle is an ITEM (Smoke Husk) and any
- * future escape stays in that channel — do not add a RUN command back.
- */
-const ROOT_LABELS = ['FIGHT', 'MAGIC', 'ITEM'] as const;
-
-const ROOT_DETAIL: readonly string[] = [
-  'FIGHT — basic attack, no MP cost.',
-  'MAGIC — spend MP on a spell.',
-  'ITEM — use something from the shared bag.',
-];
+/** Root menu. Escaping a battle is an ITEM (Smoke Husk), not a menu verb. */
+const ROOT_COMMAND_COUNT = 4;
 
 function emptyRow(): SubRowSpec {
   return { label: '', meta: '', selected: false, disabled: true, onHover: () => {}, onClick: () => {} };
+}
+
+interface AbilityResolution {
+  landed: boolean;
+  conditionalCritical: boolean;
+  knownWeakness: boolean;
+}
+
+interface TempoMetrics {
+  generated: number;
+  spent: number;
+  wastedAtCap: number;
+  relays: number;
+  spentOnMoves: number;
+  spentOnRelay: number;
+  playerActions: number;
+  enemyActions: number;
+  packFirstRounds: number;
+  initiativeRounds: number;
+}
+
+function newTempoMetrics(): TempoMetrics {
+  return {
+    generated: 0, spent: 0, wastedAtCap: 0, relays: 0,
+    spentOnMoves: 0, spentOnRelay: 0,
+    playerActions: 0, enemyActions: 0,
+    packFirstRounds: 0, initiativeRounds: 0,
+  };
 }
 
 export class CombatScene extends Phaser.Scene {
@@ -52,12 +82,24 @@ export class CombatScene extends Phaser.Scene {
   private phase: BattlePhase = BattlePhase.STARTING;
   private encounter!: Encounter;
   private messageLog: string[] = [];
+  private enemyIntents = new Map<string, CombatAction>();
+  private packTempo: PackTempoState = createPackTempoState();
+  private tempoMetrics: TempoMetrics = newTempoMetrics();
+  private chamberContext: BattleChamberContext | null = null;
+  private rng: RandomSource = Math.random;
+
+  /** A Relay is chosen before acting and paid only after that action resolves. */
+  private queuedRelayTargetId: string | null = null;
+  private roundSawPlayer = false;
+  private roundSawEnemy = false;
+  private roundEnemyBeforePendingPlayer = false;
+  private roundMetricsFinalized = false;
 
   /** Presentation-only state for the new command panel / targeting UI. */
   private roundNumber = 1;
   private currentTarget: CombatCreature | null = null;
   private cmdIndex = 0;
-  private subOpen: 'MAGIC' | 'ITEM' | null = null;
+  private subOpen: 'MAGIC' | 'ITEM' | 'RELAY' | null = null;
   private subRowIndex = 0;
   /**
    * What's awaiting a click in the ALLY field. Items can now target the fallen as
@@ -74,6 +116,14 @@ export class CombatScene extends Phaser.Scene {
 
   /** First row shown in the ITEM submenu; nine items no longer fit four rows. */
   private itemPage = 0;
+
+  /**
+   * Per-enemy rite record for this battle, and which player creatures have acted.
+   * Both feed capture pricing (see RiteRecorder). Discarded with the battle —
+   * nothing here is persisted, because runs are not saved mid-fight.
+   */
+  private riteLogs: RiteLogBook = new Map();
+  private actedPlayerIds = new Set<string>();
 
   private onEscKey = () => this.handleEscape();
   private onLeftKey = () => this.cycleTarget(-1);
@@ -98,13 +148,25 @@ export class CombatScene extends Phaser.Scene {
     super({ key: 'CombatScene' });
   }
 
-  init(data: { encounter: Encounter }): void {
+  init(data: { encounter: Encounter; chamber?: BattleChamberContext }): void {
     this.encounter = data.encounter;
+    this.chamberContext = data.chamber ?? null;
+    this.rng = this.chamberContext
+      ? createSeededRandom(this.chamberContext.seed)
+      : Math.random;
     this.playerParty = [];
     this.enemyParty = [];
     this.turnOrder = [];
     this.currentTurnIndex = 0;
     this.messageLog = [];
+    this.enemyIntents.clear();
+    this.packTempo = createPackTempoState();
+    this.tempoMetrics = newTempoMetrics();
+    this.queuedRelayTargetId = null;
+    this.roundSawPlayer = false;
+    this.roundSawEnemy = false;
+    this.roundEnemyBeforePendingPlayer = false;
+    this.roundMetricsFinalized = false;
     this.roundNumber = 1;
     this.currentTarget = null;
     this.cmdIndex = 0;
@@ -112,6 +174,8 @@ export class CombatScene extends Phaser.Scene {
     this.subRowIndex = 0;
     this.pendingAllyAction = null;
     this.itemPage = 0;
+    this.riteLogs = new Map();
+    this.actedPlayerIds = new Set();
   }
 
   create(): void {
@@ -147,16 +211,20 @@ export class CombatScene extends Phaser.Scene {
         creature, template, true,
         run.partyHp[creature.instanceId],
         run.partyMp[creature.instanceId],
+        effectiveMaxHp(creature.currentStats.hp, run.activeBoons),
       ));
     }
 
     // Enemy party
     const enemyIds = this.encounter.enemies ?? [];
     const enemyLevel = this.encounter.enemyLevels ?? 1;
-    for (const speciesId of enemyIds) {
+    for (let enemyIndex = 0; enemyIndex < enemyIds.length; enemyIndex++) {
+      const speciesId = enemyIds[enemyIndex];
       const template = getTemplate(speciesId);
       const enemyInstance: CreatureInstance = {
-        instanceId: generateId(),
+        instanceId: this.chamberContext
+          ? `chamber-${this.chamberContext.presetId}-enemy-${enemyIndex}`
+          : generateId(),
         speciesId,
         nickname: null,
         starRating: 0,
@@ -196,6 +264,9 @@ export class CombatScene extends Phaser.Scene {
       }
       this.enemyParty.push(createCombatCreature(enemyInstance, template, false));
     }
+
+    // One rite log per enemy, opened after the party is built so every enemy has one.
+    this.riteLogs = newLogBook(this.enemyParty);
   }
 
   private nextTurn(): void {
@@ -213,9 +284,17 @@ export class CombatScene extends Phaser.Scene {
 
     // Recalculate turn order if starting a new round
     if (this.currentTurnIndex >= this.turnOrder.length || this.turnOrder.length === 0) {
+      // A completed round is one every surviving enemy endured.
+      if (this.turnOrder.length > 0) {
+        recordRoundSurvived(this.riteLogs, this.enemyParty);
+        this.finalizeInitiativeRound();
+      }
       if (this.turnOrder.length > 0) this.roundNumber++; // not on the very first computation
       this.turnOrder = calculateTurnOrder([...this.playerParty, ...this.enemyParty]);
       this.currentTurnIndex = 0;
+      this.packTempo = beginTempoRound(this.packTempo);
+      this.beginInitiativeRound();
+      this.commitEnemyIntents();
     }
 
     const current = this.turnOrder[this.currentTurnIndex];
@@ -233,6 +312,7 @@ export class CombatScene extends Phaser.Scene {
       this.addMessage(`${current.template.name} is ${statusName}ed and can't move!`);
       const msgs = tickStatusEffects(current);
       msgs.forEach(m => this.addMessage(m));
+      this.recordTimelineTurn(current, false);
       this.currentTurnIndex++;
       this.redraw();
       this.time.delayedCall(scaledDelay(COMBAT_DELAY_STATUS_SKIP, gameState.battleSpeed), () => this.nextTurn());
@@ -255,6 +335,48 @@ export class CombatScene extends Phaser.Scene {
     }
   }
 
+  /** Lock every living enemy's exact move and target before the round begins. */
+  private commitEnemyIntents(): void {
+    this.enemyIntents.clear();
+    for (const enemy of this.enemyParty) {
+      if (enemy.isKnockedOut) continue;
+      const action = getEnemyAction(enemy, this.playerParty, this.rng);
+      this.enemyIntents.set(enemy.instance.instanceId, { kind: 'ability', ...action });
+    }
+  }
+
+  private beginInitiativeRound(): void {
+    this.roundSawPlayer = false;
+    this.roundSawEnemy = false;
+    this.roundEnemyBeforePendingPlayer = false;
+    this.roundMetricsFinalized = false;
+  }
+
+  /** Record timeline order separately from actual actions so status skips still count for initiative. */
+  private recordTimelineTurn(creature: CombatCreature, acted: boolean): void {
+    if (creature.isPlayerOwned) {
+      this.roundSawPlayer = true;
+      if (acted) this.tempoMetrics.playerActions++;
+      return;
+    }
+
+    this.roundSawEnemy = true;
+    if (acted) this.tempoMetrics.enemyActions++;
+    if (this.turnOrder.slice(this.currentTurnIndex + 1).some(
+      later => later.isPlayerOwned && !later.isKnockedOut,
+    )) {
+      this.roundEnemyBeforePendingPlayer = true;
+    }
+  }
+
+  private finalizeInitiativeRound(): void {
+    if (this.roundMetricsFinalized) return;
+    this.roundMetricsFinalized = true;
+    if (!this.roundSawPlayer || !this.roundSawEnemy) return;
+    this.tempoMetrics.initiativeRounds++;
+    if (!this.roundEnemyBeforePendingPlayer) this.tempoMetrics.packFirstRounds++;
+  }
+
   // ---------- Menu / targeting state machine (presentation only) ----------
 
   private openRootMenu(): void {
@@ -265,6 +387,63 @@ export class CombatScene extends Phaser.Scene {
     this.ensureValidTarget();
     this.phase = BattlePhase.PLAYER_CHOOSING;
     this.redraw();
+  }
+
+  private usesSharedTempo(): boolean {
+    return this.chamberContext?.resourceModel === 'shared_tempo';
+  }
+
+  private rootLabels(): string[] {
+    const relay = this.queuedRelayTargetId
+      ? `RELAY → ${this.playerParty.find(
+        ally => ally.instance.instanceId === this.queuedRelayTargetId,
+      )?.template.name.toUpperCase() ?? 'ALLY'}`
+      : 'RELAY';
+    return ['FIGHT', this.usesSharedTempo() ? 'MOVES' : 'MAGIC', 'ITEM', relay];
+  }
+
+  private rootDetails(): string[] {
+    const relay = this.queuedRelayTargetId
+      ? 'Relay queued. Choose it again to change or cancel the target.'
+      : 'RELAY — queue an unused ally to act next after this action. Costs 1 Tempo.';
+    return [
+      'FIGHT — basic attack, no resource cost.',
+      this.usesSharedTempo()
+        ? 'MOVES — builders are free; setup and payoff moves spend shared Tempo.'
+        : 'MAGIC — spend this Kin\'s MP on a move.',
+      'ITEM — use something from the shared bag.',
+      relay,
+    ];
+  }
+
+  private reservedRelayTempo(): number {
+    return this.queuedRelayTargetId ? 1 : 0;
+  }
+
+  private playerAbilityCost(abilityId: string): number {
+    return this.usesSharedTempo() ? sharedTempoAbilityCost(getAbility(abilityId)) : getAbility(abilityId).mpCost;
+  }
+
+  private canPayPlayerAbility(actor: CombatCreature, abilityId: string): boolean {
+    const cost = this.playerAbilityCost(abilityId);
+    return this.usesSharedTempo()
+      ? this.packTempo.points - this.reservedRelayTempo() >= cost
+      : actor.currentMp >= cost;
+  }
+
+  private payPlayerAbility(actor: CombatCreature, abilityId: string): boolean {
+    const cost = this.playerAbilityCost(abilityId);
+    if (!this.canPayPlayerAbility(actor, abilityId)) return false;
+    if (!this.usesSharedTempo()) {
+      actor.currentMp -= cost;
+      return true;
+    }
+    const spent = spendTempo(this.packTempo, cost);
+    if (!spent) return false;
+    this.packTempo = spent;
+    this.tempoMetrics.spent += cost;
+    this.tempoMetrics.spentOnMoves += cost;
+    return true;
   }
 
   private ensureValidTarget(): void {
@@ -312,6 +491,11 @@ export class CombatScene extends Phaser.Scene {
       this.subRowIndex = 0;
       this.itemPage = 0;
       this.redraw();
+    } else if (i === 3) {
+      this.cmdIndex = 3;
+      this.subOpen = 'RELAY';
+      this.subRowIndex = 0;
+      this.redraw();
     }
   }
 
@@ -353,20 +537,27 @@ export class CombatScene extends Phaser.Scene {
     abilityId: string,
     target: CombatCreature,
   ): void {
-    this.phase = BattlePhase.EXECUTING;
     const ability = getAbility(abilityId);
+    if (!this.payPlayerAbility(attacker, abilityId)) {
+      this.addMessage(this.usesSharedTempo()
+        ? `${ability.name} needs more unreserved Pack Tempo.`
+        : `${attacker.template.name} does not have enough MP for ${ability.name}.`);
+      this.openRootMenu();
+      return;
+    }
+    this.phase = BattlePhase.EXECUTING;
 
-    attacker.currentMp -= ability.mpCost;
-
+    const resolutions: AbilityResolution[] = [];
     if (ability.targeting === 'all_enemies') {
       for (const enemy of this.enemyParty.filter(e => !e.isKnockedOut)) {
-        this.resolveAbility(attacker, enemy, ability);
+        resolutions.push(this.resolveAbility(attacker, enemy, ability));
       }
     } else if (ability.targeting === 'self') {
-      this.resolveAbility(attacker, attacker, ability);
+      resolutions.push(this.resolveAbility(attacker, attacker, ability));
     } else {
-      this.resolveAbility(attacker, target, ability);
+      resolutions.push(this.resolveAbility(attacker, target, ability));
     }
+    this.generateTempoFromAction(attacker, ability, resolutions);
 
     this.redraw();
     this.time.delayedCall(scaledDelay(COMBAT_DELAY_ACTION, gameState.battleSpeed), () => this.finishTurn(attacker));
@@ -438,6 +629,9 @@ export class CombatScene extends Phaser.Scene {
 
     this.phase = BattlePhase.EXECUTING;
     this.pendingAllyAction = null;
+    // Recorded here, past the refused/depart guard above, so only an item that was
+    // really consumed counts toward the Fauna and Food rites.
+    recordItemUsed(this.riteLogs, target);
     gameState.backpack = removeAt(gameState.backpack, slotIndex);
     gameState.saveToLocalStorage();
 
@@ -486,15 +680,18 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private executeAutoTurn(creature: CombatCreature): void {
+    this.queueAutoRelayIfUseful();
     // tactic is narrowed to TacticProfile — 'follow_orders' never reaches here.
     const profile = creature.instance.tactic as Exclude<TacticId, 'follow_orders'>;
-    const action = chooseAction(
+    const chosen = chooseAction(
       creature,
       this.playerParty,
       this.enemyParty,
       profile,
       gameState.seenSpecies,
+      this.rng,
     );
+    const action = this.legalizeSharedTempoAutoAction(creature, chosen);
 
     // null means no legal move — every foe is already down, so the battle is
     // ending anyway. End the turn rather than inventing an action.
@@ -505,9 +702,60 @@ export class CombatScene extends Phaser.Scene {
     this.executePlayerAction(creature, action.abilityId, action.target);
   }
 
+  private queueAutoRelayIfUseful(): void {
+    this.queuedRelayTargetId = null;
+    if (!canSpendRelay(this.packTempo)) return;
+    const next = this.turnOrder[this.currentTurnIndex + 1];
+    const candidate = this.relayCandidatesForCurrentTurn()[0];
+    if (next && !next.isPlayerOwned && candidate) {
+      this.queuedRelayTargetId = candidate.instance.instanceId;
+    }
+  }
+
+  private legalizeSharedTempoAutoAction(
+    creature: CombatCreature,
+    chosen: { abilityId: string; target: CombatCreature } | null,
+  ): { abilityId: string; target: CombatCreature } | null {
+    if (!this.usesSharedTempo() || !chosen || this.canPayPlayerAbility(creature, chosen.abilityId)) {
+      return chosen;
+    }
+
+    const livingEnemies = this.enemyParty.filter(enemy => !enemy.isKnockedOut);
+    const livingAllies = this.playerParty.filter(ally => !ally.isKnockedOut);
+    const fallbackIds = [
+      ...this.magicAbilityIds(creature).filter(id => getAbility(id).tempoGeneration === 'on_hit'),
+      ...this.magicAbilityIds(creature),
+      'basic_attack',
+    ];
+    for (const abilityId of [...new Set(fallbackIds)]) {
+      if (!this.canPayPlayerAbility(creature, abilityId)) continue;
+      const ability = getAbility(abilityId);
+      const target = ability.targeting === 'self' || ability.targeting === 'all_allies'
+        ? creature
+        : ability.targeting === 'single_ally'
+          ? livingAllies[0]
+          : livingEnemies[0];
+      if (target) return { abilityId, target };
+    }
+    return null;
+  }
+
   private executeEnemyTurn(enemy: CombatCreature): void {
-    const { abilityId, target } = getEnemyAction(enemy, this.playerParty);
+    const intent = this.enemyIntents.get(enemy.instance.instanceId);
+    if (!intent) {
+      this.addMessage(`${enemy.template.name} has no committed action.`);
+      this.finishTurn(enemy);
+      return;
+    }
+    const { abilityId, target } = intent;
     const ability = getAbility(abilityId);
+
+    if (ability.targeting === 'single_enemy' && target.isKnockedOut) {
+      this.addMessage(`${enemy.template.name}'s ${ability.name} fizzled — ${target.template.name} was already down.`);
+      this.redraw();
+      this.time.delayedCall(scaledDelay(COMBAT_DELAY_ACTION, gameState.battleSpeed), () => this.finishTurn(enemy));
+      return;
+    }
 
     enemy.currentMp -= ability.mpCost;
 
@@ -527,12 +775,12 @@ export class CombatScene extends Phaser.Scene {
     attacker: CombatCreature,
     target: CombatCreature,
     ability: ReturnType<typeof getAbility>,
-  ): void {
+  ): AbilityResolution {
     if (ability.power > 0) {
-      const result = calculateDamage(attacker, target, ability);
+      const result = calculateDamage(attacker, target, ability, this.rng);
       if (result.missed) {
         this.addMessage(`${attacker.template.name} used ${ability.name} — MISS!`);
-        return;
+        return { landed: false, conditionalCritical: false, knownWeakness: false };
       }
 
       // Boons are the player's. `damageDealt` applies only when one of the
@@ -545,41 +793,152 @@ export class CombatScene extends Phaser.Scene {
       const taken = target.isPlayerOwned ? damageTakenMultiplier(boons, this.roundNumber) : 1;
       const damage = Math.max(1, Math.round(result.damage * dealt * taken));
 
+      // Rite record: the struck creature's stages must be read now — this ability's
+      // own effects may debuff them a line later, and after that the fact is gone.
+      recordStrike(this.riteLogs, attacker, target);
+      recordDamageTypeUsed(this.riteLogs, ability);
+      recordDamageTaken(this.riteLogs, target, ability);
+
       applyDamage(target, damage);
       let msg = `${attacker.template.name} used ${ability.name} → ${damage} dmg to ${target.template.name}`;
       if (result.isCrit) msg += ' CRIT!';
       this.addMessage(msg);
 
       // Apply secondary effects
-      const effectMsgs = applyAbilityEffects(ability, attacker, target, damage);
+      const beforeEffects = snapshotEffects(target);
+      const effectMsgs = applyAbilityEffects(ability, attacker, target, damage, this.rng);
       effectMsgs.forEach(m => this.addMessage(m));
+      recordEffectOutcome(this.riteLogs, target, beforeEffects);
+      const knownWeakness = ability.damageType !== 'None'
+        && target.instance.weaknesses.includes(ability.damageType)
+        && gameState.seenSpecies.has(target.instance.speciesId);
+      return { landed: true, conditionalCritical: result.isCrit, knownWeakness };
     } else {
       // Status/buff move
-      const result = resolveNonDamagingAbility(ability, attacker, target);
+      const beforeEffects = snapshotEffects(target);
+      const result = resolveNonDamagingAbility(ability, attacker, target, this.rng);
       if (result.missed) {
         this.addMessage(`${attacker.template.name} used ${ability.name} — MISS!`);
-        return;
+        return { landed: false, conditionalCritical: false, knownWeakness: false };
       }
       this.addMessage(`${attacker.template.name} used ${ability.name}!`);
       result.messages.forEach(m => this.addMessage(m));
+      recordEffectOutcome(this.riteLogs, target, beforeEffects);
+      return { landed: true, conditionalCritical: false, knownWeakness: false };
+    }
+  }
+
+  private generateTempoFromAction(
+    attacker: CombatCreature,
+    ability: ReturnType<typeof getAbility>,
+    resolutions: AbilityResolution[],
+  ): void {
+    if (!attacker.isPlayerOwned || !resolutions.some(result => result.landed)) return;
+
+    let reason: TempoGenerationReason | null = null;
+    if (resolutions.some(result => result.conditionalCritical)) reason = 'conditional_critical';
+    else if (resolutions.some(result => result.knownWeakness)) reason = 'known_weakness';
+    else if (ability.tempoGeneration === 'on_hit') reason = 'move_condition';
+    if (!reason) return;
+
+    const result = generateTempo(this.packTempo, attacker.instance.instanceId, reason);
+    this.packTempo = result.state;
+    if (result.granted) {
+      this.tempoMetrics.generated++;
+      this.addMessage(`Pack Tempo +1 — ${attacker.template.name} found the beat.`);
+    } else if (result.wastedAtCap) {
+      this.tempoMetrics.wastedAtCap++;
     }
   }
 
   private finishTurn(creature: CombatCreature): void {
+    // Rite record: reached only once a creature has actually taken its action, so a
+    // status-skipped turn (which bypasses finishTurn) correctly does not count.
+    if (creature.isPlayerOwned) this.actedPlayerIds.add(creature.instance.instanceId);
+    else recordActed(this.riteLogs, creature);
+    this.recordTimelineTurn(creature, true);
+
     // Tick status effects
     const msgs = tickStatusEffects(creature);
     msgs.forEach(m => this.addMessage(m));
 
+    if (creature.isPlayerOwned && this.queuedRelayTargetId
+      && !this.enemyParty.every(enemy => enemy.isKnockedOut)) {
+      const target = this.playerParty.find(
+        ally => ally.instance.instanceId === this.queuedRelayTargetId,
+      );
+      if (target && this.performRelay(target)) return;
+    }
+
+    this.advanceAfterTurn();
+  }
+
+  private relayCandidatesForCurrentTurn(): CombatCreature[] {
+    return relayCandidates(
+      this.turnOrder,
+      this.currentTurnIndex,
+      creature => creature.instance.instanceId,
+      creature => creature.isPlayerOwned && !creature.isKnockedOut,
+    );
+  }
+
+  private performRelay(target: CombatCreature): boolean {
+    const reordered = relayTimeline(
+      this.turnOrder,
+      this.currentTurnIndex,
+      target.instance.instanceId,
+      creature => creature.instance.instanceId,
+    );
+    const spent = spendRelay(this.packTempo);
+    if (!reordered || !spent || target.isKnockedOut || !target.isPlayerOwned) return false;
+
+    this.turnOrder = reordered;
+    this.packTempo = spent;
+    this.tempoMetrics.spent++;
+    this.tempoMetrics.spentOnRelay++;
+    this.tempoMetrics.relays++;
+    this.addMessage(`Relay! ${target.template.name} moves next. Pack Tempo -1.`);
+    this.advanceAfterTurn();
+    return true;
+  }
+
+  private advanceAfterTurn(): void {
+    this.queuedRelayTargetId = null;
     this.currentTurnIndex++;
     this.redraw();
     this.time.delayedCall(scaledDelay(COMBAT_DELAY_TURN_END, gameState.battleSpeed), () => this.nextTurn());
   }
 
   private showBattleEnd(victory: boolean): void {
+    this.finalizeInitiativeRound();
     // Every game object this scene has drawn — including whatever HUD/menu
     // hotspots were interactive a moment ago — gets destroyed (not just
     // detached) here, before we hand off via scene.start(). See destroyAll().
     this.destroyAll();
+
+    if (this.chamberContext) {
+      gameState.currentRun = null;
+      this.scene.start('BattleChamberScene', {
+        selectedPresetId: this.chamberContext.presetId,
+        result: {
+          presetId: this.chamberContext.presetId,
+          resourceModel: this.chamberContext.resourceModel,
+          outcome: victory ? 'victory' : 'defeat',
+          rounds: this.roundNumber,
+          tempoGenerated: this.tempoMetrics.generated,
+          tempoSpent: this.tempoMetrics.spent,
+          tempoWasted: this.tempoMetrics.wastedAtCap,
+          relays: this.tempoMetrics.relays,
+          tempoSpentOnMoves: this.tempoMetrics.spentOnMoves,
+          tempoSpentOnRelay: this.tempoMetrics.spentOnRelay,
+          playerActions: this.tempoMetrics.playerActions,
+          enemyActions: this.tempoMetrics.enemyActions,
+          packFirstRounds: this.tempoMetrics.packFirstRounds,
+          initiativeRounds: this.tempoMetrics.initiativeRounds,
+        },
+      });
+      return;
+    }
 
     // The player has now met every species in this encounter — win, loss, or
     // (should combat ever grow a mid-battle flee) any other exit — so record
@@ -622,7 +981,7 @@ export class CombatScene extends Phaser.Scene {
         if (!pc.isKnockedOut) {
           pc.instance.xp += xpPerCreature;
           while (gameState.tryLevelUp(pc.instance)) {
-            pc.maxHp = pc.instance.currentStats.hp;
+            pc.maxHp = effectiveMaxHp(pc.instance.currentStats.hp, boons);
             pc.maxMp = pc.instance.currentStats.mp;
             pc.currentHp = Math.min(pc.currentHp + 5, pc.maxHp);
             levelUpMsg += `${pc.template.name} → Lv${pc.instance.currentLevel}! `;
@@ -641,6 +1000,14 @@ export class CombatScene extends Phaser.Scene {
       }
       run.activeBoons = tickAfterBattle(boons);
 
+      let storyMessage = '';
+      if (this.encounter.storyEventId) {
+        gameState.recordStoryEvent(this.encounter.storyEventId);
+        storyMessage = this.encounter.storyEventId === 'gary_shortsword'
+          ? "Among the fallen lies an engraved shortsword. Gary may recognize it."
+          : 'Something recovered here may matter back in town.';
+      }
+
       this.savePartyState(run);
       this.scene.start('PostCombatScene', {
         floor: this.encounter.floor,
@@ -648,6 +1015,7 @@ export class CombatScene extends Phaser.Scene {
         obolGain,
         xpPerCreature,
         levelUpMessage: levelUpMsg.trim(),
+        storyMessage,
       });
     } else {
       this.savePartyState(run);
@@ -720,7 +1088,13 @@ export class CombatScene extends Phaser.Scene {
       const id = shown[this.subRowIndex];
       return id ? getItem(id).description : 'The bag holds no usable items.';
     }
-    return ROOT_DETAIL[this.cmdIndex] ?? '';
+    if (this.subOpen === 'RELAY') {
+      const candidate = this.relayCandidatesForCurrentTurn()[this.subRowIndex];
+      return candidate
+        ? `Queue ${candidate.template.name} to act next after this action. Tempo is paid afterward.`
+        : 'Cancel the queued Relay without spending Tempo.';
+    }
+    return this.rootDetails()[this.cmdIndex] ?? '';
   }
 
   private buildCommandPanel(actor: CombatCreature | undefined): CommandPanelView {
@@ -728,7 +1102,7 @@ export class CombatScene extends Phaser.Scene {
       const name = this.pendingAllyAction.kind === 'ability'
         ? getAbility(this.pendingAllyAction.abilityId).name
         : getItem(this.pendingAllyAction.itemId).name;
-      const disabledRoot: RootCommandSpec[] = ROOT_LABELS.map(label => ({
+      const disabledRoot: RootCommandSpec[] = this.rootLabels().map(label => ({
         label, selected: false, disabled: true, onHover: () => {}, onClick: () => {},
       }));
       return {
@@ -752,7 +1126,7 @@ export class CombatScene extends Phaser.Scene {
         showBack: false,
         onBack: () => {},
         rootOpen: true,
-        rootCommands: ROOT_LABELS.map(label => ({
+        rootCommands: this.rootLabels().map(label => ({
           label, selected: false, disabled: true, onHover: () => {}, onClick: () => {},
         })),
         subRows: [],
@@ -764,10 +1138,12 @@ export class CombatScene extends Phaser.Scene {
       const abilityIds = this.magicAbilityIds(actor);
       const rows: SubRowSpec[] = abilityIds.map((id, i) => {
         const ability = getAbility(id);
-        const canUse = actor.currentMp >= ability.mpCost;
+        const cost = this.playerAbilityCost(id);
+        const canUse = this.canPayPlayerAbility(actor, id);
+        const resource = this.usesSharedTempo() ? `TEMPO ${cost}` : `MP${cost}`;
         return {
           label: ability.name.toUpperCase(),
-          meta: ability.power > 0 ? `MP${ability.mpCost} · POW${ability.power}` : `MP${ability.mpCost}`,
+          meta: `${ability.power > 0 ? `${resource} · POW${ability.power}` : resource}${ability.keen ? ' · KEEN' : ''}${ability.tempoGeneration ? ' · +TEMPO ON HIT' : ''}`,
           selected: i === this.subRowIndex,
           disabled: !canUse,
           onHover: () => { this.subRowIndex = i; this.redraw(); },
@@ -776,7 +1152,52 @@ export class CombatScene extends Phaser.Scene {
       });
       while (rows.length < 4) rows.push(emptyRow());
       return {
-        headline: `MAGIC — ${actor.template.name.toUpperCase()}  ·  MP ${actor.currentMp}/${actor.maxMp}`,
+        headline: this.usesSharedTempo()
+          ? `MOVES — ${actor.template.name.toUpperCase()}  ·  SHARED TEMPO ${this.packTempo.points}/${this.packTempo.cap}${this.queuedRelayTargetId ? ' · 1 RESERVED' : ''}`
+          : `MAGIC — ${actor.template.name.toUpperCase()}  ·  MP ${actor.currentMp}/${actor.maxMp}`,
+        showBack: true,
+        onBack: () => { this.subOpen = null; this.redraw(); },
+        rootOpen: false,
+        rootCommands: [],
+        subRows: rows,
+        interactive: true,
+      };
+    }
+
+    if (this.subOpen === 'RELAY') {
+      const candidates = this.relayCandidatesForCurrentTurn();
+      const rows: SubRowSpec[] = candidates.map((candidate, i) => ({
+        label: `QUEUE ${candidate.template.name.toUpperCase()}`,
+        meta: 'ACT NEXT AFTER THIS ACTION · COST 1',
+        selected: i === this.subRowIndex,
+        disabled: false,
+        onHover: () => { this.subRowIndex = i; this.redraw(); },
+        onClick: () => {
+          this.queuedRelayTargetId = candidate.instance.instanceId;
+          this.subOpen = null;
+          this.cmdIndex = 3;
+          this.redraw();
+        },
+      }));
+      if (this.queuedRelayTargetId) {
+        const cancelIndex = rows.length;
+        rows.push({
+          label: 'CANCEL RELAY',
+          meta: 'KEEP THE TEMPO BANKED',
+          selected: this.subRowIndex === cancelIndex,
+          disabled: false,
+          onHover: () => { this.subRowIndex = cancelIndex; this.redraw(); },
+          onClick: () => {
+            this.queuedRelayTargetId = null;
+            this.subOpen = null;
+            this.cmdIndex = 3;
+            this.redraw();
+          },
+        });
+      }
+      while (rows.length < ROOT_COMMAND_COUNT) rows.push(emptyRow());
+      return {
+        headline: `RELAY — PACK TEMPO ${this.packTempo.points}/${this.packTempo.cap}`,
         showBack: true,
         onBack: () => { this.subOpen = null; this.redraw(); },
         rootOpen: false,
@@ -838,9 +1259,12 @@ export class CombatScene extends Phaser.Scene {
       };
     }
 
-    const rootCommands: RootCommandSpec[] = ROOT_LABELS.map((label, i) => ({
+    const relayDisabled = !canSpendRelay(this.packTempo)
+      || this.relayCandidatesForCurrentTurn().length === 0;
+    const rootCommands: RootCommandSpec[] = this.rootLabels().map((label, i) => ({
       label,
       selected: i === this.cmdIndex,
+      disabled: i === 3 && relayDisabled,
       onHover: () => { this.cmdIndex = i; this.redraw(); },
       onClick: () => this.handleRootCommand(i, actor),
     }));
@@ -883,6 +1307,9 @@ export class CombatScene extends Phaser.Scene {
     renderBattlefield(this, {
       floorLabel: this.floorLabel(),
       round: this.roundNumber,
+      tempo: this.packTempo.points,
+      tempoCap: this.packTempo.cap,
+      usesSharedTempo: this.usesSharedTempo(),
       turnOrderChips,
       playerParty: this.playerParty,
       enemyParty: this.enemyParty,
@@ -891,6 +1318,15 @@ export class CombatScene extends Phaser.Scene {
       enemyInteractive,
       onEnemyHover: (enemy) => { this.currentTarget = enemy; this.redraw(); },
       onEnemyClick: (enemy) => { this.currentTarget = enemy; this.redraw(); },
+      enemyIntent: (enemy) => {
+        const intent = this.enemyIntents.get(enemy.instance.instanceId);
+        if (!intent) return null;
+        const ability = getAbility(intent.abilityId);
+        const target = ability.targeting === 'all_enemies'
+          ? 'ALL KIN'
+          : intent.target.template.name.toUpperCase();
+        return `${ability.name.toUpperCase()} → ${target}`;
+      },
       allyInteractive,
       allyTargetable: (ally) =>
         this.pendingAllyAction?.kind === 'item' && this.pendingAllyAction.picker === 'downed_ally'
@@ -979,6 +1415,64 @@ export class CombatScene extends Phaser.Scene {
     } else {
       this.redraw();
     }
+  }
+
+  /** Deterministic, presentation-free snapshot for browser playtests. */
+  combatState(): object {
+    return {
+      phase: this.phase,
+      round: this.roundNumber,
+      // Rite record, for QA of capture pricing. Surfaced here rather than logged
+      // because the write sites are spread across the turn loop and the only way to
+      // tell they all fire is to read the accumulated result mid-battle.
+      rites: this.enemyParty.map(enemy => {
+        const log = this.riteLogs.get(enemy.instance.instanceId);
+        return log ? {
+          enemy: enemy.template.name,
+          archetype: enemy.template.archetype,
+          took: log.damageTypesTaken,
+          used: log.damageTypesDealt,
+          statuses: log.statusesApplied,
+          struck: log.struckStatStages,
+          debuffApplied: log.debuffApplied,
+          itemOnSelf: log.itemConsumedOnSelf,
+          itemOnAlly: log.itemConsumedByAlly,
+          acted: log.hasActed,
+          roundsSurvived: log.turnsAlive,
+        } : null;
+      }),
+      playersActed: [...this.actedPlayerIds].length,
+      chamber: this.chamberContext,
+      resourceModel: this.chamberContext?.resourceModel ?? 'individual_mp',
+      tempo: { points: this.packTempo.points, cap: this.packTempo.cap },
+      queuedRelay: this.queuedRelayTargetId
+        ? this.playerParty.find(ally => ally.instance.instanceId === this.queuedRelayTargetId)?.template.name ?? null
+        : null,
+      timeline: this.turnOrder.slice(this.currentTurnIndex).map(creature => ({
+        id: creature.instance.instanceId,
+        name: creature.template.name,
+        side: creature.isPlayerOwned ? 'player' : 'enemy',
+        hp: creature.currentHp,
+        knockedOut: creature.isKnockedOut,
+      })),
+      intents: this.enemyParty.filter(enemy => !enemy.isKnockedOut).map(enemy => {
+        const action = this.enemyIntents.get(enemy.instance.instanceId);
+        const ability = action ? getAbility(action.abilityId) : null;
+        return action && ability ? {
+          enemy: enemy.template.name,
+          ability: ability.name,
+          target: ability.targeting === 'all_enemies' ? 'All Kin' : action.target.template.name,
+        } : { enemy: enemy.template.name, ability: null, target: null };
+      }),
+      relayAvailable: this.phase === BattlePhase.PLAYER_CHOOSING
+        && canSpendRelay(this.packTempo)
+        && this.relayCandidatesForCurrentTurn().length > 0,
+      relayCandidates: this.phase === BattlePhase.PLAYER_CHOOSING
+        ? this.relayCandidatesForCurrentTurn().map(creature => creature.template.name)
+        : [],
+      metrics: { ...this.tempoMetrics },
+      lastMessage: this.messageLog[this.messageLog.length - 1] ?? '',
+    };
   }
 
   private addMessage(msg: string): void {

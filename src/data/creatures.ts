@@ -25,10 +25,12 @@ import { Archetype, CreatureTemplate, RiteDef, ARCHETYPE_COLORS } from '../types
  * unwired condition just means the creature sits at full freight.
  */
 export const FAMILY_RITES: Record<Archetype, RiteDef> = {
-  // An allied creature faints in combat.
+  // One of the CAPTORS falls — a spirit is drawn to the party's own loss, not to
+  // the death of its kin. Deliberately expensive: it cannot be satisfied in a clean
+  // fight, unlike "one of its own group died", which a multi-enemy fight gives away.
   Spirits: {
     id: 'rite_family_spirits', band: 'family', persistence: 'sticky',
-    conditions: [{ kind: 'ally_knocked_out' }],
+    conditions: [{ kind: 'enemy_party_lost_member' }],
   },
   // This creature is hit with a flame attack.
   Flora: {

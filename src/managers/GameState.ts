@@ -2,19 +2,28 @@ import {
   CreatureInstance, RunState, BaseStats, TraitSlot, Backpack,
   STAR_LEVEL_CAPS, generateId, isBossFloor, TOWER_FLOORS,
   BattleSpeed, TacticId, BACKPACK_START_GUARANTEED,
+  LastRunSummary, RelationshipProgress,
 } from '../types';
 import { getTemplate } from '../data/creatures';
 import { convertObolsToEssence, essenceCostForLevel, depthUnlockCost, depthRunFee } from '../systems/Economy';
 import { unlockedSlotCount, applyStatTraitBonuses, MAX_TRAIT_SLOTS } from '../systems/Traits';
 import { createBackpack, applyWipeLoss, unloadCapturesToBox } from '../systems/Backpack';
+import {
+  GARY_RELATIONSHIP_ID, GARY_SHORTSWORD_EVIDENCE_ID, GaryDialogueEventId,
+  addGaryEvidence, completeGaryDialogue, createRelationshipProgress,
+  garyDeepStartDiscount, garyDepthUnlockDiscount, nextGaryDialogue,
+  recordGaryHomecoming,
+} from '../systems/Relationships';
+import { sanitizePlayerName } from '../systems/PlayerName';
 
 const STAT_NAMES: (keyof BaseStats)[] = ['hp', 'mp', 'str', 'def', 'wis', 'spd', 'int'];
 
 /**
- * Saves at any other version are discarded, not migrated. Bumped to 7 by the
- * alpha roster swap, which invalidated every species id a save could hold.
+ * Saves at any other version are discarded, never migrated. This is alpha: bump
+ * this freely whenever the shape changes and let players restart. Do not add a
+ * migration path.
  */
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 /**
  * Level-scaled stats for `instance`, EXCLUDING trait bonuses — a pure function of the
@@ -49,6 +58,7 @@ export function calculateLevelScaledStats(instance: CreatureInstance): BaseStats
 }
 
 class GameStateManager {
+  playerName = 'Keeper';
   creatureBox: CreatureInstance[] = [];
   runParty: CreatureInstance[] = [];
   essence = 0;
@@ -69,6 +79,45 @@ class GameStateManager {
    * RunState and be recreated every run; v6 moved it here so it survives between them.
    */
   backpack: Backpack = createBackpack();
+  relationships: Record<string, RelationshipProgress> = {
+    [GARY_RELATIONSHIP_ID]: createRelationshipProgress(),
+  };
+  lastRunSummary: LastRunSummary | null = null;
+
+  garyRelationship(): RelationshipProgress {
+    return this.relationships[GARY_RELATIONSHIP_ID]
+      ?? (this.relationships[GARY_RELATIONSHIP_ID] = createRelationshipProgress());
+  }
+
+  nextGaryDialogue(): GaryDialogueEventId | null {
+    return nextGaryDialogue(this.garyRelationship(), {
+      deepestBreakCleared: this.deepestBreakCleared,
+      lastRunSummary: this.lastRunSummary,
+    });
+  }
+
+  completeGaryDialogue(eventId: GaryDialogueEventId, roll: () => number = Math.random): number {
+    const essenceAward = completeGaryDialogue(this.garyRelationship(), eventId, roll);
+    this.essence += essenceAward;
+    return essenceAward;
+  }
+
+  recordStoryEvent(eventId: string): void {
+    if (eventId === 'gary_shortsword') {
+      addGaryEvidence(this.garyRelationship(), GARY_SHORTSWORD_EVIDENCE_ID);
+    } else if (eventId === 'gary_garrette_boss') {
+      const flags = this.garyRelationship().flags;
+      if (!flags.includes('garrette_defeated')) flags.push('garrette_defeated');
+    }
+  }
+
+  deepStartFee(floor: number): number {
+    return depthRunFee(floor, garyDeepStartDiscount(this.garyRelationship()));
+  }
+
+  floorUnlockCost(floor: number): number {
+    return depthUnlockCost(floor, garyDepthUnlockDiscount(this.garyRelationship()));
+  }
 
   createCreatureInstance(speciesId: string, starRating = 0): CreatureInstance {
     const template = getTemplate(speciesId);
@@ -213,7 +262,7 @@ class GameStateManager {
   /** Buy a permanent unlock. Returns false if not purchasable, already owned, or unaffordable. */
   purchaseFloorUnlock(floor: number): boolean {
     if (!this.purchasableFloors().includes(floor)) return false;
-    const cost = depthUnlockCost(floor);
+    const cost = this.floorUnlockCost(floor);
     if (this.essence < cost) return false;
     this.essence -= cost;
     this.unlockedFloors.push(floor);
@@ -223,7 +272,7 @@ class GameStateManager {
 
   /** Whether the per-run fee for `floor` is affordable right now. Floor 1 is always true. */
   canAffordStartFloor(floor: number): boolean {
-    return this.essence >= depthRunFee(floor);
+    return this.essence >= this.deepStartFee(floor);
   }
 
   /**
@@ -256,7 +305,7 @@ class GameStateManager {
     if (!this.unlockedStartFloors().includes(chosen)) {
       throw new Error(`Start floor ${chosen} is not unlocked`);
     }
-    const fee = depthRunFee(chosen);
+    const fee = this.deepStartFee(chosen);
     if (this.essence < fee) {
       throw new Error(`Cannot afford the ${fee} Essence fee for floor ${chosen}`);
     }
@@ -303,7 +352,7 @@ class GameStateManager {
     }
   }
 
-  endRun(success: boolean, leftoverObols: number): void {
+  endRun(success: boolean, leftoverObols: number, summary: LastRunSummary | null = null): void {
     // Convert leftover (unspent) Obols to permanent Essence. A wipe (!success) loses half first.
     this.essence += convertObolsToEssence(leftoverObols, { isWipe: !success });
     // Reset in-run temporary level back down to the permanent floor for box storage
@@ -323,10 +372,13 @@ class GameStateManager {
     const { bag, moved } = unloadCapturesToBox(this.backpack, this.boxSpaceRemaining());
     this.backpack = bag;
     for (const entry of moved) this.addToBox(entry.instance);
+    if (summary) this.lastRunSummary = summary;
+    recordGaryHomecoming(this.garyRelationship());
     this.currentRun = null;
   }
 
-  initializeNewGame(starterIds: string[]): void {
+  initializeNewGame(starterIds: string[], playerName = 'Keeper'): void {
+    this.playerName = sanitizePlayerName(playerName).trim() || 'Keeper';
     this.creatureBox = [];
     for (const id of starterIds) {
       this.addToBox(this.createCreatureInstance(id, 0));
@@ -340,11 +392,14 @@ class GameStateManager {
     this.defaultParty = [];
     this.unlockedFloors = [];
     this.backpack = createBackpack();
+    this.relationships = { [GARY_RELATIONSHIP_ID]: createRelationshipProgress() };
+    this.lastRunSummary = null;
   }
 
   saveToLocalStorage(): void {
     const data = {
       version: SAVE_VERSION,
+      playerName: this.playerName,
       creatureBox: this.creatureBox,
       essence: this.essence,
       deepestBreakCleared: this.deepestBreakCleared,
@@ -355,6 +410,8 @@ class GameStateManager {
       defaultParty: this.defaultParty,
       unlockedFloors: this.unlockedFloors,
       backpack: this.backpack,
+      relationships: this.relationships,
+      lastRunSummary: this.lastRunSummary,
     };
     localStorage.setItem('hollow_kin_save', JSON.stringify(data));
   }
@@ -362,15 +419,9 @@ class GameStateManager {
   /**
    * Loads a save, or reports that there is nothing loadable.
    *
-   * There is deliberately no migration path any more. Every save written before
-   * v7 references species ids from the superseded 36-creature roster, and
-   * `starRating`, `traitSlots` and `statBaseline` all hang off templates that no
-   * longer exist — there is nothing in an old save worth carrying forward, so it
-   * is discarded outright rather than half-translated. The v2->v6 field-by-field
-   * migrations that used to live here went with it.
-   *
-   * The stale blob is removed rather than left in place, so a discarded save
-   * cannot be re-read (and re-discarded) on every boot.
+   * A version mismatch discards the save and removes the blob, so it cannot be
+   * re-read on every boot. There is no migration path and there should not be
+   * one — see SAVE_VERSION.
    */
   loadFromLocalStorage(): boolean {
     const raw = localStorage.getItem('hollow_kin_save');
@@ -382,6 +433,7 @@ class GameStateManager {
         return false;
       }
       this.essence = data.essence ?? 0;
+      this.playerName = sanitizePlayerName(data.playerName ?? 'Keeper').trim() || 'Keeper';
       this.deepestBreakCleared = data.deepestBreakCleared ?? 0;
       this.hasCompletedFirstRun = data.hasCompletedFirstRun ?? false;
       this.seenSpecies = new Set<string>(data.seenSpecies ?? []);
@@ -395,6 +447,8 @@ class GameStateManager {
       this.defaultParty = data.defaultParty ?? [];
       this.unlockedFloors = Array.isArray(data.unlockedFloors) ? [...data.unlockedFloors] : [];
       this.selectedStartFloor = data.selectedStartFloor ?? 1;
+      this.relationships = data.relationships ?? { [GARY_RELATIONSHIP_ID]: createRelationshipProgress() };
+      this.lastRunSummary = data.lastRunSummary ?? null;
       this.creatureBox = (data.creatureBox ?? []).map((c: any) => {
         const template = getTemplate(c.speciesId);
         const permanentLevel = c.permanentLevel ?? 1;

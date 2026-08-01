@@ -64,6 +64,10 @@ describe('levelFromEssence', () => {
 });
 
 describe('depth costs', () => {
+  it('applies a flat percentage discount and floors the result', () => {
+    expect(depthRunFee(6, 0.1)).toBe(Math.floor(depthRunFee(6) * 0.9));
+    expect(depthUnlockCost(6, 0.1)).toBe(Math.floor(depthUnlockCost(6) * 0.9));
+  });
   it('are both free at floor 1', () => {
     expect(depthUnlockCost(1)).toBe(0);
     expect(depthRunFee(1)).toBe(0);

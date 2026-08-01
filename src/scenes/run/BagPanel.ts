@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { gameState } from '../../managers/GameState';
 import { getTemplate } from '../../data/creatures';
 import { getItem } from '../../data/items';
+import { runMaxHp } from '../../systems/Recovery';
 import { canUseItem, applyItemOnMap } from '../../systems/Items';
 import { capacity, isProtected, removeAt, usedSlots } from '../../systems/Backpack';
 import { BackpackSlot, CreatureInstance, RunState } from '../../types';
@@ -133,7 +134,7 @@ function drawTargetPicker(scene: Phaser.Scene, opts: BagPanelOpts, slotIndex: nu
     scene.add.text(x, 270, creature.nickname ?? getTemplate(creature.speciesId).name, {
       fontFamily: DISPLAY_FONT, fontSize: '9px', color: eligible ? UI.text : UI.muted,
     }).setOrigin(0.5);
-    scene.add.text(x, 302, down ? 'DOWN' : `HP ${opts.run.partyHp[creature.instanceId]}/${creature.currentStats.hp}`, {
+    scene.add.text(x, 302, down ? 'DOWN' : `HP ${opts.run.partyHp[creature.instanceId]}/${runMaxHp(creature, opts.run)}`, {
       fontFamily: BODY_FONT, fontSize: '10px', color: down ? UI.redCss : UI.greenCss,
     }).setOrigin(0.5);
     scene.add.text(x, 326, `MP ${opts.run.partyMp[creature.instanceId]}/${creature.currentStats.mp}`, {

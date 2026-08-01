@@ -4,6 +4,7 @@ import {
 } from '../types';
 import { getAbility } from '../data/abilities';
 import { baseDamage, getEffectiveStat } from './CombatEngine';
+import { RandomSource } from './SeededRandom';
 
 /** A side that may not exploit any weaknesses. */
 export const NO_KNOWLEDGE: KnownSpecies = new Set<string>();
@@ -430,9 +431,13 @@ function allOut(
  * attack. Consumes exactly one Math.random call — the one deliberate exception
  * to the AI's no-RNG rule, kept so enemy behavior is unchanged.
  */
-function enemyDefault(actor: CombatCreature, foes: CombatCreature[]): CombatAction {
+function enemyDefault(
+  actor: CombatCreature,
+  foes: CombatCreature[],
+  rng: RandomSource,
+): CombatAction {
   const aliveTargets = foes.filter(c => !c.isKnockedOut);
-  const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
+  const target = aliveTargets[Math.floor(rng() * aliveTargets.length)];
 
   const usable = actor.instance.abilities
     .filter((id): id is string => id !== null)
@@ -448,11 +453,7 @@ function enemyDefault(actor: CombatCreature, foes: CombatCreature[]): CombatActi
 
 /**
  * Last-resort action: swing with basic attack at the weakest living foe.
- *
- * Returns null when there is nothing to swing at. This used to return a defend
- * action; defend was cut (2026-07-30), and null is the honest answer — "this
- * creature has no move this turn" — rather than inventing one. Callers skip
- * the turn.
+ * Returns null when there is nothing to swing at; callers skip the turn.
  */
 function fallback(
   actor: CombatCreature,
@@ -479,12 +480,13 @@ export function chooseAction(
   foes: CombatCreature[],
   profile: TacticProfile,
   known: KnownSpecies,
+  rng: RandomSource = Math.random,
 ): CombatAction | null {
   if (living(foes).length === 0) return null;
 
   switch (profile) {
     case 'enemy_default':
-      return enemyDefault(actor, foes);
+      return enemyDefault(actor, foes, rng);
     case 'fight_wisely':
       return fightWisely(actor, allies, foes, known);
     case 'all_out':
@@ -529,8 +531,9 @@ export function chooseAction(
 export function getEnemyAction(
   enemy: CombatCreature,
   playerParty: CombatCreature[],
+  rng: RandomSource = Math.random,
 ): { abilityId: string; target: CombatCreature } {
-  const action = chooseAction(enemy, [enemy], playerParty, 'enemy_default', NO_KNOWLEDGE);
+  const action = chooseAction(enemy, [enemy], playerParty, 'enemy_default', NO_KNOWLEDGE, rng);
   if (action === null) {
     return { abilityId: 'basic_attack', target: playerParty[0] };
   }

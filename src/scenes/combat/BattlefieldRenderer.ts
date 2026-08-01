@@ -42,11 +42,7 @@ export interface ChipSpec {
 export interface RootCommandSpec {
   label: string;
   selected: boolean;
-  /**
-   * Optional: no root command is disabled today. RUN was the only one, and it
-   * was cut. Kept because a future root action (capture) may need to grey out
-   * when it is unavailable.
-   */
+  /** No root command is disabled today; capture will likely need it. */
   disabled?: boolean;
   onHover: () => void;
   onClick: () => void;
@@ -76,6 +72,10 @@ export interface CommandPanelView {
 export interface BattlefieldView {
   floorLabel: string;
   round: number;
+  tempo: number;
+  tempoCap: number;
+  /** Chamber experiment: MP is inactive and the header Tempo pool pays for moves. */
+  usesSharedTempo: boolean;
   turnOrderChips: ChipSpec[];
   playerParty: CombatCreature[];
   enemyParty: CombatCreature[];
@@ -85,6 +85,7 @@ export interface BattlefieldView {
   enemyInteractive: boolean;
   onEnemyHover: (enemy: CombatCreature) => void;
   onEnemyClick: (enemy: CombatCreature) => void;
+  enemyIntent: (enemy: CombatCreature) => string | null;
   allyInteractive: boolean;
   /** Which allies may be clicked while `allyInteractive`. Defaults to the living. */
   allyTargetable?: (ally: CombatCreature) => boolean;
@@ -122,6 +123,11 @@ function drawHeader(scene: Phaser.Scene, view: BattlefieldView): void {
   }).setOrigin(0, 0.5);
   scene.add.text(contentLeft + title.width + 16, rowY, `ROUND ${view.round}`, {
     fontFamily: BODY_FONT, fontSize: '12px', color: UI.muted,
+  }).setOrigin(0, 0.5);
+
+  const tempoPips = Array.from({ length: view.tempoCap }, (_, i) => i < view.tempo ? '◆' : '◇').join(' ');
+  scene.add.text(contentLeft, headerTop + 44, `PACK TEMPO  ${tempoPips}  ${view.tempo}/${view.tempoCap}`, {
+    fontFamily: BODY_FONT, fontSize: '11px', color: view.tempo > 0 ? UI.tealCss : UI.muted,
   }).setOrigin(0, 0.5);
 
   // Turn order: right-aligned "TURN ORDER" label + chips, all on one row.
@@ -221,6 +227,14 @@ function drawEnemyTile(
   if (enemy.isKnockedOut) {
     scene.add.text(x, spriteCenterY, 'DOWN', {
       fontFamily: DISPLAY_FONT, fontSize: '9px', color: UI.muted,
+    }).setOrigin(0.5);
+  }
+  const intent = enemy.isKnockedOut ? null : view.enemyIntent(enemy);
+  if (intent) {
+    const intentY = tileTop + ENEMY_SPRITE_H - 11;
+    scene.add.rectangle(x, intentY, ENEMY_TILE_W - 12, 17, UI.void, 0.9).setStrokeStyle(1, UI.line);
+    scene.add.text(x, intentY, `INTENT · ${intent}`, {
+      fontFamily: BODY_FONT, fontSize: '9px', color: UI.mutedBright,
     }).setOrigin(0.5);
   }
 
@@ -329,9 +343,12 @@ function drawPartyCard(
   }).setOrigin(1, 0);
   y += 15 + 5;
 
-  scene.add.text(innerLeft, y, 'MP', { fontFamily: BODY_FONT, fontSize: '10px', color: UI.muted });
-  scene.add.text(innerLeft + innerW, y, `${creature.currentMp}/${creature.maxMp}`, {
-    fontFamily: BODY_FONT, fontSize: '11px', color: creature.currentMp === 0 ? '#5e5b8c' : UI.tealCss,
+  scene.add.text(innerLeft, y, view.usesSharedTempo ? 'POOL' : 'MP', {
+    fontFamily: BODY_FONT, fontSize: '10px', color: UI.muted,
+  });
+  scene.add.text(innerLeft + innerW, y, view.usesSharedTempo ? 'SHARED' : `${creature.currentMp}/${creature.maxMp}`, {
+    fontFamily: BODY_FONT, fontSize: '11px',
+    color: view.usesSharedTempo || creature.currentMp > 0 ? UI.tealCss : '#5e5b8c',
   }).setOrigin(1, 0);
   y += 15 + 5;
 

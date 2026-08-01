@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   newRiteLog, evaluateRites, bandFor, capturePrice, captureChance,
-  reactionFor, canBid, registerRejection, clearsEnrage, isUncapturable,
+  reactionFor, canBid, registerRejection, clearsEnrage, isUncapturable, captureRefusal,
 } from './Capture';
 import { CombatCreature, CreatureTemplate, RiteDef, CaptureParty } from '../types';
 
@@ -216,15 +216,28 @@ describe('enrage', () => {
 // --- party-scoped conditions ---------------------------------------------
 
 describe('party-scoped conditions', () => {
-  it('reads ally_knocked_out from the party, not the target', () => {
+  it('enemy_party_lost_member reads the CAPTURING party, not the target\'s own side', () => {
+    // The rename exists because the old name (`ally_knocked_out`) said the opposite
+    // of what the code does. `CaptureParty` is the player's side — the side opposing
+    // the creature being captured — so this fires when a PLAYER creature is down.
     const rite: RiteDef = {
       id: 'grief', band: 'signature', persistence: 'volatile',
-      conditions: [{ kind: 'ally_knocked_out' }],
+      conditions: [{ kind: 'enemy_party_lost_member' }],
     };
     const t = template({ rites: [rite] });
     expect(evaluateRites(t, foe(), newRiteLog(), NO_PARTY).satisfied).toHaveLength(0);
     expect(evaluateRites(t, foe(), newRiteLog(), { ...NO_PARTY, anyKnockedOut: true }).satisfied)
       .toContain('grief');
+  });
+
+  it('is not satisfied by the target\'s own knocked-out state', () => {
+    const rite: RiteDef = {
+      id: 'grief', band: 'signature', persistence: 'volatile',
+      conditions: [{ kind: 'enemy_party_lost_member' }],
+    };
+    const t = template({ rites: [rite] });
+    expect(evaluateRites(t, foe({ isKnockedOut: true }), newRiteLog(), NO_PARTY).satisfied)
+      .toHaveLength(0);
   });
 
   it('counts a single actor as solo', () => {
@@ -316,5 +329,37 @@ describe('log-scoped conditions added for the family rites', () => {
     const fresh = newRiteLog();
     expect(() => holds([{ kind: 'item_consumed', scope: 'self' }], fresh)).not.toThrow();
     expect(holds([{ kind: 'item_consumed', scope: 'self' }], fresh)).toBe(false);
+  });
+});
+
+
+// --- refusals -------------------------------------------------------------
+
+describe('captureRefusal', () => {
+  it('refuses on a boss encounter even though the species is priced', () => {
+    // Bosses draw from the ordinary wild pool, so every alpha species carries a
+    // real price in bands 1-2. Zero-pricing cannot express "not as a boss" — only
+    // "never, anywhere" — so the boss rule has to be an encounter-level gate.
+    const t = template();
+    expect(isUncapturable(t, 1)).toBe(false);
+    expect(captureRefusal(t, 1, true)).toBe('boss');
+  });
+
+  it('allows the same species in the same band outside a boss encounter', () => {
+    expect(captureRefusal(template(), 1, false)).toBeNull();
+  });
+
+  it('refuses a species with no price in this band', () => {
+    expect(captureRefusal(template({ captureBasePrice: { 2: 45 } }), 1, false))
+      .toBe('not_in_this_band');
+  });
+
+  it('refuses a zero-priced band — that is how never-capturable is expressed', () => {
+    expect(captureRefusal(template({ captureBasePrice: { 1: 0, 2: 45 } }), 1, false))
+      .toBe('not_in_this_band');
+  });
+
+  it('reports boss ahead of band, so a boss fight never leaks pricing detail', () => {
+    expect(captureRefusal(template({ captureBasePrice: { 2: 45 } }), 1, true)).toBe('boss');
   });
 });

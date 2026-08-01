@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
-import { depthUnlockCost, depthRunFee } from '../systems/Economy';
 
 export class GatekeeperScene extends Phaser.Scene {
   /**
@@ -16,6 +15,8 @@ export class GatekeeperScene extends Phaser.Scene {
   create(): void {
     this.tracked = [];
     this.draw();
+    this.input.keyboard?.on('keydown-ESC', () => this.scene.start('TownScene'));
+    this.input.keyboard?.on('keydown-ENTER', () => this.talk());
   }
 
   private track<T extends Phaser.GameObjects.GameObject>(obj: T): T {
@@ -33,15 +34,22 @@ export class GatekeeperScene extends Phaser.Scene {
     const cx = this.cameras.main.centerX;
 
     this.track(this.add.rectangle(480, 320, 960, 640, 0x1a1a2e));
-    this.track(this.add.text(cx, 30, 'THE GATEKEEPER', {
+    this.track(this.add.text(cx, 30, 'GARY THE GATEKEEPER', {
       fontSize: '26px', color: '#e0d0a0', fontFamily: 'monospace',
     }).setOrigin(0.5));
-    this.track(this.add.text(cx, 62, 'Unlock a deeper starting point. Permanent, bought once.', {
+    this.track(this.add.text(cx, 62, `Relationship ${gameState.garyRelationship().stage}/5`, {
       fontSize: '13px', color: '#888888', fontFamily: 'monospace',
     }).setOrigin(0.5));
     this.track(this.add.text(20, 90, `Essence: ${gameState.essence}`, {
       fontSize: '15px', color: '#e0b060', fontFamily: 'monospace',
     }));
+
+    const pending = gameState.nextGaryDialogue();
+    const talk = this.track(this.add.text(cx, 112, pending ? 'TALK — SOMETHING NEW' : 'NOTHING NEW TO DISCUSS', {
+      fontSize: '14px', color: pending ? '#f7f3b7' : '#666677', fontFamily: 'monospace',
+      backgroundColor: pending ? '#3a2b24' : '#20202a', padding: { x: 16, y: 10 },
+    }).setOrigin(0.5));
+    if (pending) talk.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.talk());
 
     const owned = gameState.unlockedStartFloors().filter(f => f > 1);
     this.track(this.add.text(20, 112, owned.length > 0
@@ -50,10 +58,13 @@ export class GatekeeperScene extends Phaser.Scene {
       fontSize: '12px', color: '#88ccaa', fontFamily: 'monospace',
     }));
 
-    const purchasable = gameState.purchasableFloors();
+    const passagesOpen = gameState.garyRelationship().stage >= 2;
+    const purchasable = passagesOpen ? gameState.purchasableFloors() : [];
 
     if (purchasable.length === 0) {
-      this.track(this.add.text(cx, 240, gameState.deepestBreakCleared === 0
+      this.track(this.add.text(cx, 240, !passagesOpen
+        ? 'Gary has not yet offered to repair the old passages.'
+        : gameState.deepestBreakCleared === 0
         ? 'Clear the floor-5 mini-boss to earn your first deeper start.'
         : 'Nothing left to unlock at your current depth. Clear another break.', {
         fontSize: '14px', color: '#777777', fontFamily: 'monospace',
@@ -62,7 +73,7 @@ export class GatekeeperScene extends Phaser.Scene {
 
     purchasable.forEach((floor, i) => {
       const y = 170 + i * 62;
-      const cost = depthUnlockCost(floor);
+      const cost = gameState.floorUnlockCost(floor);
       const affordable = gameState.essence >= cost;
 
       const bg = this.track(this.add.rectangle(cx, y, 460, 52, affordable ? 0x222240 : 0x1c1c28, 0.9)
@@ -70,7 +81,7 @@ export class GatekeeperScene extends Phaser.Scene {
       this.track(this.add.text(cx, y - 9, `Unlock Floor ${floor}  —  ${cost} Essence`, {
         fontSize: '15px', color: affordable ? '#ffffff' : '#666677', fontFamily: 'monospace',
       }).setOrigin(0.5));
-      this.track(this.add.text(cx, y + 12, `then ${depthRunFee(floor)} Essence each run you start there`, {
+      this.track(this.add.text(cx, y + 12, `then ${gameState.deepStartFee(floor)} Essence each run you start there`, {
         fontSize: '11px', color: affordable ? '#8899aa' : '#555566', fontFamily: 'monospace',
       }).setOrigin(0.5));
 
@@ -91,5 +102,11 @@ export class GatekeeperScene extends Phaser.Scene {
       backgroundColor: '#2c1e31', padding: { x: 10, y: 7 },
     }).setInteractive({ useHandCursor: true }));
     back.on('pointerdown', () => this.scene.start('TownScene'));
+  }
+
+  private talk(): void {
+    const eventId = gameState.nextGaryDialogue();
+    if (!eventId) return;
+    this.scene.start('DialogueScene', { eventId, returnScene: 'GatekeeperScene' });
   }
 }

@@ -78,9 +78,24 @@ export function postVictoryHealFraction(active: ActiveBoon[]): number {
   return f;
 }
 
+/** Flat maximum-HP increase from run-long relics and any future timed effects. */
+export function maxHpBonus(active: ActiveBoon[]): number {
+  let amount = 0;
+  for (const e of effects(active)) if (e.kind === 'max_hp_flat') amount += e.amount;
+  return amount;
+}
+
+export function effectiveMaxHp(baseHp: number, active: ActiveBoon[]): number {
+  return baseHp + maxHpBonus(active);
+}
+
 /** What to show the player on the run map. */
 export function activeBoonSummaries(
   active: ActiveBoon[],
-): { name: string; battlesLeft: number | null }[] {
-  return active.map(a => ({ name: getBoon(a.boonId).name, battlesLeft: a.battlesLeft }));
+): { name: string; statusText?: string; battlesLeft: number | null }[] {
+  return active.map(a => ({
+    name: getBoon(a.boonId).name,
+    statusText: getBoon(a.boonId).statusText,
+    battlesLeft: a.battlesLeft,
+  }));
 }

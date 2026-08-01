@@ -119,6 +119,7 @@ describe('getEnemyAction — characterization', () => {
 import {
   calculateDamage, baseDamage, isHostileAbility, resolveNonDamagingAbility,
   rollAbilityHit, revive, clearNegativeStatuses, stripPositiveStages, applyPercentDamage,
+  meetsCriticalCondition,
 } from './CombatEngine';
 import { getAbility } from '../data/abilities';
 
@@ -149,9 +150,9 @@ describe('baseDamage', () => {
 
 });
 
-describe('calculateDamage — RNG contract', () => {
-  it('rolls hit before crit, and misses without rolling crit', () => {
-    // First value > hitChance forces a miss; only one roll should be consumed.
+describe('calculateDamage — RNG and critical contract', () => {
+  it('uses one accuracy roll and misses without any critical RNG', () => {
+    // Value > hitChance forces a miss; accuracy is the only roll.
     const spy = vi.spyOn(Math, 'random').mockReturnValue(0.99);
     const a = makeTestCreature({ speciesId: 'a', isPlayer: true });
     const d = makeTestCreature({ speciesId: 'd', isPlayer: false });
@@ -161,11 +162,30 @@ describe('calculateDamage — RNG contract', () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
-  it('does not crit for enemy attackers', () => {
+  it('does not crit when an enemy move has no authored condition', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
     const enemy = makeTestCreature({ speciesId: 'foe', isPlayer: false });
     const hero = makeTestCreature({ speciesId: 'hero', isPlayer: true });
     expect(calculateDamage(enemy, hero, getAbility('smash')).isCrit).toBe(false);
+  });
+
+  it('evaluates authored critical conditions deterministically', () => {
+    const attacker = makeTestCreature({ speciesId: 'attacker', isPlayer: true });
+    const target = makeTestCreature({ speciesId: 'target', isPlayer: false });
+    target.buffStages.def = -1;
+    expect(meetsCriticalCondition(target, getAbility('slash'))).toBe(true);
+
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0);
+    expect(calculateDamage(attacker, target, getAbility('slash')).isCrit).toBe(true);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('never gives an unauthored move a random critical', () => {
+    const attacker = makeTestCreature({ speciesId: 'attacker', isPlayer: true });
+    const target = makeTestCreature({ speciesId: 'target', isPlayer: false });
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0);
+    expect(calculateDamage(attacker, target, getAbility('smash')).isCrit).toBe(false);
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it('returns damage: 0 for zero-power Status abilities that hit (guards against baseDamage early return regression)', () => {

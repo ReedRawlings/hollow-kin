@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
-import { breed, calculateOffspringStar, calculateOffspringStats, carryoverForParents } from '../systems/BreedingSystem';
+import { breed, calculateOffspringStar, calculateOffspringStats, carryoverForParents, breedingAvailability } from '../systems/BreedingSystem';
 import { CreatureInstance, STAR_LEVEL_CAPS } from '../types';
 import { isCreatureBreedReady } from '../systems/Traits';
 
@@ -183,6 +183,9 @@ export class BreedingScene extends Phaser.Scene {
 
   private performBreed(): void {
     if (!this.parentA || !this.parentB) return;
+    // Domain gate as well as the town tile: breeding is net -1, and dropping the box
+    // below a fieldable party has no recovery path while capture is unwired.
+    if (breedingAvailability(gameState.creatureBox).kind !== 'available') return;
 
     const offspringSpecies = this.parentA.speciesId;
     const template = getTemplate(offspringSpecies);

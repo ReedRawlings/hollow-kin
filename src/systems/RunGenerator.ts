@@ -62,10 +62,8 @@ function makeEncounter(type: EncounterType, floor: number, index: number): Encou
  * Build the tower descent from `startFloor` (default 1) through TOWER_FLOORS.
  * One encounter per floor. First floor = combat; boss floors (multiples of 5)
  * are mini/major; every other floor is weighted filler — combat/shop/rest/event.
- *
- * There is deliberately NO guaranteed rest before a boss. That rule existed once
- * and was removed after playtest showed it made bosses too predictable and safe;
- * rests are ordinary filler now (see `fillerType`). Do not reintroduce it.
+ * Rests are ordinary filler and are never guaranteed anywhere, including before
+ * a boss (see `fillerType`).
  */
 export function generateDescent(startFloor = 1): Encounter[] {
   const encounters: Encounter[] = [];
@@ -85,6 +83,32 @@ export function generateDescent(startFloor = 1): Encounter[] {
     index++;
   }
   return encounters;
+}
+
+/**
+ * Tie a story beat to an ordinary combat at floor 15 or deeper. The selected
+ * room keeps its floor/index but becomes a combat built from that floor's wild
+ * pool, so narrative encounters travel through the normal combat route.
+ */
+export function injectStoryCombat(
+  encounters: Encounter[],
+  storyEventId: string,
+  minimumFloor = 15,
+  roll: () => number = Math.random,
+): Encounter[] {
+  const candidateIndexes = encounters
+    .map((encounter, index) => ({ encounter, index }))
+    .filter(({ encounter }) => encounter.floor >= minimumFloor && encounter.type !== 'boss')
+    .map(({ index }) => index);
+  if (!candidateIndexes.length) return encounters;
+  const pick = Math.floor(Math.min(0.999999, Math.max(0, roll())) * candidateIndexes.length);
+  const index = candidateIndexes[pick];
+  const original = encounters[index];
+  const combat = makeEncounter('combat', original.floor, original.index);
+  combat.storyEventId = storyEventId;
+  const copy = [...encounters];
+  copy[index] = combat;
+  return copy;
 }
 
 /**

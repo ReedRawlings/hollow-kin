@@ -2,6 +2,12 @@
 
 *Working Document — Subject to Change*
 
+> **Last verified:** 2026-07-30 — full sweep against `src/`. Corrected in that pass: save
+> version and contents, archetype count, the scene registry, the Ability object fields,
+> the capture pricing model, the trait/ability architecture claims, crits, evasion, run
+> seeding, and several "designed" features marked as though they shipped. Systems that are
+> designed but unbuilt are now flagged inline where they appear.
+
 ---
 
 ## **Overview**
@@ -35,7 +41,7 @@ Progression is permanent. A handful of things are still deliberately run-scoped,
 | **Temporary in-run levels** | Deliberate (Model A). The essence-bought level *floor* persists; levels gained on top of it during a descent do not. Do not remove in-run leveling as a reset leftover — dropping it (Model B) is a playtest fallback, not the current design. |
 | **Obols** | Deliberate. Obols are run-scoped fuel. Leftover Obols convert to Essence on exit; spent Obols are simply gone. Do not make Obols persist — a second permanent currency was explicitly rejected. |
 | **Relics** | Deliberate, and this is the roguelite element the design keeps on purpose. Run-only power-ups are the intended shape. |
-| **Unbound marks** | Deliberate (earn-then-lock). A mark earned in a run fades unless Essence is spent at the Mark-binder to bind it. Do not make earned marks automatically permanent — essence buys permanence, not the mark. |
+| **Unbound marks** | Deliberate (earn-then-lock). A mark earned in a run must be purchased to activate for each creature, otherwise they remain unbound and their effects don't affect creatures' |
 
 Everything else persists: Essence, permanent levels, stars, bloodline, bound marks, unlocked trait slots, purchased depth-jumps, backpack capacity, and creatures themselves.
 
@@ -129,7 +135,7 @@ After each encounter the player chooses between 2–3 offered next encounters. T
 
 * Reduces decision anxiety and keeps pacing tight
 * Trade-off options emerge through encounter-type variety (combat vs. shop vs. event)
-* Seeds still work, since what augments a run is earned during it
+* Seeds would still work, since what augments a run is earned during it. ⚠️ **Not built** — descent generation calls `Math.random()` directly and takes no seed, so no run layout is reproducible today
 * Pick-next is boss-aware — it never offers a path that skips a boss floor
 
 *Considered and rejected: a branching Slay the Spire map (unnecessary strategic overhead at this pacing), linear-with-reward-sets (Monster Train), and non-linear free movement.*
@@ -143,6 +149,11 @@ After each encounter the player chooses between 2–3 offered next encounters. T
 ### **Relics**
 
 Run-based relics are earned during a run and provide stackable or conditional bonuses. They do not persist after the run ends.
+
+> **Not built.** See `relics.md` — half of this already exists as `Boons.ts` and relics
+> should extend that layer rather than duplicate it. Note the examples below reference
+> mechanics that do not exist: **Haste** is not a stat, and **Thorns** has no
+> implementation.
 
 **Relic Pool (Examples)**
 
@@ -180,8 +191,8 @@ Run-based relics are earned during a run and provide stackable or conditional bo
 | `level_cap` | Maximum level this creature can reach — the ceiling essence fills toward (currently derived from star rating) |
 | `permanent_level` | Permanent essence-driven level floor the creature starts each run at |
 | `essence_invested` | Total essence permanently spent on this creature |
-| `marks` | Array — max one mark slot per creature |
-| `traits` | Array of trait IDs — passive and triggered effects |
+| `marks` | Array — max one mark slot per creature. ⚠️ **Not on the instance in code** — no mark system exists in any form |
+| `traits` | `traitSlots` in code: four `{ traitId, traitLevel, unlocked }` entries. ⚠️ Only `stat`-category traits currently have any effect, and nothing ever grants one |
 | `abilities` | Array of up to four ability IDs |
 | `lineage` | References to parent creature IDs |
 | `resistances` | Array of damage types this creature resists |
@@ -321,12 +332,15 @@ The system splits three ways with no overlap: **permanent level buys capacity, a
 | ----- | ----- |
 | `id` | Unique ability identifier |
 | `name` | Display name |
-| `type` | damage / heal / buff / debuff / status |
-| `damage_type` | Element or physical type |
-| `stat_scaling` | Which stat powers this ability (STR, INT, WIS etc.) |
-| `targeting` | single / all\_enemies / self / ally / all |
-| `mp_cost` | MP required to use |
-| `effect_id` | Reference to conditional logic if applicable |
+| `damageType` | One of Fighting / Electric / Wind / Fire / Ice / Ghost, or `None` |
+| `power` | Damage scale, ~50-is-average. **Load-bearing** — the formula divides by 50 |
+| `accuracy` | Hit chance percentage, floored globally at `MIN_HIT_CHANCE` (30%) |
+| `category` | `Physical` / `Special` / `Status`. **This is what decides stat scaling** — Physical reads STR vs DEF, Special reads INT vs WIS. There is no separate `stat_scaling` field |
+| `mpCost` | MP required to use |
+| `targeting` | `single_enemy` / `all_enemies` / `self` / `single_ally` / `all_allies` |
+| `description` | Player-facing text |
+| `highCrit?` | Raises crit rate from 5% to 15% |
+| `effects?` | Inline `AbilityEffect[]` — buff / debuff / status / heal / recoil, each with an optional `chance`. **Not** an id pointing at a logic library; the effects are data, resolved by `applyAbilityEffects` |
 
 ### **Ability Count**
 
@@ -370,14 +384,21 @@ Archetype is one of **two** content axes. The other is **role**, which is orthog
 
 * Players capture creatures during runs by spending **Obols** as the capture resource
 * Capture is an in-run Obol spend — it competes with hoarding Obols for conversion to permanent Essence (spend-vs-bank)
-* Capture probability is based on two factors: Obols spent on the attempt and the target creature's current HP — more Obols and lower HP means a higher capture chance
+* Capture is a **price you bid against**, not a probability curve over Obols. `capturePrice = captureBasePrice[towerBand] × riteBandMultiplier × hpNudge`; bidding the full price is a certainty, and bidding under it gives exactly that fraction as your chance
+* **Rites are the dominant lever, not coins.** Satisfying a rite *replaces* the multiplier rather than stacking it: unsatisfied 1.0 → family 0.4 → signature 0.1. HP is only a nudge (at most +25% at full HP), and depth is priced by which tower band you meet the creature in rather than by a continuous exponent
+* **The price is shown; the rite is the secret.** The displayed price already folds in any satisfied rite, so it visibly drops the moment one latches — the player learns *that* something they did helped, never *what*. Bidding is not a price-guessing game
+* **Bosses cannot be captured**, gated at the encounter rather than by pricing (`captureRefusal`). Boss fights draw from the ordinary wild pool, so the same species is a legitimate catch a floor earlier; zeroing its band price would wrongly make it uncapturable everywhere. A price of `0` still means "never takeable here", and no alpha species has one
+* **A failed bid is not a free action** — the enemy still acts. Combined with enrage, that is what makes probing expensive rather than merely slow
+* A rejected bid is not consumed — it counts toward an **enrage** at three rejections, after which only satisfying a rite will clear it. That is what stops brute-force probing. See `economy-balancing.md` for the full economy
 * Captured creatures are held in the item inventory during the run, forcing resource constraints
 * **A capture is cargo, not a reinforcement.** Captured creatures arrive at level 1 and cannot be fielded — not in the battle they were caught in, and not later in that run. They ride in the backpack until you leave the tower. This replaces the earlier mid-run substitution rule, which assumed captures arrived strong enough to fight; they arrive at level 1, so swapping one in to displace a creature you have invested Essence in was never a decision worth offering. Revisit only if captures are ever given a usable arrival level
 * **The three creatures you entered the tower with can never be lost**, under any circumstance
 * **Captured creatures held in ordinary inventory slots CAN be lost on a wipe.** They are protected only while occupying the **guaranteed inventory space**. A creature you caught and left in an unprotected slot is a candidate for the wipe's random loss like any other carried thing
 * Upon successfully leaving the tower, captured creatures move to the Creature Box if space is available
 
-Full capture design — threshold model, duplicate Essence grant, box capacity, pending-capture queue — is specified in `docs/superpowers/specs/2026-07-25-capture-system-design.md`. **Designed, not yet built.**
+Full capture design — duplicate Essence grant, box capacity, pending-capture queue — is specified in `docs/superpowers/specs/2026-07-25-capture-system-design.md`. That spec predates the rite/band-price model above and describes an earlier threshold model; where the two disagree, **`src/systems/Capture.ts` is the authority.**
+
+**Engine built, no way in.** `Capture.ts` is complete and tested — rite evaluation, band pricing, the HP nudge, bidding, insult/waver reactions, enrage — and is imported by nothing but its own test. There is no capture action on the combat turn, and nothing populates the `RiteLog` fields that seven of the eleven family rites read, so those rites currently evaluate false and every creature would price at full freight.
 
 ---
 
@@ -444,19 +465,26 @@ Town is a hub of "folks" who turn essence into permanent upgrades. The Enhancer 
 ### **Trait and Ability Architecture**
 
 * Traits and abilities are stored as IDs on the creature object
-* A `TraitLibrary` and `AbilityLibrary` map IDs to their logic functions
-* This keeps data containers clean and behavior centralized
+* `ABILITIES` and `TRAIT_LIBRARY` map IDs to their definitions
 * Resistances and weaknesses are arrays of damage type strings on each creature object
+
+> ⚠️ **"Map IDs to their logic functions" overstates both.** Each is a plain data record,
+> not a dispatch table. Ability effects are inline data interpreted by one `switch` in
+> `applyAbilityEffects`. Traits are worse: `applyStatTraitBonuses` is the only consumer of
+> trait data anywhere, and it handles the `stat` category alone — `battle_start`,
+> `resistance`, `affinity`, `evasion`, `type` and `economy` traits have no logic behind
+> them at all. See `traits-system.md`.
 
 ### **Save System**
 
-**As built:** player data persists to **localStorage** at **save v7**, with **no migration path**. The alpha roster swap invalidated every species id a save could hold, so anything below v7 is discarded and the stale blob removed; the old v2→v6 field-by-field migrations were deleted with it. Saves are disposable during alpha — bump `SAVE_VERSION` freely rather than designing around migration.
+**As built:** player data persists to **localStorage** at **save v7**. A version mismatch discards the save outright — there is no migration path and there should not be one. Saves are disposable during alpha: bump `SAVE_VERSION` freely when the shape changes and let players restart.
 
 **Planned:** migrate to **Supabase** (hosted PostgreSQL + auth + realtime) so saves tie to authenticated accounts and players can resume on any browser. Not built.
 
 Under either backend:
 
-* Save data includes: creature box contents, creature instances (stats, traits, marks, lineage), permanent levels and essence invested, town upgrade levels, resource counts, bestiary progress, and breeding history
+* Save data as actually written (`GameState.saveToLocalStorage`): `creatureBox` (every instance, including retired tombstones), `essence`, `backpack`, `defaultParty`, `seenSpecies` (bestiary progress), `unlockedFloors`, `deepestBreakCleared`, `selectedStartFloor`, `hasCompletedFirstRun`, and `battleSpeed`
+* ⚠️ Previously listed here and **not** saved, because none of them exist: town upgrade levels, marks, and breeding history. Breed-only recipe discovery depends on the last of those, so it is blocked on more than just the breeding rules
 * Game state syncs on key events: end of run, breeding, town upgrades, party changes
 * Species templates and ability/trait libraries are read-only client-side data loaded from exported JSON — never stored in the save
 

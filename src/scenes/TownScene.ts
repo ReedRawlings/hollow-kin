@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
 import { resolvePartyStatus, describePartyStatus } from '../systems/PartyStatus';
+import { breedingAvailability, breedingBlockedReason } from '../systems/BreedingSystem';
 import { TOWER_FLOORS } from '../types';
 import {
   UI, BODY_FONT, DISPLAY_FONT, archetypeColor, button,
@@ -16,6 +17,12 @@ interface Place {
   color: number;
   scene?: string;
   enabled?: () => boolean;
+  /**
+   * Why this tile is closed *right now*, when that is a recoverable game state rather
+   * than "not in this build". Distinguishes CLOSED from SHUTTERED so a player is never
+   * left guessing whether a tile is unfinished or just unavailable to them today.
+   */
+  blockedReason?: () => string | null;
 }
 
 export class TownScene extends Phaser.Scene {
@@ -29,7 +36,9 @@ export class TownScene extends Phaser.Scene {
     { name: 'MARK-BINDER', tag: 'SHUTTERED', pitch: 'Marks are not available in this build yet.', x: 656, y: 222, w: 148, h: 78, color: UI.amber, enabled: () => false },
     { name: 'TRAIT-KEEPER', tag: 'SHUTTERED', pitch: 'Trait imbuing is not available in this build yet.', x: 816, y: 222, w: 142, h: 78, color: UI.teal, enabled: () => false },
     { name: 'THE ROOST', tag: 'PARTY', pitch: 'Review the box and choose the three going down.', x: 100, y: 342, w: 140, h: 86, color: 0xe98537, scene: 'PartySelectScene' },
-    { name: 'HATCHERY', tag: 'BREED', pitch: 'Pair ready creatures and carry their line forward.', x: 252, y: 342, w: 140, h: 86, color: UI.teal, scene: 'BreedingScene' },
+    { name: 'HATCHERY', tag: 'BREED', pitch: 'Pair ready creatures and carry their line forward.', x: 252, y: 342, w: 140, h: 86, color: UI.teal, scene: 'BreedingScene',
+      enabled: () => breedingAvailability(gameState.creatureBox).kind === 'available',
+      blockedReason: () => breedingBlockedReason(breedingAvailability(gameState.creatureBox)) },
     { name: 'NOTICE BOARD', tag: 'RUN NEWS', pitch: `The tower has ${TOWER_FLOORS} floors. Wardens wait every fifth.`, x: 404, y: 342, w: 140, h: 86, color: UI.lineBright },
     { name: 'THE ARCHIVE', tag: 'PEDIA', pitch: 'Read what your party has learned about tower creatures.', x: 556, y: 342, w: 140, h: 86, color: 0x8c78a5, scene: 'BestiaryScene' },
     { name: 'THE ORACLE', tag: 'SHUTTERED', pitch: 'The Oracle opens after a deeper milestone.', x: 708, y: 342, w: 140, h: 86, color: 0x5e5b8c, enabled: () => false },
@@ -41,6 +50,10 @@ export class TownScene extends Phaser.Scene {
 
   create(): void {
     this.selected = 0;
+    if (gameState.nextGaryDialogue() === 'gary_intro') {
+      this.scene.start('DialogueScene', { eventId: 'gary_intro', returnScene: 'TownScene' });
+      return;
+    }
     this.draw();
     this.input.keyboard?.on('keydown-LEFT', () => this.move(-1));
     this.input.keyboard?.on('keydown-RIGHT', () => this.move(1));
@@ -81,7 +94,10 @@ export class TownScene extends Phaser.Scene {
     const enabled = place.enabled?.() ?? true;
     spritePlate(this, place.x, place.y, place.w, place.h, enabled ? place.color : UI.line, selected ? UI.gold : UI.line);
     this.add.rectangle(place.x, place.y + place.h / 2 - 19, place.w - 4, 34, UI.void, 0.96);
-    this.add.text(place.x, place.y + place.h / 2 - 31, place.tag, {
+    const tag = place.name === 'GATEKEEPER' && gameState.nextGaryDialogue()
+      ? 'NEW CONVERSATION'
+      : place.tag;
+    this.add.text(place.x, place.y + place.h / 2 - 31, tag, {
       fontFamily: BODY_FONT, fontSize: '8px', color: enabled ? UI.mutedBright : UI.muted,
     }).setOrigin(0.5, 0);
     this.add.text(place.x, place.y + place.h / 2 - 17, place.name, {
@@ -98,15 +114,17 @@ export class TownScene extends Phaser.Scene {
     const y = 529;
     panel(this, 312, y, 568, 88);
     const enabled = place.enabled?.() ?? true;
+    const blocked = enabled ? null : place.blockedReason?.() ?? null;
     this.add.rectangle(31, y, 6, 88, enabled ? place.color : UI.line);
     this.add.text(48, y - 30, place.name, {
       fontFamily: DISPLAY_FONT, fontSize: '10px', color: enabled ? UI.hi : UI.muted,
     });
-    this.add.text(48, y - 8, enabled ? 'OPEN' : 'SHUTTERED', {
+    this.add.text(48, y - 8, enabled ? 'OPEN' : blocked ? 'CLOSED' : 'SHUTTERED', {
       fontFamily: BODY_FONT, fontSize: '9px', color: enabled ? UI.greenCss : UI.redCss,
     });
-    this.add.text(48, y + 13, place.pitch, {
-      fontFamily: BODY_FONT, fontSize: '11px', color: UI.body, wordWrap: { width: 520 },
+    this.add.text(48, y + 13, blocked ?? place.pitch, {
+      fontFamily: BODY_FONT, fontSize: '11px', color: blocked ? UI.redCss : UI.body,
+      wordWrap: { width: 520 },
     });
 
     panel(this, 725, y, 246, 88);
@@ -132,7 +150,7 @@ export class TownScene extends Phaser.Scene {
         : place.name === 'THE ROOST' ? 'PARTY'
           : place.name === 'HATCHERY' ? 'BREED'
             : place.name === 'THE ARCHIVE' ? 'PEDIA' : place.scene ? 'GO IN' : 'READ'
-      : 'SHUTTERED';
+      : blocked ? 'CLOSED' : 'SHUTTERED';
     button(this, 874, y, 112, 88, actionLabel, enabled ? () => this.enterSelected() : null,
       place.name === 'HATCHERY' ? UI.teal : UI.gold, enabled && !!place.scene);
   }
@@ -145,7 +163,6 @@ export class TownScene extends Phaser.Scene {
   private enterSelected(): void {
     const place = this.places[this.selected];
     if ((place.enabled?.() ?? true) && place.scene) {
-      if (place.scene === 'BreedingScene' && gameState.creatureBox.filter(c => !c.isRetired).length < 2) return;
       this.scene.start(place.scene);
     }
   }

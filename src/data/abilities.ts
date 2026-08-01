@@ -10,12 +10,12 @@ export const ABILITIES: Record<string, Ability> = {
   jab: {
     id: 'jab', name: 'Jab', damageType: 'Fighting', power: 30, accuracy: 100,
     category: 'Physical', mpCost: 2, targeting: 'single_enemy',
-    description: 'A quick punch at the opponent.',
+    description: 'A quick punch. A hit generates 1 Pack Tempo.', tempoGeneration: 'on_hit',
   },
   smash: {
     id: 'smash', name: 'Smash', damageType: 'Fighting', power: 50, accuracy: 100,
     category: 'Physical', mpCost: 4, targeting: 'single_enemy',
-    description: 'A solid strike with fists or body.',
+    description: 'A solid strike. A hit generates 1 Pack Tempo.', tempoGeneration: 'on_hit',
   },
   thrash: {
     id: 'thrash', name: 'Thrash', damageType: 'Fighting', power: 75, accuracy: 100,
@@ -26,7 +26,8 @@ export const ABILITIES: Record<string, Ability> = {
   slash: {
     id: 'slash', name: 'Slash', damageType: 'Wind', power: 45, accuracy: 100,
     category: 'Physical', mpCost: 3, targeting: 'single_enemy',
-    description: 'A sharp cut with claws or blades.', highCrit: true,
+    description: 'Keen. Critical against a debuffed target.',
+    critCondition: 'target_debuffed', keen: true,
   },
   cross_counter: {
     id: 'cross_counter', name: 'Cross Counter', damageType: 'Fighting', power: 60, accuracy: 100,
@@ -42,13 +43,14 @@ export const ABILITIES: Record<string, Ability> = {
   razor_wind: {
     id: 'razor_wind', name: 'Razor Wind', damageType: 'Wind', power: 70, accuracy: 95,
     category: 'Physical', mpCost: 6, targeting: 'single_enemy',
-    description: 'Sharp winds slice the opponent.', highCrit: true,
+    description: 'Keen. Critical against a target below half HP.',
+    critCondition: 'target_below_half', keen: true,
   },
   // --- Electric ---
   crackle: {
     id: 'crackle', name: 'Crackle', damageType: 'Electric', power: 35, accuracy: 100,
     category: 'Special', mpCost: 2, targeting: 'single_enemy',
-    description: 'A crackling burst of electricity.',
+    description: 'A crackling burst. A hit generates 1 Pack Tempo.', tempoGeneration: 'on_hit',
   },
   spark: {
     id: 'spark', name: 'Spark', damageType: 'Electric', power: 40, accuracy: 100,
@@ -65,7 +67,7 @@ export const ABILITIES: Record<string, Ability> = {
   gust: {
     id: 'gust', name: 'Gust', damageType: 'Wind', power: 40, accuracy: 100,
     category: 'Special', mpCost: 3, targeting: 'single_enemy',
-    description: 'A gust of wind strikes the opponent from above.',
+    description: 'A gust from above. A hit generates 1 Pack Tempo.', tempoGeneration: 'on_hit',
   },
   gale: {
     id: 'gale', name: 'Gale', damageType: 'Wind', power: 60, accuracy: 100,
@@ -76,7 +78,8 @@ export const ABILITIES: Record<string, Ability> = {
   ember: {
     id: 'ember', name: 'Ember', damageType: 'Fire', power: 40, accuracy: 100,
     category: 'Special', mpCost: 2, targeting: 'single_enemy',
-    description: 'A small flame bursts from the user.',
+    description: 'A small flame bursts from the user. A hit generates 1 Pack Tempo.',
+    tempoGeneration: 'on_hit',
   },
   smolder: {
     id: 'smolder', name: 'Smolder', damageType: 'Fire', power: 55, accuracy: 100,
@@ -100,7 +103,8 @@ export const ABILITIES: Record<string, Ability> = {
   frost: {
     id: 'frost', name: 'Frost', damageType: 'Ice', power: 35, accuracy: 90,
     category: 'Physical', mpCost: 2, targeting: 'single_enemy',
-    description: 'The user coats their claws in ice and strikes.',
+    description: 'An ice-coated strike. A hit generates 1 Pack Tempo.',
+    tempoGeneration: 'on_hit',
     effects: [{ type: 'status', status: 'freeze', chance: 0.1 }],
   },
   freeze: {
@@ -113,12 +117,13 @@ export const ABILITIES: Record<string, Ability> = {
   phantom: {
     id: 'phantom', name: 'Phantom', damageType: 'Ghost', power: 35, accuracy: 100,
     category: 'Special', mpCost: 2, targeting: 'single_enemy',
-    description: 'A burst of spectral energy.',
+    description: 'A spectral burst. A hit generates 1 Pack Tempo.', tempoGeneration: 'on_hit',
   },
   shadow_claw: {
     id: 'shadow_claw', name: 'Shadow Claw', damageType: 'Ghost', power: 40, accuracy: 100,
     category: 'Physical', mpCost: 3, targeting: 'single_enemy',
-    description: 'A ghostly claw strikes from the shadows.', highCrit: true,
+    description: 'Keen. Critical against a target with a status condition.',
+    critCondition: 'target_statused', keen: true,
   },
   spook: {
     id: 'spook', name: 'Spook', damageType: 'Ghost', power: 65, accuracy: 95,

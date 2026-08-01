@@ -38,13 +38,17 @@ export function essenceCostForLevel(level: number): number {
 }
 
 /** One-time Essence cost to permanently unlock `floor` as a start point. Floor 1 is free. */
-export function depthUnlockCost(floor: number): number {
-  return Math.max(0, (floor - 1) * DEPTH_UNLOCK_COST_PER_FLOOR);
+function discountedCost(cost: number, discountRate = 0): number {
+  return Math.max(0, Math.floor(cost * (1 - Math.max(0, Math.min(1, discountRate)))));
+}
+
+export function depthUnlockCost(floor: number, discountRate = 0): number {
+  return discountedCost(Math.max(0, (floor - 1) * DEPTH_UNLOCK_COST_PER_FLOOR), discountRate);
 }
 
 /** Per-run Essence fee for departing from an already-unlocked `floor`. Floor 1 is free. */
-export function depthRunFee(floor: number): number {
-  return Math.max(0, (floor - 1) * DEPTH_RUN_FEE_PER_FLOOR);
+export function depthRunFee(floor: number, discountRate = 0): number {
+  return discountedCost(Math.max(0, (floor - 1) * DEPTH_RUN_FEE_PER_FLOOR), discountRate);
 }
 
 /**

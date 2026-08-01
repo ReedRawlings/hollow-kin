@@ -3,6 +3,62 @@ import { getTemplate } from '../data/creatures';
 import { levelFromEssence } from './Economy';
 import { isCreatureBreedReady, unlockedSlotCount, MAX_TRAIT_SLOTS } from './Traits';
 import { calculateLevelScaledStats } from '../managers/GameState';
+import { PARTY_SIZE } from './PartyStatus';
+
+/**
+ * Living creatures a box must hold before breeding is allowed.
+ *
+ * Breeding is net -1: both parents retire and one offspring is born. Without this
+ * floor a player can breed their way out of a fieldable party — three starters
+ * become two living creatures, PartySelectScene's `selected.length === PARTY_SIZE`
+ * gate never satisfies, and the tower becomes unenterable. Because the only other
+ * path that adds to the box is `unloadCapturesToBox` (and capture is not wired into
+ * combat yet), there is currently no way back up: the save is finished.
+ *
+ * This guard is a stopgap. Wiring capture is the real fix, and once the box can grow
+ * again this floor stops being the thing standing between a player and a dead save —
+ * but it should stay, because breeding into an unfieldable party is never a move
+ * anyone means to make.
+ */
+export const MIN_LIVING_TO_BREED = PARTY_SIZE + 1;
+
+/**
+ * Whether the box can support a breeding right now.
+ *
+ * `too_few` and `would_strand` are deliberately distinct: one means "you have nothing
+ * to pair", the other means "the pairing itself is what would trap you". They want
+ * different words in front of the player.
+ */
+export type BreedingAvailability =
+  | { kind: 'available' }
+  | { kind: 'too_few'; living: number }
+  | { kind: 'would_strand'; living: number };
+
+/** Non-retired creatures. Retired parents stay in the box as tombstones forever. */
+export function livingCreatures(box: CreatureInstance[]): CreatureInstance[] {
+  return box.filter(c => !c.isRetired);
+}
+
+export function breedingAvailability(box: CreatureInstance[]): BreedingAvailability {
+  const living = livingCreatures(box).length;
+  if (living < 2) return { kind: 'too_few', living };
+  if (living < MIN_LIVING_TO_BREED) return { kind: 'would_strand', living };
+  return { kind: 'available' };
+}
+
+/** Player-facing explanation, or null when breeding is available. */
+export function breedingBlockedReason(a: BreedingAvailability): string | null {
+  switch (a.kind) {
+    case 'available':
+      return null;
+    case 'too_few':
+      return 'Breeding needs two creatures.';
+    case 'would_strand':
+      return `Breeding retires both parents for one offspring. With ${a.living} kin `
+        + `you would be left with ${a.living - 1} — too few to field a party of `
+        + `${PARTY_SIZE}, and no way back. Find another kin first.`;
+  }
+}
 
 /** Which parent's trait wins a contested slot (both parents hold a trait there). */
 export type ParentChoice = 'A' | 'B';

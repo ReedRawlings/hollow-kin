@@ -210,6 +210,7 @@ export function compactPartyCard(
   hp?: number,
   mp?: number,
   ko = false,
+  maxHp = creature.currentStats.hp,
 ): void {
   const t = getTemplate(creature.speciesId);
   const currentHp = hp ?? creature.currentStats.hp;
@@ -223,8 +224,8 @@ export function compactPartyCard(
     fontFamily: BODY_FONT, fontSize: '10px', color: ko ? UI.muted : UI.goldCss,
   });
   scene.add.text(x - w / 2 + 66, y + 15,
-    ko ? 'DOWN' : `HP ${currentHp}/${creature.currentStats.hp}  MP ${currentMp}/${creature.currentStats.mp}`, {
+    ko ? 'DOWN' : `HP ${currentHp}/${maxHp}  MP ${currentMp}/${creature.currentStats.mp}`, {
       fontFamily: BODY_FONT, fontSize: '10px',
-      color: ko ? UI.muted : Phaser.Display.Color.IntegerToColor(hpColor(currentHp, creature.currentStats.hp)).rgba,
+      color: ko ? UI.muted : Phaser.Display.Color.IntegerToColor(hpColor(currentHp, maxHp)).rgba,
     });
 }

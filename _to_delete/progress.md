@@ -105,3 +105,77 @@ Original prompt: Do a review of our project, look for bugs or open issues that n
   Tower Merchant → Run Map. No browser warnings or errors were reported.
 - Final verification: `npm run build` succeeds and all 322 tests pass. The
   production build retains the existing large-chunk warning.
+
+## Pack Tempo combat architecture — phase one (2026-07-31)
+
+- Approved and completed the remaining combat-architecture decisions in
+  `docs/combat-architecture-spec.md`, including Weave resolution, supporting
+  layer boundaries, auto-combat, metrics, and the phase-one acceptance target.
+- Added pure Pack Tempo rules with tests for the 3-point cap, within-battle
+  round carry, once-per-Kin generation, Relay spending, and timeline action
+  conservation.
+- Combat now commits and reveals exact enemy moves and targets at round start.
+- Authored starting attack roots generate Tempo on hit. Manual play gets a
+  post-action Relay/bank prompt; auto-combat uses the same Relay operation and
+  legality checks.
+- The combat UI and `render_game_to_text` expose Tempo, committed intents,
+  Relay candidates, and Tempo metrics.
+- Replaced random critical rolls with authored deterministic conditions; the
+  former high-crit moves are now Keen moves with visible conditions.
+- Added deterministic `?test=1&screen=combat` setup and test-only WebGL buffer
+  preservation so the Playwright screenshot loop captures actual game frames.
+- Browser QA confirmed manual Relay moved one existing action without copying
+  it, auto-combat spent Relay legally, text/UI state agreed, and no browser
+  errors were emitted.
+- Verification at this checkpoint: all 482 tests pass and the production build
+  succeeds; the existing large-chunk warning remains.
+
+## Battle Chamber (2026-07-31)
+
+- Started a test-only Battle Chamber so Pack Tempo and future encounter modules
+  can be exercised through repeatable presets without expedition rewards.
+- Added an injectable seeded random source and threaded optional RNG through
+  damage, effects, non-damaging accuracy, and enemy targeting. Existing callers
+  retain `Math.random`; chamber battles can now replay an exact seed.
+- Seeded RNG plus combat/tactics regression checkpoint: 73 targeted tests pass.
+- Added the Battle Chamber scene with Relay, attrition, and mini-boss presets,
+  manual/auto launch, fixed seeds, and a result ledger. Chamber combat returns
+  without XP, Obols, Monsterpedia updates, recovery, or save progression.
+- Added `?test=1&screen=chamber`, text-state coverage, and browser action bursts
+  for the chamber menu, manual launch, attrition launch, and auto completion.
+- Chamber integration checkpoint: 75 targeted tests pass and the production
+  build succeeds.
+- Browser QA covered the chamber menu, manual launch, reduced HP/MP attrition,
+  Tempo generation plus Relay, auto completion, result display, and restart.
+- Replaying seed 101 initially exposed random creature instance ids leaking into
+  auto-combat tie breaks. Chamber actors now receive deterministic ids; two full
+  auto simulations produce byte-identical result state (victory in 5 rounds,
+  Tempo +7, spent 4, wasted 7, 4 Relays).
+- Chamber completion clears its disposable RunState and awards no XP, Obols,
+  recovery, Monsterpedia knowledge, or permanent save changes.
+- Final verification: all 486 tests pass, the production build succeeds, and
+  browser runs emitted no console errors. The existing large-chunk warning remains.
+
+### Battle Chamber follow-ups
+
+- Add editable party/enemy composition after the three presets prove useful.
+- Add module toggles only when Omen/Break, Weave, or Weather have real contracts
+  to instantiate; do not add fake placeholder toggles.
+- Expand the result ledger with HP/MP/item/action metrics as their structured
+  combat events are implemented.
+
+## Battle Chamber resource comparison (2026-08-01)
+
+- Replaced the automatic post-action Relay prompt with an explicit fourth root
+  command. Relay is now queued before an action, reserves one Tempo, and is paid
+  only after that action resolves; ignoring Tempo adds no extra interaction.
+- Added a chamber-only resource-model comparison. MP Control preserves individual
+  MP, while Shared Tempo makes authored builders free and prices setup/payoff
+  moves at 1–2 shared Tempo. Relay competes for that same capped pool.
+- Shared Tempo uses test-only starter loadouts so every Kin has a builder and a
+  payoff/setup move; expedition loadouts and resource rules remain unchanged.
+- Expanded instrumentation with move-vs-Relay spending, player/enemy action
+  counts, saturation waste, and Pack First contested-round frequency to detect
+  whether Tempo is erasing meaningful initiative.
+- Targeted Pack Tempo/Battle Chamber tests pass (11 tests), and the production
+  build succeeds with the existing large-chunk warning.

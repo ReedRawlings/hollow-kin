@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
-import { depthRunFee } from '../systems/Economy';
 import { resolvePartyStatus } from '../systems/PartyStatus';
 import {
   UI, BODY_FONT, DISPLAY_FONT, archetypeColor, button, footer, header, panel,
@@ -79,7 +78,7 @@ export class DepartureScene extends Phaser.Scene {
         fontFamily: DISPLAY_FONT, fontSize: '10px',
         color: affordable ? selected ? UI.hi : UI.text : UI.muted,
       }).setOrigin(0.5);
-      this.add.text(x, 363, floor === 1 ? 'FREE' : `${depthRunFee(floor)} ESSENCE`, {
+      this.add.text(x, 363, floor === 1 ? 'FREE' : `${gameState.deepStartFee(floor)} ESSENCE`, {
         fontFamily: BODY_FONT, fontSize: '10px',
         color: affordable ? UI.tealCss : UI.redCss,
       }).setOrigin(0.5);
@@ -98,7 +97,7 @@ export class DepartureScene extends Phaser.Scene {
       canDepart ? () => this.depart() : null, UI.gold, canDepart);
     button(this, 480, 553, 200, 38, 'CHANGE PARTY', () => this.scene.start('PartySelectScene'), UI.lineBright);
     footer(this, '← → DEPTH  ·  ENTER DESCEND  ·  ESC TOWN',
-      floor === 1 ? 'NO GATE FEE' : `${depthRunFee(floor)} ESSENCE AT THE GATE`);
+      floor === 1 ? 'NO GATE FEE' : `${gameState.deepStartFee(floor)} ESSENCE AT THE GATE`);
   }
 
   private shiftFloor(delta: number): void {

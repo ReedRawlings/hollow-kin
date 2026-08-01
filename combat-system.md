@@ -22,33 +22,15 @@
 > | **NOT BUILT** | Designed here, zero code. |
 >
 > The rule this document is meant to enforce: **if you are about to write code against a
-> claim in here, check its tag first.** The V1/reality gap was invisible for long enough
-> that a fully-implemented mechanic with no UI and a permanently-disabled menu row both
-> survived several passes. Both have since been cut — see **Removed From The Design**.
+> claim in here, check its tag first.** The V1/reality gap here was invisible for long
+> enough that several claims below turn out to be inverted from what the code does, not
+> merely incomplete.
 
 ---
 
 ## **Overview**
 
 Combat in Hollow Kin is turn-based and active by default. The player controls a party of three creatures against enemy encounters in the tower. Combat is the moment-to-moment gameplay loop that everything else — breeding, traits, marks, relics — exists to support. The system must be deep enough to reward investment in creature builds while simple enough to auto-battle through low-difficulty floors.
-
----
-
-## **Removed From The Design**
-
-> Recorded so neither returns by intuition. Both were cut on **2026-07-30**, in docs and in code.
-
-### **Defend — cut**
-
-There is no Defend action, for the player or for anyone else. It previously had a full engine implementation (`isDefending` halving incoming damage) and a `TacticsAI` fallback, but **it was never in the player's menu** — only auto-combat and enemies could ever use it. Rather than expose a V1 mechanic nobody had designed around, it was removed outright: the `isDefending` field, the damage halving, the `{ kind: 'defend' }` action variant, and its tests are all gone.
-
-Damage mitigation now belongs to **buff stages** (DEF/WIS up) and **items**. Do not reintroduce a defend branch in `baseDamage`.
-
-### **RUN — cut**
-
-There is no RUN command. The root menu carried one inherited from the UI mockup, whose copy cited an escape percentage that never existed; it shipped permanently disabled and was removed. **Escaping a battle is an item** — the Smoke Husk ends a fight as a free action — and any future escape mechanic stays in that channel rather than becoming a menu verb.
-
-The root menu is now three commands: `FIGHT / MAGIC / ITEM`.
 
 ---
 
@@ -246,7 +228,7 @@ cleanse — clearing debuffs too would hand the enemy a favour.
 * Abilities cost MP as defined on the ability object — **BUILT**
 * MP does **not** regenerate naturally between turns — **BUILT.** This is a genuine attrition economy: MP is managed across a descent, not within a fight.
 * MP stays drained after each encounter — **BUILT**
-* Running out of MP limits a creature to Basic Attack (0 MP) — **BUILT.** *(The old text said "Basic Attack and Defend"; Defend is cut, so a dry creature has exactly one option.)*
+* Running out of MP limits a creature to Basic Attack (0 MP) — **BUILT.** A creature with no MP has exactly one option.
 * Ability MP costs were cut ~40% across the board (max cost is now 7, was 12) for a healthier MP economy — **BUILT**
 
 **Recovery sources:**
@@ -281,7 +263,7 @@ cleanse — clearing debuffs too would hand the enemy a favour.
 * Consumption happens **only on a non-`refused` outcome** — an item that cannot do anything is refused rather than silently eaten
 * **Smoke Husk** ends a battle as a **free action** (no enemy acts in response) and deliberately **records no species knowledge** — otherwise "enter, read the enemy, escape, re-enter informed" would be free scouting against the auto-combat fog. It is unavailable on boss floors, enforced structurally by `usableIn: 'combat_non_boss'`.
 
-This is also the channel any future escape mechanic belongs in — see **Removed From The Design**.
+Escaping a battle lives here, and any future escape mechanic stays in this channel rather than becoming a menu verb.
 
 Full item rules live in `expedition-items-pitch.md` and `systems/Items.ts`.
 
@@ -323,7 +305,7 @@ The player assigns a standing behaviour to each creature, set in Party Select an
 
 One side-agnostic `TacticsAI.chooseAction()` drives **both** player tactics and enemy AI. `enemy_default` is a literal port of the old `getEnemyAction`, pinned by characterization tests. The type system makes it impossible to hand `follow_orders` to the AI.
 
-`chooseAction` returns **null** when the actor has no legal move — in practice only when every foe is already down, meaning the battle is ending anyway. Callers end the turn rather than inventing an action. *(This used to be where the Defend fallback lived.)*
+`chooseAction` returns **null** when the actor has no legal move — in practice only when every foe is already down, meaning the battle is ending anyway. Callers end the turn rather than inventing an action.
 
 ### **Auto-Combat Limitations**
 

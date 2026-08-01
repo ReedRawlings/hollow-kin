@@ -3,6 +3,7 @@ import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
 import {
   RecoveryKind, applyTargetedRecovery, canReceiveRecovery, eligibleRecoveryTargets,
+  runMaxHp,
 } from '../systems/Recovery';
 import { generateOffer, RewardCard, RewardTier } from '../systems/RewardOffer';
 import { grantBoon } from '../systems/Boons';
@@ -21,6 +22,7 @@ interface PostCombatData {
   obolGain: number;
   xpPerCreature: number;
   levelUpMessage: string;
+  storyMessage?: string;
 }
 
 export class PostCombatScene extends Phaser.Scene {
@@ -111,6 +113,11 @@ export class PostCombatScene extends Phaser.Scene {
         fontFamily: BODY_FONT, fontSize: '9px', color: UI.greenCss,
       }).setOrigin(0.5);
     }
+    if (this.rewardData.storyMessage) {
+      this.add.text(480, 151, this.rewardData.storyMessage, {
+        fontFamily: BODY_FONT, fontSize: '9px', color: UI.goldCss,
+      }).setOrigin(0.5);
+    }
 
     if (this.offer.length === 0) {
       // Nothing viable to offer (possible only if the party is untouched and the
@@ -146,9 +153,10 @@ export class PostCombatScene extends Phaser.Scene {
       this.add.text(x + 28, 485, creature.nickname ?? t.name, {
         fontFamily: DISPLAY_FONT, fontSize: '7px', color: ko ? UI.muted : UI.text,
       });
-      this.add.text(x + 28, 504, ko ? 'DOWN' : `HP ${hp}/${creature.currentStats.hp}`, {
+      const maxHp = runMaxHp(creature, run);
+      this.add.text(x + 28, 504, ko ? 'DOWN' : `HP ${hp}/${maxHp}`, {
         fontFamily: BODY_FONT, fontSize: '9px',
-        color: ko ? UI.redCss : Phaser.Display.Color.IntegerToColor(hpColor(hp, creature.currentStats.hp)).rgba,
+        color: ko ? UI.redCss : Phaser.Display.Color.IntegerToColor(hpColor(hp, maxHp)).rgba,
       });
       this.add.text(x + 28, 521, `MP ${mp}/${creature.currentStats.mp}`, {
         fontFamily: BODY_FONT, fontSize: '9px', color: ko ? UI.muted : UI.tealCss,
@@ -348,7 +356,7 @@ export class PostCombatScene extends Phaser.Scene {
       const current = kind === 'hp'
         ? (run.partyHp[creature.instanceId] ?? 0)
         : (run.partyMp[creature.instanceId] ?? 0);
-      const max = kind === 'hp' ? creature.currentStats.hp : creature.currentStats.mp;
+      const max = kind === 'hp' ? runMaxHp(creature, run) : creature.currentStats.mp;
       const recovered = eligible ? Math.max(1, Math.floor(max * card.fraction)) : 0;
 
       const bg = panel(this, x, 300, 276, 326, selected && eligible);

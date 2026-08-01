@@ -88,7 +88,7 @@ function conditionHolds(
       return !log.hasActed;
     case 'survived_turns':
       return log.turnsAlive >= condition.turns;
-    case 'ally_knocked_out':
+    case 'enemy_party_lost_member':
       return party.anyKnockedOut;
     case 'solo_actor':
       return party.actorCount <= 1;
@@ -173,8 +173,31 @@ export function isUncapturable(template: CreatureTemplate, towerBand: number): b
 }
 
 /**
+ * Why a capture cannot be attempted here, or null if it can.
+ *
+ * Boss is checked first and is deliberately NOT expressed as a zero price. Boss
+ * encounters draw from the ordinary wild pool, so the same species is a legitimate
+ * wild catch one floor earlier — zeroing its band price would make it uncapturable
+ * everywhere, which is a different (and wrong) rule. Only a genuinely never-takeable
+ * species gets a 0, and no alpha species has one.
+ */
+export function captureRefusal(
+  template: CreatureTemplate,
+  towerBand: number,
+  isBossEncounter: boolean,
+): 'boss' | 'not_in_this_band' | null {
+  if (isBossEncounter) return 'boss';
+  if (isUncapturable(template, towerBand)) return 'not_in_this_band';
+  return null;
+}
+
+/**
  * What it costs to guarantee this creature right now. Returns 0 for species that
  * cannot be captured at all, which `captureChance` reads as impossible.
+ *
+ * Does NOT consider the encounter — a caller must check `captureRefusal` first.
+ * Keeping the boss rule out of here preserves this function's single job (pricing)
+ * and keeps it usable for a boss's Monsterpedia entry later.
  *
  * Depth enters only through which tower band the floor falls in — the price for
  * that band is authored, not computed. `riteBand` is the unrelated rite tier.

@@ -283,7 +283,7 @@ Rites generalise by archetype and are available per species: creatures within an
 
 | Archetype | Family rite | `RiteCondition` | Status |
 |---|---|---|---|
-| Spirits | An enemy creature faints in combat | `ally_knocked_out` | **supported** |
+| Spirits | A creature on the **capturing** party falls | `enemy_party_lost_member` | **supported** (renamed from `ally_knocked_out` 2026-07-31 — it reads the player's side, not the target's) |
 | Flora | This creature is hit with a flame attack | `damage_type_taken` (Fire) | **supported** |
 | Kami | This creature is hit with an electric attack | `damage_type_taken` (Electric) | **supported** |
 | Slimes | This creature is hit with a physical attack | `damage_type_taken` (Fighting) | **supported** |

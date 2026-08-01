@@ -20,14 +20,17 @@ export type BoonEffect =
   | { kind: 'damage_dealt'; multiplier: number }
   | { kind: 'damage_taken'; multiplier: number; firstRoundOnly: boolean }
   | { kind: 'obol_bonus'; multiplier: number }
-  | { kind: 'post_victory_heal'; fraction: number };
+  | { kind: 'post_victory_heal'; fraction: number }
+  | { kind: 'max_hp_flat'; amount: number };
 
 export interface BoonDefinition {
   id: string;
   name: string;
   description: string;
-  /** Battles this lasts when granted. */
-  battles: number;
+  /** Compact run-map copy when the name alone does not explain the effect. */
+  statusText?: string;
+  /** Battles this lasts when granted; null lasts until the run ends. */
+  battles: number | null;
   effect: BoonEffect;
 }
 
@@ -60,9 +63,27 @@ export const BOONS: Record<string, BoonDefinition> = {
     battles: 3,
     effect: { kind: 'post_victory_heal', fraction: 0.1 },
   },
+  garys_gift_10: {
+    id: 'garys_gift_10',
+    name: "Gary's Gift",
+    description: '+10 maximum Health to every creature in the party for this run.',
+    statusText: "Gary's Gift: +10 Health to all Creatures in Party",
+    battles: null,
+    effect: { kind: 'max_hp_flat', amount: 10 },
+  },
+  garys_gift_20: {
+    id: 'garys_gift_20',
+    name: "Gary's Gift",
+    description: '+20 maximum Health to every creature in the party for this run.',
+    statusText: "Gary's Gift: +20 Health to all Creatures in Party",
+    battles: null,
+    effect: { kind: 'max_hp_flat', amount: 20 },
+  },
 };
 
 export const BOON_LIST: readonly BoonDefinition[] = Object.values(BOONS);
+/** Only timed boons belong in random post-combat offers; relics have owners. */
+export const REWARD_BOON_LIST: readonly BoonDefinition[] = BOON_LIST.filter(b => b.battles !== null);
 
 /** Falls back rather than throwing, matching `getItem` — a bad id costs one boon,
  *  not the run. */

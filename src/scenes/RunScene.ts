@@ -1,11 +1,15 @@
 import Phaser from 'phaser';
 import { gameState } from '../managers/GameState';
 import { getTemplate } from '../data/creatures';
-import { generateDescent, generatePickNextChoices } from '../systems/RunGenerator';
+import { generateDescent, generatePickNextChoices, injectStoryCombat } from '../systems/RunGenerator';
 import { usedSlots, removeAt } from '../systems/Backpack';
 import { convertObolsToEssence } from '../systems/Economy';
 import { canDepart, hasWaystone, nextDepartureFloor } from '../systems/Departure';
 import { activeBoonSummaries } from '../systems/Boons';
+import { effectiveMaxHp, grantBoon } from '../systems/Boons';
+import {
+  GARY_SHORTSWORD_EVENT_ID, garyGiftBoonId, isGaryShortswordEligible,
+} from '../systems/Relationships';
 import { Encounter, RunState, TOWER_FLOORS } from '../types';
 import {
   UI, BODY_FONT, DISPLAY_FONT, archetypeColor, button, compactPartyCard,
@@ -21,6 +25,7 @@ export class RunScene extends Phaser.Scene {
   /** Set when the player picked a room while departure was open — the commit modal. */
   private confirmingCommit: Encounter | null = null;
   private resultIsWipe = false;
+  private resultOutcome: 'cleared' | 'fled' | 'wiped' = 'fled';
   private showingBag = false;
 
   constructor() {
@@ -32,18 +37,25 @@ export class RunScene extends Phaser.Scene {
     this.confirmingDeparture = false;
     this.confirmingCommit = null;
     this.showingBag = false;
+    this.resultOutcome = 'fled';
     resetBagPanel();
     if (!data?.continueRun || !gameState.currentRun) {
       const startFloor = gameState.resolveRunStartFloor();
       gameState.startRun();
-      const encounters = generateDescent(startFloor);
+      let encounters = generateDescent(startFloor);
+      if (isGaryShortswordEligible(gameState.garyRelationship())) {
+        encounters = injectStoryCombat(encounters, GARY_SHORTSWORD_EVENT_ID, 15);
+      }
+      let activeBoons: RunState['activeBoons'] = [];
+      const gift = garyGiftBoonId(gameState.garyRelationship());
+      if (gift) activeBoons = grantBoon(activeBoons, gift);
       gameState.currentRun = {
         startFloor, currentEncounterIndex: -1, encounters, choices: [],
         obols: 0, partyHp: {}, partyMp: {}, partyKO: {},
-        xpEarned: 0, autoCombat: false, activeBoons: [],
+        xpEarned: 0, autoCombat: false, activeBoons,
       };
       for (const c of gameState.runParty) {
-        gameState.currentRun.partyHp[c.instanceId] = c.currentStats.hp;
+        gameState.currentRun.partyHp[c.instanceId] = effectiveMaxHp(c.currentStats.hp, activeBoons);
         gameState.currentRun.partyMp[c.instanceId] = c.currentStats.mp;
         gameState.currentRun.partyKO[c.instanceId] = false;
       }
@@ -133,7 +145,7 @@ export class RunScene extends Phaser.Scene {
     gameState.runParty.forEach((creature, i) => {
       compactPartyCard(this, creature, 138 + i * 226, 510, 210,
         run.partyHp[creature.instanceId], run.partyMp[creature.instanceId],
-        run.partyKO[creature.instanceId]);
+        run.partyKO[creature.instanceId], effectiveMaxHp(creature.currentStats.hp, run.activeBoons));
     });
 
     const standing = gameState.runParty.filter(c => !run.partyKO[c.instanceId]).length;
@@ -223,14 +235,16 @@ export class RunScene extends Phaser.Scene {
     this.add.text(24, y, 'IN EFFECT', {
       fontFamily: BODY_FONT, fontSize: '9px', color: UI.muted,
     }).setOrigin(0, 0.5);
-    boons.forEach((b, i) => {
+    let x = 96;
+    boons.forEach((b) => {
       const label = b.battlesLeft === null
-        ? b.name.toUpperCase()
+        ? (b.statusText ?? b.name).toUpperCase()
         : `${b.name.toUpperCase()}  ${b.battlesLeft}`;
-      this.add.text(96 + i * 176, y, label, {
+      this.add.text(x, y, label, {
         fontFamily: DISPLAY_FONT, fontSize: '8px',
         color: Phaser.Display.Color.IntegerToColor(UI.orange).rgba,
       }).setOrigin(0, 0.5);
+      x += Math.max(176, label.length * 7);
     });
   }
 
@@ -420,9 +434,10 @@ export class RunScene extends Phaser.Scene {
         if (!run.partyKO[c.instanceId]) {
           c.xp += 10;
           gameState.tryLevelUp(c);
+          const maxHp = effectiveMaxHp(c.currentStats.hp, run.activeBoons);
           run.partyHp[c.instanceId] = Math.min(
-            run.partyHp[c.instanceId] + Math.floor(c.currentStats.hp * 0.1),
-            c.currentStats.hp,
+            run.partyHp[c.instanceId] + Math.floor(maxHp * 0.1),
+            maxHp,
           );
         }
       }
@@ -439,6 +454,7 @@ export class RunScene extends Phaser.Scene {
     const run = gameState.currentRun!;
     const isWipe = outcome === 'wiped';
     this.resultIsWipe = isWipe;
+    this.resultOutcome = outcome;
     this.confirmingDeparture = false;
     this.confirmingCommit = null;
     const deepest = run.currentEncounterIndex >= 0
@@ -502,7 +518,13 @@ export class RunScene extends Phaser.Scene {
   private returnToTown(): void {
     if (!this.ending || !gameState.currentRun) return;
     const run = gameState.currentRun;
-    gameState.endRun(!this.resultIsWipe, run.obols);
+    const deepestFloor = run.currentEncounterIndex >= 0
+      ? run.encounters[run.currentEncounterIndex].floor
+      : run.startFloor;
+    gameState.endRun(!this.resultIsWipe, run.obols, {
+      outcome: this.resultOutcome,
+      deepestFloor,
+    });
     gameState.saveToLocalStorage();
     this.scene.start('TownScene');
   }

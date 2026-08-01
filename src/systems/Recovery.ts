@@ -1,4 +1,9 @@
 import { CreatureInstance, RunState } from '../types';
+import { effectiveMaxHp } from './Boons';
+
+export function runMaxHp(creature: CreatureInstance, run: RunState): number {
+  return effectiveMaxHp(creature.currentStats.hp, run.activeBoons);
+}
 
 export type RecoveryKind = 'hp' | 'mp';
 
@@ -9,7 +14,7 @@ export function canReceiveRecovery(
 ): boolean {
   if (run.partyKO[creature.instanceId]) return false;
   if (kind === 'hp') {
-    return (run.partyHp[creature.instanceId] ?? 0) < creature.currentStats.hp;
+    return (run.partyHp[creature.instanceId] ?? 0) < runMaxHp(creature, run);
   }
   return (run.partyMp[creature.instanceId] ?? 0) < creature.currentStats.mp;
 }
@@ -32,7 +37,7 @@ export function applyTargetedRecovery(
   if (!canReceiveRecovery(kind, creature, run)) return 0;
 
   if (kind === 'hp') {
-    const max = creature.currentStats.hp;
+    const max = runMaxHp(creature, run);
     const current = run.partyHp[creature.instanceId] ?? 0;
     const recovered = Math.min(Math.floor(max * fraction), max - current);
     run.partyHp[creature.instanceId] = current + recovered;
@@ -62,8 +67,8 @@ export function reviveOnRun(
   if (!run.partyKO[creature.instanceId]) return false;
   run.partyKO[creature.instanceId] = false;
   run.partyHp[creature.instanceId] = Math.min(
-    creature.currentStats.hp,
-    Math.max(1, Math.floor(creature.currentStats.hp * hpFraction)),
+    runMaxHp(creature, run),
+    Math.max(1, Math.floor(runMaxHp(creature, run) * hpFraction)),
   );
   // Never LOWER MP: a knock-out only zeroes HP on the run map too, so a
   // creature felled at full MP keeps it — mirrors CombatEngine's `revive`.

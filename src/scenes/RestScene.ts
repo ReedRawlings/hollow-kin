@@ -4,7 +4,7 @@ import { getTemplate } from '../data/creatures';
 import { Encounter } from '../types';
 import {
   RecoveryKind, applyTargetedRecovery, canReceiveRecovery,
-  eligibleRecoveryTargets,
+  eligibleRecoveryTargets, runMaxHp,
 } from '../systems/Recovery';
 
 export class RestScene extends Phaser.Scene {
@@ -46,8 +46,9 @@ export class RestScene extends Phaser.Scene {
           const run = gameState.currentRun!;
           for (const c of gameState.runParty) {
             if (!run.partyKO[c.instanceId]) {
-              run.partyHp[c.instanceId] = Math.min(c.currentStats.hp,
-                (run.partyHp[c.instanceId] ?? 0) + Math.floor(c.currentStats.hp * 0.2));
+              const maxHp = runMaxHp(c, run);
+              run.partyHp[c.instanceId] = Math.min(maxHp,
+                (run.partyHp[c.instanceId] ?? 0) + Math.floor(maxHp * 0.2));
               run.partyMp[c.instanceId] = Math.min(c.currentStats.mp,
                 (run.partyMp[c.instanceId] ?? 0) + Math.floor(c.currentStats.mp * 0.2));
             }
@@ -114,7 +115,7 @@ export class RestScene extends Phaser.Scene {
       const current = kind === 'hp'
         ? (run.partyHp[creature.instanceId] ?? 0)
         : (run.partyMp[creature.instanceId] ?? 0);
-      const max = kind === 'hp' ? creature.currentStats.hp : creature.currentStats.mp;
+      const max = kind === 'hp' ? runMaxHp(creature, run) : creature.currentStats.mp;
 
       const bg = this.add.rectangle(x, y, 230, 150, eligible ? 0x223344 : 0x222222, 0.95)
         .setStrokeStyle(2, eligible ? 0x66aacc : 0x444444);

@@ -77,6 +77,8 @@ export interface AbilityEffect {
   value?: number;  // for heal (% of max HP) or recoil (% of damage)
 }
 
+export type CriticalCondition = 'target_statused' | 'target_debuffed' | 'target_below_half';
+
 export interface Ability {
   id: string;
   name: string;
@@ -87,7 +89,12 @@ export interface Ability {
   mpCost: number;
   targeting: TargetingType;
   description: string;
-  highCrit?: boolean;
+  /** Authored Pack Tempo trigger evaluated once after the whole action resolves. */
+  tempoGeneration?: 'on_hit';
+  /** Deterministic condition replacing random critical rolls. */
+  critCondition?: CriticalCondition;
+  /** Presentation tag for a move with an intentionally broad or easy crit condition. */
+  keen?: boolean;
   effects?: AbilityEffect[];
 }
 
@@ -181,8 +188,7 @@ export interface CombatCreature {
  * What the tactics AI decides to do. The AI never applies it — the scene does.
  *
  * A single-variant union on purpose: `kind` is the discriminator future actions
- * hang off (capture is the next one). There is deliberately no `defend` — the
- * mechanic was cut, not merely unexposed. See the note in CombatEngine.baseDamage.
+ * hang off, capture being the next one.
  */
 export type CombatAction =
   | { kind: 'ability'; abilityId: string; target: CombatCreature };
@@ -205,6 +211,8 @@ export interface Encounter {
   floor: number;           // absolute tower floor (1..TOWER_FLOORS)
   index: number;           // position within the current run's encounter list
   bossTier?: 'mini' | 'major'; // set on boss encounters
+  /** Optional narrative payload resolved when this combat is won. */
+  storyEventId?: string;
 }
 
 export interface RunState {
@@ -219,6 +227,27 @@ export interface RunState {
   xpEarned: number;
   autoCombat: boolean;    // AUTO toggle state; persists across encounters within a run
   activeBoons: ActiveBoon[];  // timed modifiers; expire with the run
+}
+
+export type RunOutcome = 'cleared' | 'fled' | 'wiped';
+
+export interface LastRunSummary {
+  outcome: RunOutcome;
+  deepestFloor: number;
+}
+
+export interface ScheduledRelationshipReward {
+  returnsRemaining: number;
+  amount: number;
+}
+
+/** Generic persisted relationship state; content systems interpret its ids. */
+export interface RelationshipProgress {
+  stage: number;
+  completedEventIds: string[];
+  flags: string[];
+  evidenceIds: string[];
+  scheduledRewards: Record<string, ScheduledRelationshipReward>;
 }
 
 /**
@@ -261,8 +290,6 @@ export const ARCHETYPE_COLORS: Record<Archetype, number> = {
 export const RESISTANCE_MULTIPLIER = 0.5;
 export const WEAKNESS_MULTIPLIER = 1.5;
 export const CRIT_MULTIPLIER = 1.5;
-export const BASE_CRIT_RATE = 0.05;
-export const HIGH_CRIT_RATE = 0.15;
 export const MIN_HIT_CHANCE = 0.30;
 
 // --- Essence / Obol economy (placeholders for playtest tuning) ---
@@ -432,7 +459,14 @@ export type RiteCondition =
   | { kind: 'hp_below'; fraction: number }
   | { kind: 'has_not_acted' }
   | { kind: 'survived_turns'; turns: number }
-  | { kind: 'ally_knocked_out' }
+  /**
+   * A creature on the CAPTURING side (the player's party) has been knocked out.
+   *
+   * Named for the side it reads, not for a relationship: it was once
+   * `ally_knocked_out`, which said the opposite of what it does — `CaptureParty`
+   * is the party opposing the creature being captured. Renamed 2026-07-31.
+   */
+  | { kind: 'enemy_party_lost_member' }
   | { kind: 'solo_actor' }
   // The five below were added for the authored family rites. They read log
   // fields the combat scene does not write yet — see the note on RiteLog.
@@ -495,8 +529,13 @@ export interface RiteLog {
   debuffApplied: boolean;
 }
 
-/** Facts about the player's side that some rites key off. */
+/**
+ * Facts about the **player's** party — which is the side *opposing* the creature
+ * being captured. Every field here is read from the captors' point of view, which
+ * is why the conditions that use it are all named `enemy_party_*`.
+ */
 export interface CaptureParty {
+  /** A player creature is down. Not the captured creature's own side. */
   anyKnockedOut: boolean;
   /** How many of the player's creatures have acted this battle. */
   actorCount: number;
@@ -504,7 +543,16 @@ export interface CaptureParty {
   archetypes: Archetype[];
 }
 
-/** What a rejected bid tells the player. Never a number. */
+/**
+ * What a rejected bid tells the player. Never a number.
+ *
+ * "Never a number" scopes to this feedback channel only — **the price itself is
+ * shown to the player.** `capturePrice` already folds in the satisfied rite band,
+ * so the displayed number drops the moment a rite latches; that drop is the
+ * discovery, and what stays hidden is *which* rite caused it. Do not turn this into
+ * a price-guessing game: with enrage at CAPTURE_ENRAGE_AFTER rejections and enemies
+ * acting after every failed bid, probing for the number would be unplayable.
+ */
 export type BidReaction = 'insulted' | 'wavers';
 
 /**

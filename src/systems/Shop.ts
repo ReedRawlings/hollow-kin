@@ -1,5 +1,6 @@
 import { Backpack, CreatureInstance, Encounter, RunState } from '../types';
 import { add as addToBackpack, isFull } from './Backpack';
+import { runMaxHp } from './Recovery';
 
 export type ShopItemId = 'heal_party' | 'restore_mp' | 'revive_creature';
 
@@ -24,7 +25,7 @@ export function canBenefitFromShopItem(
     case 'heal_party':
       return party.some(c =>
         !run.partyKO[c.instanceId]
-        && (run.partyHp[c.instanceId] ?? 0) < c.currentStats.hp
+        && (run.partyHp[c.instanceId] ?? 0) < runMaxHp(c, run)
       );
     case 'restore_mp':
       return party.some(c =>
@@ -55,7 +56,7 @@ export function tryPurchaseShopItem(
     case 'heal_party':
       for (const c of party) {
         if (run.partyKO[c.instanceId]) continue;
-        const max = c.currentStats.hp;
+        const max = runMaxHp(c, run);
         const current = run.partyHp[c.instanceId] ?? 0;
         run.partyHp[c.instanceId] = Math.min(max, current + Math.floor(max * 0.5));
       }
@@ -70,7 +71,7 @@ export function tryPurchaseShopItem(
       const ko = party.find(c => run.partyKO[c.instanceId]);
       if (!ko) return false;
       run.partyKO[ko.instanceId] = false;
-      run.partyHp[ko.instanceId] = Math.floor(ko.currentStats.hp * 0.25);
+      run.partyHp[ko.instanceId] = Math.floor(runMaxHp(ko, run) * 0.25);
       run.partyMp[ko.instanceId] = Math.floor(ko.currentStats.mp * 0.25);
       break;
     }

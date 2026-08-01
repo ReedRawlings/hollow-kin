@@ -1,9 +1,10 @@
 import {
   CombatCreature, Ability, AbilityEffect, BaseStats, StatName, StatusType,
   BUFF_MULTIPLIERS, RESISTANCE_MULTIPLIER, WEAKNESS_MULTIPLIER,
-  CRIT_MULTIPLIER, BASE_CRIT_RATE, HIGH_CRIT_RATE, MIN_HIT_CHANCE,
+  CRIT_MULTIPLIER, MIN_HIT_CHANCE,
   DamageType,
 } from '../types';
+import { RandomSource } from './SeededRandom';
 
 export function calculateTurnOrder(combatants: CombatCreature[]): CombatCreature[] {
   const alive = combatants.filter(c => !c.isKnockedOut);
@@ -20,13 +21,8 @@ export function getEffectiveStat(creature: CombatCreature, stat: StatName): numb
 /**
  * Deterministic damage core: stat matchup, power, and the optional type
  * multiplier. No RNG — no hit roll, no crit, no accuracy weighting.
- * Shared by calculateDamage (which layers the rolls on top) and the AI's
+ * Shared by calculateDamage (which layers accuracy and conditional crits on top) and the AI's
  * estimateDamage (which layers accuracy on top).
- *
- * There is no defend halving. Defend was cut outright (2026-07-30): it had a
- * full engine implementation and no way for a player to ever pick it, so only
- * the AI and enemies could use it. Damage mitigation belongs to items and
- * buff stages now — do not reintroduce a defend branch here.
  *
  * `useTypeMultiplier` is false when the caller must not assume knowledge of the
  * defender's resistances — that is how the AI's knowledge fog is enforced.
@@ -59,18 +55,19 @@ export function baseDamage(
 }
 
 /** Roll an ability's configured accuracy, respecting the global minimum hit chance. */
-export function rollAbilityHit(ability: Ability): boolean {
+export function rollAbilityHit(ability: Ability, rng: RandomSource = Math.random): boolean {
   const hitChance = Math.max(MIN_HIT_CHANCE, ability.accuracy / 100);
-  return Math.random() <= hitChance;
+  return rng() <= hitChance;
 }
 
 export function calculateDamage(
   attacker: CombatCreature,
   defender: CombatCreature,
   ability: Ability,
+  rng: RandomSource = Math.random,
 ): { damage: number; isCrit: boolean; missed: boolean } {
   // Check hit — this roll must stay first to preserve the RNG stream.
-  if (!rollAbilityHit(ability)) {
+  if (!rollAbilityHit(ability, rng)) {
     return { damage: 0, isCrit: false, missed: true };
   }
 
@@ -78,18 +75,24 @@ export function calculateDamage(
 
   let damage = baseDamage(attacker, defender, ability, true);
 
-  // Crit check (player only)
-  let isCrit = false;
-  if (attacker.isPlayerOwned) {
-    const critRate = ability.highCrit ? HIGH_CRIT_RATE : BASE_CRIT_RATE;
-    const spdBonus = getEffectiveStat(attacker, 'spd') / 1000;
-    if (Math.random() < critRate + spdBonus) {
-      isCrit = true;
-      damage *= CRIT_MULTIPLIER;
-    }
-  }
+  const isCrit = meetsCriticalCondition(defender, ability);
+  if (isCrit) damage *= CRIT_MULTIPLIER;
 
   return { damage: Math.max(1, Math.floor(damage)), isCrit, missed: false };
+}
+
+/** Criticals are authored state checks, never a random roll. */
+export function meetsCriticalCondition(defender: CombatCreature, ability: Ability): boolean {
+  switch (ability.critCondition) {
+    case 'target_statused':
+      return defender.statusEffects.length > 0;
+    case 'target_debuffed':
+      return Object.values(defender.buffStages).some(stage => (stage ?? 0) < 0);
+    case 'target_below_half':
+      return defender.currentHp * 2 < defender.maxHp;
+    default:
+      return false;
+  }
 }
 
 export function applyDamage(target: CombatCreature, damage: number): void {
@@ -175,13 +178,14 @@ export function applyAbilityEffects(
   user: CombatCreature,
   target: CombatCreature,
   damage: number,
+  rng: RandomSource = Math.random,
 ): string[] {
   const messages: string[] = [];
   if (!ability.effects) return messages;
 
   for (const effect of ability.effects) {
     const chance = effect.chance ?? 1;
-    if (Math.random() > chance) continue;
+    if (rng() > chance) continue;
 
     switch (effect.type) {
       case 'buff':
@@ -246,15 +250,16 @@ export function resolveNonDamagingAbility(
   ability: Ability,
   user: CombatCreature,
   target: CombatCreature,
+  rng: RandomSource = Math.random,
 ): { missed: boolean; messages: string[] } {
-  if (isHostileAbility(ability) && !rollAbilityHit(ability)) {
+  if (isHostileAbility(ability) && !rollAbilityHit(ability, rng)) {
     return { missed: true, messages: [] };
   }
 
   const effectTarget = ability.targeting === 'self' ? user : target;
   return {
     missed: false,
-    messages: applyAbilityEffects(ability, user, effectTarget, 0),
+    messages: applyAbilityEffects(ability, user, effectTarget, 0, rng),
   };
 }
 
@@ -302,12 +307,13 @@ export function createCombatCreature(
   isPlayer: boolean,
   currentHp?: number,
   currentMp?: number,
+  maxHpOverride?: number,
 ): CombatCreature {
   return {
     instance,
     template,
-    currentHp: currentHp ?? instance.currentStats.hp,
-    maxHp: instance.currentStats.hp,
+    currentHp: currentHp ?? maxHpOverride ?? instance.currentStats.hp,
+    maxHp: maxHpOverride ?? instance.currentStats.hp,
     currentMp: currentMp ?? instance.currentStats.mp,
     maxMp: instance.currentStats.mp,
     buffStages: {},

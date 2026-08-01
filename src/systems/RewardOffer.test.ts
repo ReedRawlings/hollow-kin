@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ITEMS } from '../data/items';
-import { BOONS } from '../data/boons';
+import { BOONS, REWARD_BOON_LIST } from '../data/boons';
 import { OfferContext, REWARD_ITEM_POOLS, generateOffer } from './RewardOffer';
 
 /** A deterministic roll sequence, cycling so a draw can never run dry. */
@@ -14,6 +14,14 @@ function ctx(over: Partial<OfferContext> = {}): OfferContext {
 }
 
 describe('generateOffer', () => {
+  it('never offers relationship relics as random combat boons', () => {
+    for (let i = 0; i < 100; i++) {
+      const cards = generateOffer({ tier: 'major', floor: 20, anyHurt: false, anyMpMissing: false }, Math.random);
+      for (const card of cards) {
+        if (card.kind === 'boon') expect(REWARD_BOON_LIST.some(b => b.id === card.boonId)).toBe(true);
+      }
+    }
+  });
   it('offers three cards when every kind is viable', () => {
     expect(generateOffer(ctx(), rolls([0.1, 0.5, 0.9]))).toHaveLength(3);
   });

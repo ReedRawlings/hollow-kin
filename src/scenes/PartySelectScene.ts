@@ -7,8 +7,17 @@ import {
   UI, BODY_FONT, DISPLAY_FONT, archetypeColor, button, footer, header,
   panel, screenFrame, spritePlate, stars, backButton,
 } from '../ui/Theme';
+import { paging, PAGE_SIZE, GRID_COLS } from '../ui/paging';
 
-const PAGE_SIZE = 12;
+/**
+ * Card names start right of the sprite plate with ~75px to the card edge, which at
+ * the 7px display font is about ten characters. Longer names (Weeping Willow,
+ * Golem Grimace) used to run straight over the neighbouring card.
+ */
+const CARD_NAME_MAX = 10;
+function cardName(name: string): string {
+  return name.length > CARD_NAME_MAX ? `${name.slice(0, CARD_NAME_MAX - 1)}.` : name;
+}
 
 export class PartySelectScene extends Phaser.Scene {
   private selected: string[] = [];
@@ -29,8 +38,10 @@ export class PartySelectScene extends Phaser.Scene {
     this.draw();
     this.input.keyboard?.on('keydown-LEFT', () => this.moveCandidate(-1));
     this.input.keyboard?.on('keydown-RIGHT', () => this.moveCandidate(1));
-    this.input.keyboard?.on('keydown-UP', () => this.moveCandidate(-4));
-    this.input.keyboard?.on('keydown-DOWN', () => this.moveCandidate(4));
+    this.input.keyboard?.on('keydown-UP', () => this.moveCandidate(-GRID_COLS));
+    this.input.keyboard?.on('keydown-DOWN', () => this.moveCandidate(GRID_COLS));
+    this.input.keyboard?.on('keydown-PAGE_UP', () => this.changePage(-1));
+    this.input.keyboard?.on('keydown-PAGE_DOWN', () => this.changePage(1));
     this.input.keyboard?.on('keydown-ENTER', () => this.swapCandidate());
     this.input.keyboard?.on('keydown-ESC', () => this.scene.start('TownScene'));
   }
@@ -52,15 +63,24 @@ export class PartySelectScene extends Phaser.Scene {
     this.add.text(146, 94, 'CREATURE BOX', {
       fontFamily: DISPLAY_FONT, fontSize: '10px', color: UI.hi,
     });
-    this.add.text(670, 94, `PAGE ${this.page + 1}/${Math.max(1, Math.ceil(creatures.length / PAGE_SIZE))}`, {
+    // Resolve through `paging` rather than trusting this.page: the box can shrink
+    // under the viewer (breeding retires two parents) and will grow past one page
+    // once capture lands.
+    const p = paging(creatures.length, this.page);
+    this.page = p.page;
+
+    this.add.text(614, 94, `PAGE ${p.page + 1}/${p.pageCount}`, {
       fontFamily: BODY_FONT, fontSize: '9px', color: UI.muted,
     }).setOrigin(1, 0);
+    // Pointer-reachable paging. Without these the box was keyboard-only past page 1,
+    // because a card can only be hovered on the page already being drawn.
+    this.drawPageArrow(636, 98, '<', p.hasPrev, () => this.changePage(-1));
+    this.drawPageArrow(664, 98, '>', p.hasNext, () => this.changePage(1));
 
-    const pageCreatures = creatures.slice(this.page * PAGE_SIZE, (this.page + 1) * PAGE_SIZE);
-    pageCreatures.forEach((creature, i) => {
-      const globalIndex = this.page * PAGE_SIZE + i;
-      const col = i % 4;
-      const row = Math.floor(i / 4);
+    creatures.slice(p.start, p.end).forEach((creature, i) => {
+      const globalIndex = p.start + i;
+      const col = i % GRID_COLS;
+      const row = Math.floor(i / GRID_COLS);
       const x = 104 + col * 154;
       const y = 178 + row * 116;
       this.drawCreatureCard(creature, x, y, globalIndex === this.candidateIndex, globalIndex);
@@ -75,10 +95,15 @@ export class PartySelectScene extends Phaser.Scene {
     if (candidate) this.drawCompare(candidate);
 
     const canSave = this.selected.length === PARTY_SIZE;
-    button(this, 784, 568, 150, 38, canSave ? 'CONFIRM PARTY' : `${this.selected.length} / ${PARTY_SIZE} CHOSEN`,
+    // Laid out to not overlap: CONFIRM spans 695..845, BACK spans 854..926, both
+    // inside the 678..930 panel. The old coords overlapped by 18px and BACK drew
+    // on top, clipping the label to "CONFIRM PART".
+    button(this, 770, 568, 150, 38, canSave ? 'CONFIRM PARTY' : `${this.selected.length} / ${PARTY_SIZE} CHOSEN`,
       canSave ? () => this.confirm() : null, UI.gold, canSave);
-    button(this, 878, 568, 74, 38, 'BACK', () => this.scene.start('TownScene'), UI.lineBright);
-    footer(this, 'ARROWS BROWSE  ·  ENTER SWAP  ·  ESC BACK',
+    button(this, 890, 568, 72, 38, 'BACK', () => this.scene.start('TownScene'), UI.lineBright);
+    footer(this, p.pageCount > 1
+      ? 'ARROWS BROWSE  ·  PGUP/PGDN PAGE  ·  ENTER SWAP  ·  ESC BACK'
+      : 'ARROWS BROWSE  ·  ENTER SWAP  ·  ESC BACK',
       candidate ? `${getTemplate(candidate.speciesId).name} SELECTED` : 'BOX EMPTY');
   }
 
@@ -96,7 +121,7 @@ export class PartySelectScene extends Phaser.Scene {
         fontFamily: DISPLAY_FONT, fontSize: '7px', color: UI.goldCss,
       }).setOrigin(1, 0);
     }
-    this.add.text(x - 4, y - 20, creature.nickname ?? t.name, {
+    this.add.text(x - 4, y - 20, cardName(creature.nickname ?? t.name), {
       fontFamily: DISPLAY_FONT, fontSize: '7px', color: selected ? UI.hi : UI.text,
     });
     this.add.text(x - 4, y - 2, stars(creature.starRating), {
@@ -183,11 +208,33 @@ export class PartySelectScene extends Phaser.Scene {
       already ? null : () => this.swapCandidate(), UI.gold, !already);
   }
 
+  private drawPageArrow(x: number, y: number, glyph: string, active: boolean, onClick: () => void): void {
+    const t = this.add.text(x, y, glyph, {
+      fontFamily: DISPLAY_FONT, fontSize: '10px', color: active ? UI.hi : UI.muted,
+    }).setOrigin(0.5, 0);
+    if (!active) return;
+    t.setInteractive({ useHandCursor: true }).on('pointerdown', onClick);
+  }
+
+  /**
+   * Turn the page directly, moving the cursor onto that page's first card so the
+   * comparison panel keeps describing something the player can actually see.
+   */
+  private changePage(delta: number): void {
+    const creatures = this.available();
+    if (!creatures.length) return;
+    const p = paging(creatures.length, this.page + delta);
+    if (p.page === this.page) return;
+    this.page = p.page;
+    this.candidateIndex = p.start;
+    this.draw();
+  }
+
   private moveCandidate(delta: number): void {
     const creatures = this.available();
     if (!creatures.length) return;
     this.candidateIndex = Math.max(0, Math.min(creatures.length - 1, this.candidateIndex + delta));
-    this.page = Math.floor(this.candidateIndex / PAGE_SIZE);
+    this.page = paging(creatures.length, Math.floor(this.candidateIndex / PAGE_SIZE)).page;
     this.draw();
   }
 

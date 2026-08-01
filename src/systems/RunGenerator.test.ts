@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateDescent, generatePickNextChoices, poolForFloor } from './RunGenerator';
+import { generateDescent, generatePickNextChoices, injectStoryCombat, poolForFloor } from './RunGenerator';
 import { TOWER_FLOORS, TOWER_BAND_SIZE, bandForFloor } from '../types';
 
 /** Every boss floor in the current descent, mini and major alike. */
@@ -25,6 +25,13 @@ describe('poolForFloor', () => {
 });
 
 describe('generateDescent', () => {
+  it('routes a floor-15+ story event through an ordinary combat', () => {
+    const descent = injectStoryCombat(generateDescent(), 'gary_shortsword', 15, () => 0);
+    const story = descent.find(e => e.storyEventId === 'gary_shortsword');
+    expect(story?.floor).toBeGreaterThanOrEqual(15);
+    expect(story?.type).toBe('combat');
+    expect(story?.enemies?.length).toBeGreaterThan(0);
+  });
   it('produces one encounter per floor of the tower by default', () => {
     const d = generateDescent();
     expect(d).toHaveLength(TOWER_FLOORS);
