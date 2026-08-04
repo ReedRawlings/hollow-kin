@@ -1,21 +1,49 @@
-import { STARTER_TRIO_A } from '../data/creatures';
+import { STARTER_HAND_LOADOUTS, STARTER_TRIO_A } from '../data/creatures';
 import { Ability, EncounterType } from '../types';
 
-export type BattleChamberResourceModel = 'individual_mp' | 'shared_tempo';
+export type BattleChamberResourceModel = 'individual_mp' | 'shared_actions';
 
-/** Chamber-only loadouts that make the shared-resource comparison legible. */
-export const SHARED_TEMPO_LOADOUTS: Readonly<Record<string, readonly string[]>> = {
-  kin_070: ['jab', 'slash'],
-  kin_092: ['frost', 'harden'],
-  kin_123: ['ember', 'smolder'],
-};
+/** The active combat architecture is tested against expedition-style individual MP. */
+export const DEFAULT_BATTLE_CHAMBER_RESOURCE_MODEL: BattleChamberResourceModel = 'individual_mp';
+
+export interface BattleChamberResourceRules {
+  moveCurrency: 'individual_mp' | 'shared_action_points';
+  learnedMoveCost: string;
+  basicAttackCost: string;
+  roundRefresh: string;
+  relayCurrency: 'pack_tempo';
+}
+
+export function battleChamberResourceRules(
+  model: BattleChamberResourceModel,
+): BattleChamberResourceRules {
+  if (model === 'shared_actions') {
+    return {
+      moveCurrency: 'shared_action_points',
+      learnedMoveCost: '1-2 AP',
+      basicAttackCost: '0 AP',
+      roundRefresh: '3 AP at round start; no banking',
+      relayCurrency: 'pack_tempo',
+    };
+  }
+  return {
+    moveCurrency: 'individual_mp',
+    learnedMoveCost: 'authored MP cost',
+    basicAttackCost: '0 MP',
+    roundRefresh: 'none during battle',
+    relayCurrency: 'pack_tempo',
+  };
+}
+
+/** The Chamber uses the real Founding Hand loadouts so its results cannot drift. */
+export const BATTLE_CHAMBER_LOADOUTS = STARTER_HAND_LOADOUTS;
 
 /**
  * Experimental conversion, deliberately isolated from the production rules:
- * builders are free, setup costs 1, and damaging payoffs cost 1–2.
+ * Basic Attack is the free fallback; learned setup/payoff moves cost 1–2 AP.
  */
-export function sharedTempoAbilityCost(ability: Ability): number {
-  if (ability.id === 'basic_attack' || ability.tempoGeneration === 'on_hit') return 0;
+export function sharedActionAbilityCost(ability: Ability): number {
+  if (ability.id === 'basic_attack') return 0;
   if (ability.power <= 0) return 1;
   return Math.min(2, Math.max(1, Math.ceil(ability.mpCost / 3)));
 }
@@ -31,6 +59,14 @@ export interface BattleChamberPreset {
   bossTier?: 'mini' | 'major';
   initialHpFraction: number;
   initialMpFraction: number;
+  /** Test fixture: seeds spendable Tempo without changing production combat. */
+  initialTempoPoints?: number;
+  /** Enable authored Link Art recipes and their combat UI. */
+  linkArts?: boolean;
+  /** Give the first living enemy a second, separately telegraphed action slot. */
+  bossDoubleAction?: boolean;
+  /** Prototype run upgrade: Relay may schedule one already-acted Kin once per round. */
+  encoreRelay?: boolean;
   seed: number;
 }
 
@@ -39,6 +75,13 @@ export interface BattleChamberContext {
   seed: number;
   auto: boolean;
   resourceModel: BattleChamberResourceModel;
+  initialTempoPoints?: number;
+  linkArts?: boolean;
+  bossDoubleAction?: boolean;
+  encoreRelay?: boolean;
+  /** Development lab knowledge: authored weaknesses are visible and Tempo-eligible immediately. */
+  revealWeaknesses?: boolean;
+  comparisonResults?: Partial<Record<BattleChamberResourceModel, BattleChamberResult>>;
 }
 
 export interface BattleChamberResult {
@@ -50,43 +93,51 @@ export interface BattleChamberResult {
   tempoSpent: number;
   tempoWasted: number;
   relays: number;
-  tempoSpentOnMoves: number;
+  actionPointsSpent: number;
   tempoSpentOnRelay: number;
   playerActions: number;
   enemyActions: number;
   packFirstRounds: number;
   initiativeRounds: number;
+  relayHeldRounds: number;
+  linkArtsCompleted: number;
+  linksInterrupted: number;
+  relayEnabledLinks: number;
+  extraTurnsGranted: number;
 }
 
 export const BATTLE_CHAMBER_PRESETS: readonly BattleChamberPreset[] = [
   {
     id: 'tempo_relay',
-    name: 'TEMPO RELAY',
-    purpose: 'Earn Tempo and pull Geta through an enemy-heavy timeline.',
+    name: 'RELAY + LINKS',
+    purpose: 'Earn Tempo from Iron, Ash, and Salt weaknesses; Relay into a Link.',
     partyIds: STARTER_TRIO_A,
-    enemyIds: ['kin_013', 'kin_087'],
+    enemyIds: ['kin_013', 'kin_017', 'kin_037'],
     enemyLevel: 1,
     encounterType: 'combat',
     initialHpFraction: 1,
     initialMpFraction: 1,
+    linkArts: true,
     seed: 101,
   },
   {
     id: 'attrition',
     name: 'ATTRITION',
-    purpose: 'Test decisions with wounded Kin, limited MP, and three intentions.',
+    purpose: 'Test held Relay and the Encore upgrade under resource pressure.',
     partyIds: STARTER_TRIO_A,
     enemyIds: ['kin_013', 'kin_087', 'kin_075'],
     enemyLevel: 2,
     encounterType: 'combat',
     initialHpFraction: 0.55,
     initialMpFraction: 0.35,
+    initialTempoPoints: 3,
+    encoreRelay: true,
     seed: 202,
   },
   {
     id: 'mini_boss',
-    name: 'MINI-BOSS',
-    purpose: 'Measure a longer single-target fight before adding boss modules.',
+    name: 'TWIN THREAT',
+    purpose: 'A mini-boss owns two separate intent slots every round.',
     partyIds: STARTER_TRIO_A,
     enemyIds: ['kin_075'],
     enemyLevel: 3,
@@ -94,6 +145,8 @@ export const BATTLE_CHAMBER_PRESETS: readonly BattleChamberPreset[] = [
     bossTier: 'mini',
     initialHpFraction: 1,
     initialMpFraction: 1,
+    bossDoubleAction: true,
+    linkArts: true,
     seed: 303,
   },
 ] as const;

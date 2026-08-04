@@ -2,9 +2,10 @@
 
 *Working Document — Subject to Change*
 
-> **Owns:** turn order, actions, damage formula, accuracy/evasion, crits, buffs & debuffs, status effects, MP, knockout, items and boons in battle, auto-combat tactics, enemy AI.
+> **Owns:** turn order, actions, damage formula, **the damage types (the wards)**, accuracy/evasion, crits, buffs & debuffs, status effects, MP, knockout, items and boons in battle, auto-combat tactics, enemy AI.
 > **Defers to the GDD on:** currency, progression model, capture rules, and what persists across runs. Encounter placement and boss cadence live in `tower-structure.md`.
 > **Last verified:** 2026-07-30 — every section below re-checked line by line against `CombatEngine.ts`, `CombatScene.ts`, `TacticsAI.ts`, `data/abilities.ts` and `data/creatures.ts`.
+> **Amended 2026-08-02:** the ward vocabulary was decided and renamed throughout `src/` the same day — `DamageType`, all 31 abilities, the resistance traits and every test. Doc and code agree. The four new wards (Bane, Rust, Honey, Thorn) are **types without abilities** so far; see the caveat under *The Wards*.
 
 ---
 
@@ -76,17 +77,59 @@ Key points:
 * Skills have a built-in Power value. **The `/ 50` divisor is load-bearing** — Power is expressed on a ~50-is-average scale, so dropping it multiplies all damage by fifty — **BUILT**
 * Some skills deal fixed damage or scale off MP/level rather than STR/INT — **NOT BUILT.** No ability in `abilities.ts` does this. Items do have a fixed-damage path (`applyPercentDamage`), deliberately bypassing DEF and the type chart — that is what earns a fixed-damage item a backpack slot when the party's abilities are being resisted.
 
+### **The Wards — damage types** — **BUILT** *(decided and renamed in code 2026-08-02)*
+
+The type chart in Hollow Kin is not physics — it is folk remedy. Every damage type is named
+for a thing people have carried against the dark, and that framing is load-bearing: it is
+*why* resistances are per-creature and hidden. There is no rule that fire beats ghosts.
+There is only the specific knowledge that this specific kin cannot abide iron, and someone
+had to find that out first.
+
+Ten wards. The first six are renames of the shipped `DamageType` values; the last four are new.
+
+| Ward | What it is | Archetype signature | Old identifier |
+| ----- | ----- | ----- | ----- |
+| **Iron** | Physical force. Horseshoes over the door, nails in the lintel, a blade in the cradle so nothing swaps the child | Fauna, Human, Rock | `Fighting` |
+| **Bell** | Shock and concussion — pressure that arrives all at once and clears the air. *Bell, book and candle* | Kami, Human | `Electric` |
+| **Breath** | Wind and air. *Anima*, *pneuma*, *ruach*, *ki* — the soul built from the word for breath. A **hollow** kin is one the breath has left | Kami, Spirits | `Wind` |
+| **Ash** | Fire and burning. Scattered on thresholds overnight to read the prints of what walked through | Devils | `Fire` |
+| **Salt** | Cold, preservation, stillness. It does not burn a thing, it stops it | Kami | `Ice` |
+| **Mirror** | Spectral. Covered in a house with a body in it, so the soul does not catch on the way out | Spirits | `Ghost` |
+| **Bane** | Venom and rot in the blood. Wolfsbane, henbane, dragonsbane — the suffix names a plant by what it kills. The only ward that waits | Dragon | *new* |
+| **Rust** | Corrosion and entropy. Iron wants to go back to being ore; the made thing carries the terms of its own coming-apart | Mecha | *new* |
+| **Honey** | Sticky, slowing, cloying. What you leave out for whatever keeps the house. Tears nothing — things adhere and thicken until they cannot move | Food | *new* |
+| **Thorn** | Piercing and entangling. Laid over fresh graves to keep what is in them from walking. Never one wound; forty small ones, and then it holds on | Flora | *new* |
+
+**Iron ↔ Rust is the one explicit opposition in the set** — the only relationship a player can
+reason about on sight, and deliberately the only one. There is still no global type chart.
+
+**Rock and Slimes have no signature ward** and draw from the generalists. Rock's candidates
+(Chalk, Lodestone) were considered and dropped on 2026-08-02; if it needs its own identity
+later, that is where to look.
+
+> **All ten wards are dealable as of 2026-08-02.** `abilities.ts` went 31 → 45: fourteen new
+> moves covering Bane, Rust, Honey and Thorn, and sixteen existing moves renamed so their
+> display names read as wards rather than elements (`Ember` → `Ashfall`, `Frost` → `Rime`,
+> `Spark` → `Toll`). **Ability ids were deliberately left alone** — they are opaque handles
+> referenced ~86 times across tests, fixtures and LinkArts recipes, and the player never
+> sees them, so `id: 'ember'` now carries `name: 'Ashfall'`.
+>
+> Every ward needs a low-tier move in **both** categories, or an archetype carrying it cannot
+> serve both STR and INT roles. Salt already worked this way (`frost` Physical 35 / `chill`
+> Special 40); `combfall` and `thicket` were added to give Honey and Thorn the same.
+>
+> The **Old identifier** column is retained as the migration record.
+
 ### **Resistance and Weakness Multipliers**
 
 * **Resistant:** 0.5× · **Neutral:** 1.0× · **Weak:** 1.5× — **BUILT** (`RESISTANCE_MULTIPLIER` / `WEAKNESS_MULTIPLIER`)
 
 Resistances and weaknesses are per-creature, not per-archetype. There is no global type chart.
 
-> ⚠️ **The type chart is currently flat.** All 30 alpha creatures ship with empty
-> `resistances` and `weaknesses` arrays, so the multiplier branch never fires and
-> auto-combat's knowledge fog has nothing to withhold — the "blind on first encounter"
-> promise is intact but invisible. Filling these in touches `creatures.ts` only, and is
-> the biggest live content gap in combat.
+The alpha roster now has authored wards. Any landed weakness hit receives the damage
+multiplier and generates one Pack Tempo, even when the species has not been seen before.
+Monsterpedia knowledge controls weakness previews and auto-combat targeting; it never
+suppresses the underlying damage or Tempo reward.
 
 ---
 

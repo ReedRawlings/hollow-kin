@@ -34,7 +34,7 @@ function foe(overrides: Partial<CombatCreature> = {}): CombatCreature {
 
 const FAMILY_FIRE: RiteDef = {
   id: 'family_fire', band: 'family', persistence: 'sticky',
-  conditions: [{ kind: 'damage_type_taken', damageType: 'Fire' }],
+  conditions: [{ kind: 'damage_type_taken', damageType: 'Ash' }],
 };
 const SIGNATURE_MERCY: RiteDef = {
   id: 'sig_mercy', band: 'signature', persistence: 'volatile',
@@ -75,7 +75,7 @@ describe('rite persistence', () => {
   it('latches a sticky rite so it survives the condition lapsing', () => {
     const t = template({ rites: [FAMILY_FIRE] });
     const log = newRiteLog();
-    log.damageTypesTaken.push('Fire');
+    log.damageTypesTaken.push('Ash');
 
     const first = evaluateRites(t, foe(), log, NO_PARTY);
     expect(first.satisfied).toContain('family_fire');
@@ -288,23 +288,23 @@ describe('log-scoped conditions added for the family rites', () => {
   });
 
   it('counts damage types dealt rather than merely observing them', () => {
-    const twice = [{ kind: 'damage_type_dealt' as const, damageType: 'Fire' as const, times: 2 }];
-    expect(holds(twice, { ...newRiteLog(), damageTypesDealt: { Fire: 1 } })).toBe(false);
-    expect(holds(twice, { ...newRiteLog(), damageTypesDealt: { Fire: 2 } })).toBe(true);
-    expect(holds(twice, { ...newRiteLog(), damageTypesDealt: { Fire: 5 } })).toBe(true);
+    const twice = [{ kind: 'damage_type_dealt' as const, damageType: 'Ash' as const, times: 2 }];
+    expect(holds(twice, { ...newRiteLog(), damageTypesDealt: { Ash: 1 } })).toBe(false);
+    expect(holds(twice, { ...newRiteLog(), damageTypesDealt: { Ash: 2 } })).toBe(true);
+    expect(holds(twice, { ...newRiteLog(), damageTypesDealt: { Ash: 5 } })).toBe(true);
   });
 
   it('defaults an uncounted damage_type_dealt to once', () => {
-    const once = [{ kind: 'damage_type_dealt' as const, damageType: 'Electric' as const }];
+    const once = [{ kind: 'damage_type_dealt' as const, damageType: 'Bell' as const }];
     expect(holds(once)).toBe(false);
-    expect(holds(once, { ...newRiteLog(), damageTypesDealt: { Electric: 1 } })).toBe(true);
+    expect(holds(once, { ...newRiteLog(), damageTypesDealt: { Bell: 1 } })).toBe(true);
   });
 
   it('keeps damage dealt separate from damage taken', () => {
     // Mecha and Dragon read what was USED in the battle; the existing
     // damage_type_taken reads only what the target received. Different fields.
-    const dealt = [{ kind: 'damage_type_dealt' as const, damageType: 'Fire' as const }];
-    expect(holds(dealt, { ...newRiteLog(), damageTypesTaken: ['Fire'] })).toBe(false);
+    const dealt = [{ kind: 'damage_type_dealt' as const, damageType: 'Ash' as const }];
+    expect(holds(dealt, { ...newRiteLog(), damageTypesTaken: ['Ash'] })).toBe(false);
   });
 
   it('reads the stat stage of an enemy this creature struck', () => {

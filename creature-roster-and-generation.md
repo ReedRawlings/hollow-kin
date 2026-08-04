@@ -36,7 +36,15 @@ Eleven archetypes. Distribution is intentionally uneven — archetype size is a 
 | Food | 10 | |
 | Slimes | 5 | Smallest archetype — expand or accept as a deliberate rarity |
 
-Archetype determines **element identity, resistances, weaknesses, trait pool, and ability set**. It does not determine stats.
+Archetype determines **ward identity, trait pool, and ability set**. It does not determine stats.
+
+> ⚠️ **Corrected 2026-08-02.** This line previously claimed archetype determines resistances
+> and weaknesses. It does not, and never did — that contradicted both the GDD and
+> `combat-system.md`, and the code has always read `resistances`/`weaknesses` off the
+> individual creature. Archetype biases which **ward** a creature *deals* (via its default
+> abilities); what it *resists* is authored per creature and is deliberately not inferable
+> from appearance. The ward vocabulary and per-archetype signatures live in
+> `combat-system.md` → *The Wards*.
 
 ### **Roles**
 
@@ -123,8 +131,8 @@ This split is the core of the system. Get it wrong and the spreadsheet stops bei
 | `archetype` | Content decision |
 | `role` | Content decision |
 | `towerIds` | Encounter placement |
-| `resistances` | Type identity. Permanent — breeding never changes it |
-| `weaknesses` | As above. This is the one thing a player can never breed away from |
+| `resistances` | Which **wards** this kin shrugs off. Permanent — breeding never changes it |
+| `weaknesses` | Which **wards** it cannot abide. This is the one thing a player can never breed away from, and it is deliberately not inferable from the creature's appearance or archetype |
 | `naturalTraitPool` | Curated compatibility list, not a roll table |
 | `rites` | The capture puzzle. Universal per creature — the same rite applies at every depth |
 | `availability` | wild / boss / breed_only |
@@ -230,7 +238,7 @@ The inherited term is **species-agnostic** — it does not care what the offspri
 
 This is the mechanism that makes every creature viable long-term. A weak early-tower creature bred from strong parents converges on the same stats as anything else. It is also why the species base must be a **stable authored number** rather than rolled at spawn: if the floor moves, the punishment for breeding too early stops being legible.
 
-**What breeding cannot fix:** resistances and weaknesses are copied from the template and never change. Type is the one permanent difference between creatures. Keep the type chart balanced — a type that is a weakness on many creatures and a resistance on few is a tax no amount of breeding removes.
+**What breeding cannot fix:** resistances and weaknesses are copied from the template and never change. Ward vulnerability is the one permanent difference between creatures. Keep the distribution balanced — a ward that is a weakness on many creatures and a resistance on few is a tax no amount of breeding removes. With ten wards and only thirty creatures, the thin ones will skew easily; check the spread before committing the columns.
 
 ---
 

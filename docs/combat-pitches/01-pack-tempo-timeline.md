@@ -1,5 +1,7 @@
 # Hollow Kin Combat Pitch 1 — The Pack Tempo Timeline
 
+> Historical pitch. The authoritative persistent three-Tempo Relay and Link Art rules are maintained in `../combat-architecture-spec.md`.
+
 > **Summary:** Combat uses a visible, interleaved timeline. Every living combatant receives one action per round, but the player earns a small shared resource called **Pack Tempo** and spends it to pull an ally forward before an enemy acts. Moves are learned and strengthened during the expedition, with each move contributing a different way to create or exploit Tempo. The result is a pure turn-based system about arranging a three-creature combination under pressure—not about positioning, extra turns, or repeatedly selecting the highest-damage move.
 
 > **Status:** Competing design pitch, not a change to the GDD. Numbers and terminology are illustrative. “Move” is the player-facing term used here for the current Ability object.
@@ -54,7 +56,7 @@ Certain successful actions generate one Pack Tempo. The meter is shared by the p
 
 Core Tempo triggers should be deliberate and limited. Candidates include:
 
-- exploiting a known weakness;
+- exploiting a weakness, known or newly discovered;
 - triggering a move’s conditional critical;
 - using a status interaction listed on the move;
 - satisfying a Kin’s Instinct;
@@ -197,7 +199,7 @@ Test the identity of the pitch before building its content breadth:
 1. Reveal enemy move and target at round start.
 2. Keep the current one-action-per-combatant SPD timeline.
 3. Add a three-point Pack Tempo meter.
-4. Generate Tempo only from known weakness hits and one prototype move condition.
+4. Generate Tempo from any landed weakness hit and one prototype move condition; knowledge only controls previews and auto-combat targeting.
 5. Spend one Tempo only to Relay an unused ally.
 6. Convert three existing moves to deterministic critical conditions.
 7. Add one Learn, one Advance and one Temper offer for a single role.

@@ -195,8 +195,8 @@ Run-based relics are earned during a run and provide stackable or conditional bo
 | `traits` | `traitSlots` in code: four `{ traitId, traitLevel, unlocked }` entries. ⚠️ Only `stat`-category traits currently have any effect, and nothing ever grants one |
 | `abilities` | Array of up to four ability IDs |
 | `lineage` | References to parent creature IDs |
-| `resistances` | Array of damage types this creature resists |
-| `weaknesses` | Array of damage types this creature is weak to |
+| `resistances` | Array of **wards** this creature resists |
+| `weaknesses` | Array of **wards** this creature is weak to |
 
 ### **Star Rating**
 
@@ -275,7 +275,7 @@ Longevity has been **removed** from the design. Permanent essence progression is
 ### **Mark Types (Examples)**
 
 * **Depth Mark** — earned by surviving to a floor threshold; grants bonus stats on floors beyond that depth  
-* **Ice Mark** \- earned by defeating the first section boss with an all ice type based team. Increases ice damage
+* **Salt Mark** \- earned by defeating the first section boss with an all-Salt team. Increases Salt damage
 
 ### **Marks and Breeding**
 
@@ -332,7 +332,7 @@ The system splits three ways with no overlap: **permanent level buys capacity, a
 | ----- | ----- |
 | `id` | Unique ability identifier |
 | `name` | Display name |
-| `damageType` | One of Fighting / Electric / Wind / Fire / Ice / Ghost, or `None` |
+| `damageType` | One of the ten **wards** — Iron / Bell / Breath / Ash / Salt / Mirror / Bane / Rust / Honey / Thorn — or `None`. ⚠️ No ability deals Bane, Rust, Honey or Thorn yet; those four are resistance/weakness-only. Rationale: `combat-system.md` → *The Wards* |
 | `power` | Damage scale, ~50-is-average. **Load-bearing** — the formula divides by 50 |
 | `accuracy` | Hit chance percentage, floored globally at `MIN_HIT_CHANCE` (30%) |
 | `category` | `Physical` / `Special` / `Status`. **This is what decides stat scaling** — Physical reads STR vs DEF, Special reads INT vs WIS. There is no separate `stat_scaling` field |
@@ -356,27 +356,32 @@ The system splits three ways with no overlap: **permanent level buys capacity, a
 
 ## **Archetypes**
 
-**Eleven** archetypes define a creature's element identity, trait pool, and first default ability. There is no archetype-level rock-paper-scissors. Individual resistances and weaknesses on each creature provide tactical variation.
+**Eleven** archetypes define a creature's **ward** identity, trait pool, and first default ability. There is no archetype-level rock-paper-scissors — archetype biases which ward a creature *deals*; what it *resists* is authored per creature. Individual resistances and weaknesses provide the tactical variation.
 
 Archetype is one of **two** content axes. The other is **role**, which is orthogonal to it and is what stats are generated from — see `creature-roster-and-generation.md`.
 
-| Archetype | Combat Identity |
-| ----- | ----- |
-| **Kami** | Debuffs and ice |
-| **Spirits** | Ghost-type attacks and debuffs |
-| **Flora** | Heals and buffs |
-| **Fauna** | Physical attacks, high speed |
-| **Rock** | High defense, low speed, physical attacks |
-| **Mecha** | Flame and electricity, low HP, high speed |
-| **Food** | Buffs and physical attacks — buffs are stronger but shorter duration than Flora |
-| **Human** | Physical attacks and ice |
-| **Devils** | Combat identity TBD |
-| **Dragon** | Combat identity TBD |
-| **Slimes** | Combat identity TBD |
+| Archetype | Signature ward | Combat Identity |
+| ----- | ----- | ----- |
+| **Kami** | Salt, Bell | Debuffs and cold |
+| **Spirits** | Mirror, Breath | Spectral attacks and debuffs |
+| **Flora** | **Thorn** | Heals and buffs |
+| **Fauna** | Iron | Physical attacks, high speed |
+| **Rock** | *(generalist — Iron)* | High defense, low speed, physical attacks |
+| **Mecha** | **Rust** | Corrosion and shock, low HP, high speed |
+| **Food** | **Honey** | Buffs and binding — buffs are stronger but shorter duration than Flora |
+| **Human** | Iron, Bell | Physical attacks and shock |
+| **Devils** | Ash | Burning |
+| **Dragon** | **Bane** | Venom and lingering damage |
+| **Slimes** | *(generalist)* | Combat identity TBD |
 
-> The last three arrived with the 2026-07-28 alpha roster swap and do not yet have an
-> authored combat identity. Full per-archetype counts for the 134-creature roster live in
-> `creature-roster-and-generation.md`.
+> **Rock and Slimes have no signature ward** and draw from the generalists. Rock had two
+> candidates (Chalk, Lodestone), both dropped on 2026-08-02 — that is where to look if it
+> needs its own identity later.
+
+> Devils, Dragon and Slimes arrived with the 2026-07-28 alpha roster swap without an
+> authored combat identity. The 2026-08-02 ward decision gave Devils (Ash) and Dragon
+> (Bane) one; **Slimes is still open.** Full per-archetype counts for the 134-creature
+> roster live in `creature-roster-and-generation.md`.
 
 ---
 
@@ -466,7 +471,7 @@ Town is a hub of "folks" who turn essence into permanent upgrades. The Enhancer 
 
 * Traits and abilities are stored as IDs on the creature object
 * `ABILITIES` and `TRAIT_LIBRARY` map IDs to their definitions
-* Resistances and weaknesses are arrays of damage type strings on each creature object
+* Resistances and weaknesses are arrays of ward strings on each creature object
 
 > ⚠️ **"Map IDs to their logic functions" overstates both.** Each is a plain data record,
 > not a dispatch table. Ability effects are inline data interpreted by one `switch` in

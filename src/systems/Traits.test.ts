@@ -112,14 +112,14 @@ describe('canSpeciesTakeTrait (strict, deny-by-default)', () => {
   });
 
   it('respects an explicit pool: allows a trait that is in it', () => {
-    const templates = { testspecies: { naturalTraitPool: ['hp_up', 'resist_fire'] } };
+    const templates = { testspecies: { naturalTraitPool: ['hp_up', 'resist_ash'] } };
     expect(canSpeciesTakeTrait('testspecies', 'hp_up', templates)).toBe(true);
-    expect(canSpeciesTakeTrait('testspecies', 'resist_fire', templates)).toBe(true);
+    expect(canSpeciesTakeTrait('testspecies', 'resist_ash', templates)).toBe(true);
   });
 
   it('respects an explicit pool: denies a trait that is not in it', () => {
     const templates = { testspecies: { naturalTraitPool: ['hp_up'] } };
-    expect(canSpeciesTakeTrait('testspecies', 'resist_fire', templates)).toBe(false);
+    expect(canSpeciesTakeTrait('testspecies', 'resist_ash', templates)).toBe(false);
   });
 
   it('denies everything for a species given an explicit empty pool', () => {
@@ -176,13 +176,13 @@ describe('naturalTraitPool authoring invariants (CREATURE_TEMPLATES)', () => {
   it('every DamageType has exactly one corresponding resistance trait in TRAIT_LIBRARY', () => {
     // Derived from TRAIT_LIBRARY itself (category === 'resistance' && target) rather than
     // a hand-rolled list, so a newly added DamageType with no matching trait (a content
-    // gap, like the pre-fix Wind/Ghost gap) fails this test instead of silently shipping.
+    // gap, like the pre-fix Breath/Mirror gap) fails this test instead of silently shipping.
     const resistanceTraitsByDamageType: Record<string, TraitDefinition[]> = {};
     for (const t of Object.values(TRAIT_LIBRARY)) {
       if (t.category !== 'resistance' || !t.target) continue;
       (resistanceTraitsByDamageType[t.target] ??= []).push(t);
     }
-    const allDamageTypes: DamageType[] = ['Fighting', 'Electric', 'Wind', 'Fire', 'Ice', 'Ghost'];
+    const allDamageTypes: DamageType[] = ['Iron', 'Bell', 'Breath', 'Ash', 'Salt', 'Mirror'];
     for (const damageType of allDamageTypes) {
       expect(resistanceTraitsByDamageType[damageType]?.length).toBe(1);
     }

@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { generateDescent, generatePickNextChoices, injectStoryCombat, poolForFloor } from './RunGenerator';
+import {
+  generateDescent, generatePickNextChoices, injectStoryCombat,
+  openingEncounterPool, poolForFloor,
+} from './RunGenerator';
 import { TOWER_FLOORS, TOWER_BAND_SIZE, bandForFloor } from '../types';
+import { getTemplate, STARTER_HAND_LOADOUTS, STARTER_TRIO_A } from '../data/creatures';
+import { getAbility } from '../data/abilities';
 
 /** Every boss floor in the current descent, mini and major alike. */
 const BOSS_FLOORS = Array.from({ length: Math.floor(TOWER_FLOORS / 5) }, (_, i) => (i + 1) * 5);
@@ -61,6 +66,25 @@ describe('generateDescent', () => {
   it('makes the first floor combat', () => {
     const d = generateDescent();
     expect(d[0].type).toBe('combat');
+  });
+
+  it('randomizes floor one within enemies the Founding Hand can exploit', () => {
+    const starterWards = new Set(STARTER_TRIO_A.flatMap(id => (
+      STARTER_HAND_LOADOUTS[id]
+        .map(abilityId => getAbility(abilityId).damageType)
+        .filter(damageType => damageType !== 'None')
+    )));
+    const eligible = openingEncounterPool();
+    expect(eligible.length).toBeGreaterThan(0);
+    for (const id of eligible) {
+      expect(getTemplate(id).weaknesses.some(weakness => starterWards.has(weakness))).toBe(true);
+    }
+    for (let i = 0; i < 100; i++) {
+      const enemies = generateDescent()[0].enemies!;
+      expect(enemies.length).toBeGreaterThanOrEqual(1);
+      expect(enemies.length).toBeLessThanOrEqual(2);
+      for (const id of enemies) expect(eligible).toContain(id);
+    }
   });
 
   it('supports a depth-jump start floor', () => {

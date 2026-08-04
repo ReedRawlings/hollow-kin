@@ -27,7 +27,7 @@ export interface TraitDefinition {
    * |----------------|--------------------------------------|-----------|
    * | `stat`         | a `BaseStats` key                    | `'str'`   |
    * | `battle_start` | a `BaseStats` key (the stat buffed)  | `'str'`   |
-   * | `resistance`   | a `DamageType`                       | `'Fire'`  |
+   * | `resistance`   | a `DamageType`                       | `'Ash'`  |
    * | `type`         | an `Archetype`                       | `'Kami'`  |
    * | others         | omitted — the effect has no operand  | —         |
    *
@@ -107,41 +107,68 @@ export const TRAIT_LIBRARY: Record<string, TraitDefinition> = {
   },
 
   // --- Resistance Traits — passive reduction to incoming damage/effects of a kind ---
-  resist_fire: {
-    id: 'resist_fire', name: 'Resist Fire', category: 'resistance',
-    description: 'Reduces incoming Fire damage.',
+  // One per ward, enforced by Traits.test.ts ('every DamageType has exactly one
+  // corresponding resistance trait'). Adding a ward means adding a trait here AND putting
+  // it in at least one species' naturalTraitPool — a second test enforces that.
+  resist_ash: {
+    id: 'resist_ash', name: 'Resist Ash', category: 'resistance',
+    description: 'Reduces incoming Ash damage.',
     magnitudes: [0.1, 0.2, 0.3, 0.4],
-    target: 'Fire',
+    target: 'Ash',
   },
-  resist_ice: {
-    id: 'resist_ice', name: 'Resist Ice', category: 'resistance',
-    description: 'Reduces incoming Ice damage.',
+  resist_salt: {
+    id: 'resist_salt', name: 'Resist Salt', category: 'resistance',
+    description: 'Reduces incoming Salt damage.',
     magnitudes: [0.1, 0.2, 0.3, 0.4],
-    target: 'Ice',
+    target: 'Salt',
   },
-  resist_lightning: {
-    id: 'resist_lightning', name: 'Resist Lightning', category: 'resistance',
-    description: 'Reduces incoming Electric damage.',
+  resist_bell: {
+    id: 'resist_bell', name: 'Resist Bell', category: 'resistance',
+    description: 'Reduces incoming Bell damage.',
     magnitudes: [0.1, 0.2, 0.3, 0.4],
-    target: 'Electric',
+    target: 'Bell',
   },
-  resist_physical: {
-    id: 'resist_physical', name: 'Resist Physical', category: 'resistance',
-    description: 'Reduces incoming Fighting damage.',
+  resist_iron: {
+    id: 'resist_iron', name: 'Resist Iron', category: 'resistance',
+    description: 'Reduces incoming Iron damage.',
     magnitudes: [0.1, 0.2, 0.3, 0.4],
-    target: 'Fighting',
+    target: 'Iron',
   },
-  resist_wind: {
-    id: 'resist_wind', name: 'Resist Wind', category: 'resistance',
-    description: 'Reduces incoming Wind damage.',
+  resist_breath: {
+    id: 'resist_breath', name: 'Resist Breath', category: 'resistance',
+    description: 'Reduces incoming Breath damage.',
     magnitudes: [0.1, 0.2, 0.3, 0.4],
-    target: 'Wind',
+    target: 'Breath',
   },
-  resist_ghost: {
-    id: 'resist_ghost', name: 'Resist Ghost', category: 'resistance',
-    description: 'Reduces incoming Ghost damage.',
+  resist_mirror: {
+    id: 'resist_mirror', name: 'Resist Mirror', category: 'resistance',
+    description: 'Reduces incoming Mirror damage.',
     magnitudes: [0.1, 0.2, 0.3, 0.4],
-    target: 'Ghost',
+    target: 'Mirror',
+  },
+  resist_bane: {
+    id: 'resist_bane', name: 'Resist Bane', category: 'resistance',
+    description: 'Reduces incoming Bane damage.',
+    magnitudes: [0.1, 0.2, 0.3, 0.4],
+    target: 'Bane',
+  },
+  resist_rust: {
+    id: 'resist_rust', name: 'Resist Rust', category: 'resistance',
+    description: 'Reduces incoming Rust damage.',
+    magnitudes: [0.1, 0.2, 0.3, 0.4],
+    target: 'Rust',
+  },
+  resist_honey: {
+    id: 'resist_honey', name: 'Resist Honey', category: 'resistance',
+    description: 'Reduces incoming Honey damage.',
+    magnitudes: [0.1, 0.2, 0.3, 0.4],
+    target: 'Honey',
+  },
+  resist_thorn: {
+    id: 'resist_thorn', name: 'Resist Thorn', category: 'resistance',
+    description: 'Reduces incoming Thorn damage.',
+    magnitudes: [0.1, 0.2, 0.3, 0.4],
+    target: 'Thorn',
   },
   resist_status: {
     id: 'resist_status', name: 'Resist Status', category: 'resistance',

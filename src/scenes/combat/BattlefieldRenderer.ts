@@ -74,8 +74,12 @@ export interface BattlefieldView {
   round: number;
   tempo: number;
   tempoCap: number;
-  /** Chamber experiment: MP is inactive and the header Tempo pool pays for moves. */
-  usesSharedTempo: boolean;
+  relayReady: boolean;
+  linkLabel: string | null;
+  /** Chamber experiment: MP is inactive and a round-refreshing shared pool pays for moves. */
+  usesSharedActions: boolean;
+  actionPoints: number;
+  actionPointCap: number;
   turnOrderChips: ChipSpec[];
   playerParty: CombatCreature[];
   enemyParty: CombatCreature[];
@@ -126,9 +130,29 @@ function drawHeader(scene: Phaser.Scene, view: BattlefieldView): void {
   }).setOrigin(0, 0.5);
 
   const tempoPips = Array.from({ length: view.tempoCap }, (_, i) => i < view.tempo ? '◆' : '◇').join(' ');
-  scene.add.text(contentLeft, headerTop + 44, `PACK TEMPO  ${tempoPips}  ${view.tempo}/${view.tempoCap}`, {
+  const tempoText = scene.add.text(contentLeft, headerTop + 44, `PACK TEMPO  ${tempoPips}  ${view.tempo}/${view.tempoCap}`, {
     fontFamily: BODY_FONT, fontSize: '11px', color: view.tempo > 0 ? UI.tealCss : UI.muted,
   }).setOrigin(0, 0.5);
+  const actionText = view.usesSharedActions
+    ? scene.add.text(contentLeft + tempoText.width + 18, headerTop + 44,
+      `SHARED AP  ${view.actionPoints}/${view.actionPointCap}`, {
+        fontFamily: BODY_FONT, fontSize: '11px',
+        color: view.actionPoints > 0 ? UI.hi : UI.muted,
+      }).setOrigin(0, 0.5)
+    : null;
+  const relayX = actionText
+    ? actionText.x + actionText.width + 18
+    : contentLeft + tempoText.width + 18;
+  scene.add.text(relayX, headerTop + 44,
+    view.relayReady ? 'RELAY · READY' : 'RELAY · BUILDING', {
+      fontFamily: BODY_FONT, fontSize: '11px',
+      color: view.relayReady ? UI.goldCss : UI.muted,
+    }).setOrigin(0, 0.5);
+  if (view.linkLabel) {
+    scene.add.text(relayX + 142, headerTop + 44, `LINK · ${view.linkLabel}`, {
+      fontFamily: BODY_FONT, fontSize: '11px', color: UI.tealCss,
+    }).setOrigin(0, 0.5);
+  }
 
   // Turn order: right-aligned "TURN ORDER" label + chips, all on one row.
   const chips = view.turnOrderChips.slice(0, 6);
@@ -343,12 +367,14 @@ function drawPartyCard(
   }).setOrigin(1, 0);
   y += 15 + 5;
 
-  scene.add.text(innerLeft, y, view.usesSharedTempo ? 'POOL' : 'MP', {
+  scene.add.text(innerLeft, y, view.usesSharedActions ? 'AP POOL' : 'MP', {
     fontFamily: BODY_FONT, fontSize: '10px', color: UI.muted,
   });
-  scene.add.text(innerLeft + innerW, y, view.usesSharedTempo ? 'SHARED' : `${creature.currentMp}/${creature.maxMp}`, {
+  scene.add.text(innerLeft + innerW, y, view.usesSharedActions
+    ? `${view.actionPoints}/${view.actionPointCap}`
+    : `${creature.currentMp}/${creature.maxMp}`, {
     fontFamily: BODY_FONT, fontSize: '11px',
-    color: view.usesSharedTempo || creature.currentMp > 0 ? UI.tealCss : '#5e5b8c',
+    color: view.usesSharedActions || creature.currentMp > 0 ? UI.tealCss : '#5e5b8c',
   }).setOrigin(1, 0);
   y += 15 + 5;
 

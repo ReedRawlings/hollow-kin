@@ -57,7 +57,21 @@ The rows below are the marks reachable under the **alpha cap of floor 20**:
 | mark_physical | Brawler | Deal 1500 physical damage in a single run | +10% physical damage dealt | Natural fit for Fauna, Rock, Human |
 | mark_fighting | Pugilist | Deal 1000 fighting damage in a single run | +10% fighting damage dealt | Threshold TBD based on ability availability |
 
-> **`mark_physical` and `mark_fighting` are the same mark twice.** There is one `DamageType` here, `Fighting` — "Physical" is an `AbilityCategory` (Physical / Special / Status), not a damage type, so no ability deals "physical damage" as a type. Merge them into one Fighting mark, or redefine Brawler to key off the *category* so it covers Physical-category hits of any type. Nothing is built yet, so this is free to settle.
+> **`mark_physical` and `mark_fighting` are the same mark twice** — and the 2026-08-02 ward
+> rename resolves it on its own. There was one `DamageType` behind both, `Fighting`, while
+> "Physical" is an `AbilityCategory` (Physical / Special / Status), so no ability ever dealt
+> "physical damage" as a type. `Fighting` is now the ward **Iron**, which no longer collides
+> with the category name: make Pugilist the **Iron Mark**, and either drop Brawler or redefine
+> it to key off the *category* so it covers Physical-category hits of any ward. Nothing is
+> built, so this is still free to settle.
+
+> ⚠️ **This catalogue predates the wards** (`combat-system.md` → *The Wards*). Every
+> damage-type mark below is named for a retired identifier — Fire → **Ash**, Ice → **Salt**,
+> Electric → **Bell**, Wind → **Breath**, Ghost → **Mirror**, Fighting → **Iron** — and there
+> are no marks at all for the four new wards (Bane, Rust, Honey, Thorn). The whole marks
+> system is **PAUSED with zero code and two competing designs**, so this was left unrenamed
+> deliberately: whoever resumes picks the design first, then rewrites the catalogue against
+> whatever the wards look like in `types.ts` at that point.
 
 ---
 

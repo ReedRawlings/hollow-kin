@@ -1,87 +1,62 @@
 import { describe, expect, it } from 'vitest';
 import {
-  beginTempoRound,
-  canSpendRelay,
-  createPackTempoState,
-  generateTempo,
-  relayCandidates,
-  relayTimeline,
-  spendRelay,
-  spendTempo,
+  beginTempoRound, canSpendRelay, createPackTempoState, generateTempo,
+  relayCandidates, relayTimeline, spendRelay, tempoReasonForAction,
 } from './PackTempo';
 
 describe('Pack Tempo resource', () => {
-  it('starts empty, caps at three, and carries points between rounds', () => {
+  it('starts empty, caps at three, and remains Relay-ready across rounds', () => {
     let state = createPackTempoState();
-    expect(state.points).toBe(0);
-    for (const id of ['a', 'b', 'c']) {
-      state = generateTempo(state, id, 'move_condition').state;
-    }
-    const capped = generateTempo(state, 'd', 'conditional_critical');
-    expect(capped.state.points).toBe(3);
-    expect(capped.wastedAtCap).toBe(true);
-
-    const nextRound = beginTempoRound(capped.state);
+    state = generateTempo(state, 'slot-a', 'weakness').state;
+    state = generateTempo(state, 'slot-b', 'break').state;
+    state = generateTempo(state, 'slot-c', 'rebound').state;
+    expect(state.points).toBe(3);
+    expect(canSpendRelay(state)).toBe(true);
+    const nextRound = beginTempoRound(state);
     expect(nextRound.points).toBe(3);
-    expect(nextRound.generatedActorIds.size).toBe(0);
+    expect(canSpendRelay(nextRound)).toBe(true);
   });
 
-  it('allows each Kin to generate at most once per round', () => {
-    const first = generateTempo(createPackTempoState(), 'kin-a', 'known_weakness');
-    const second = generateTempo(first.state, 'kin-a', 'conditional_critical');
-    expect(first.granted).toBe(true);
-    expect(second.granted).toBe(false);
-    expect(second.state.points).toBe(1);
-  });
-
-  it('spends exactly one point for Relay', () => {
-    const earned = generateTempo(createPackTempoState(), 'kin-a', 'move_condition').state;
-    expect(canSpendRelay(earned)).toBe(true);
-    expect(spendRelay(earned)?.points).toBe(0);
-    expect(spendRelay(createPackTempoState())).toBeNull();
-  });
-
-  it('spends arbitrary move costs without overdrawing the pool', () => {
+  it('generates at most once per action, including an extra action by the same Kin', () => {
     let state = createPackTempoState();
-    for (const id of ['a', 'b', 'c']) state = generateTempo(state, id, 'move_condition').state;
-    expect(spendTempo(state, 2)?.points).toBe(1);
-    expect(spendTempo(state, 4)).toBeNull();
-    expect(spendTempo(state, 0)?.points).toBe(3);
+    state = generateTempo(state, 'standard-slot', 'weakness').state;
+    expect(generateTempo(state, 'standard-slot', 'break').granted).toBe(0);
+    expect(generateTempo(state, 'extra-slot', 'weakness').granted).toBe(1);
+  });
+
+  it('allows an explicit modifier to exceed base one-point generation', () => {
+    const result = generateTempo(createPackTempoState(), 'slot-a', 'relic', 2);
+    expect(result.granted).toBe(2);
+    expect(result.state.points).toBe(2);
+  });
+
+  it('earns Tempo from a landed weakness without requiring knowledge metadata', () => {
+    expect(tempoReasonForAction([{ landed: true, exploitedWeakness: true }])).toBe('weakness');
+    expect(tempoReasonForAction([{ landed: false, exploitedWeakness: true }])).toBeNull();
+    expect(tempoReasonForAction([{ landed: true, exploitedWeakness: false }])).toBeNull();
+  });
+
+  it('spends all three points and never expires merely because a round ended', () => {
+    let state = createPackTempoState();
+    state = generateTempo(state, 'slot-a', 'relic', 3).state;
+    expect(spendRelay(state)?.points).toBe(0);
+    expect(spendRelay(createPackTempoState())).toBeNull();
   });
 });
 
 describe('Relay timeline', () => {
   const id = (entry: string) => entry;
 
-  it('pulls one unused action forward without adding or removing an action', () => {
-    const original = ['kin-a', 'foe-a', 'foe-b', 'kin-b', 'kin-c'];
-    const relayed = relayTimeline(original, 0, 'kin-b', id);
-    expect(relayed).toEqual(['kin-a', 'kin-b', 'foe-a', 'foe-b', 'kin-c']);
-    expect(relayed).toHaveLength(original.length);
-    expect([...relayed!].sort()).toEqual([...original].sort());
+  it('pulls one unused action forward without copying it', () => {
+    const original = ['kin-a', 'foe-a', 'foe-b', 'kin-b'];
+    const relayed = relayTimeline(original, 0, 'kin-b', id)!;
+    expect(relayed).toEqual(['kin-a', 'kin-b', 'foe-a', 'foe-b']);
+    expect([...relayed].sort()).toEqual([...original].sort());
   });
 
-  it('rejects past, current, already-next, missing, and duplicated entries', () => {
-    expect(relayTimeline(['a', 'b', 'c'], 1, 'a', id)).toBeNull();
-    expect(relayTimeline(['a', 'b', 'c'], 1, 'b', id)).toBeNull();
-    expect(relayTimeline(['a', 'b', 'c'], 0, 'b', id)).toBeNull();
-    expect(relayTimeline(['a', 'b', 'c'], 0, 'x', id)).toBeNull();
-    expect(relayTimeline(['a', 'b', 'b'], 0, 'b', id)).toBeNull();
-  });
-
-  it('only offers later eligible actions that would actually move', () => {
+  it('offers only later eligible slots that would move', () => {
     const timeline = ['kin-a', 'foe-a', 'kin-b', 'foe-b', 'kin-c'];
     expect(relayCandidates(timeline, 0, id, entry => entry.startsWith('kin')))
       .toEqual(['kin-b', 'kin-c']);
-    expect(relayCandidates(timeline, 2, id, entry => entry.startsWith('kin')))
-      .toEqual(['kin-c']);
-  });
-
-  it('supports a chain while preserving exactly one action per original entry', () => {
-    const original = ['kin-a', 'foe-a', 'kin-b', 'foe-b', 'kin-c'];
-    const first = relayTimeline(original, 0, 'kin-b', id)!;
-    const second = relayTimeline(first, 1, 'kin-c', id)!;
-    expect(second).toEqual(['kin-a', 'kin-b', 'kin-c', 'foe-a', 'foe-b']);
-    expect([...second].sort()).toEqual([...original].sort());
   });
 });

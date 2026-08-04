@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { CREATURE_TEMPLATES, STARTER_TRIO_A, getTemplate, poolForBand } from './creatures';
+import {
+  CREATURE_TEMPLATES, STARTER_HAND_LOADOUTS, STARTER_TRIO_A, getTemplate, poolForBand,
+} from './creatures';
 import { ABILITIES } from './abilities';
 import { ARCHETYPE_ORDER } from '../systems/Bestiary';
 import { Archetype } from '../types';
@@ -114,6 +116,15 @@ describe('starter trio', () => {
   it('starts the player in the shallowest band', () => {
     for (const id of STARTER_TRIO_A) {
       expect(getTemplate(id).towerIds).toContain(1);
+    }
+  });
+
+  it('gives every founding starter an authored loadout made from real abilities', () => {
+    expect(Object.keys(STARTER_HAND_LOADOUTS).sort()).toEqual([...STARTER_TRIO_A].sort());
+    for (const id of STARTER_TRIO_A) {
+      const loadout = STARTER_HAND_LOADOUTS[id];
+      expect(loadout).toHaveLength(2);
+      for (const abilityId of loadout) expect(ABILITIES[abilityId]).toBeDefined();
     }
   });
 });

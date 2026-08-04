@@ -18,7 +18,7 @@ describe('estimateDamage', () => {
 
   it('ignores a weakness on an unknown species', () => {
     const a = makeTestCreature({ speciesId: 'a' });
-    const d = makeTestCreature({ speciesId: 'unknown', weaknesses: ['Fire'] });
+    const d = makeTestCreature({ speciesId: 'unknown', weaknesses: ['Ash'] });
     const blind = estimateDamage(a, d, getAbility('ember'), NO_KNOWLEDGE);
     const informed = estimateDamage(a, d, getAbility('ember'), new Set(['unknown']));
     expect(informed).toBeGreaterThan(blind);
@@ -62,11 +62,11 @@ describe('chooseAction — enemy_default', () => {
 
   it('never exploits a weakness even when handed knowledge', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
-    // Weaker-power Fire move vs a Fire-weak target: an informed AI would pick ember.
+    // Weaker-power Ash move vs an Ash-weak target: an informed AI would pick ember.
     const enemy = makeTestCreature({
       speciesId: 'foe', isPlayer: false, mp: 20, abilities: ['ember', 'thrash'],
     });
-    const hero = makeTestCreature({ speciesId: 'hero', weaknesses: ['Fire'] });
+    const hero = makeTestCreature({ speciesId: 'hero', weaknesses: ['Ash'] });
     const action = chooseAction(enemy, [enemy], [hero], 'enemy_default', new Set(['hero']));
     // enemy_default sorts by raw power only: thrash (75) beats ember (40).
     expect(action).toMatchObject({ abilityId: 'thrash' });
@@ -176,12 +176,12 @@ describe('chooseAction — fight_wisely', () => {
   });
 
   it('rule 4: knowledge flips the choice toward the weakness', () => {
-    // gale: Wind, power 60, 5 MP -> ~36 damage.
-    // ember: Fire, power 40, 2 MP -> ~24 blind, ~36 against a Fire weakness.
+    // gale: Breath, power 60, 5 MP -> ~36 damage.
+    // ember: Ash, power 40, 2 MP -> ~24 blind, ~36 against an Ash weakness.
     // Blind, gale is strictly stronger. Informed, ember ties it and wins the
     // cheaper-cost tie-break. Same board, opposite decision.
     const foe = makeTestCreature({
-      speciesId: 'foe', isPlayer: false, hp: 500, weaknesses: ['Fire'],
+      speciesId: 'foe', isPlayer: false, hp: 500, weaknesses: ['Ash'],
     });
     const blindHero = makeTestCreature({
       speciesId: 'hero', mp: 20, abilities: ['ember', 'gale'],

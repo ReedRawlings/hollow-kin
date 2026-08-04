@@ -2,133 +2,233 @@ import { Ability } from '../types';
 
 export const ABILITIES: Record<string, Ability> = {
   basic_attack: {
-    id: 'basic_attack', name: 'Basic Attack', damageType: 'Fighting', power: 20, accuracy: 100,
+    id: 'basic_attack', name: 'Basic Attack', damageType: 'Iron', power: 20, accuracy: 100,
     category: 'Physical', mpCost: 0, targeting: 'single_enemy',
-    description: 'A basic physical attack.',
+    description: 'A modest physical attack that costs no move resource.',
   },
-  // --- Fighting ---
+  // --- Iron ---
   jab: {
-    id: 'jab', name: 'Jab', damageType: 'Fighting', power: 30, accuracy: 100,
+    id: 'jab', name: 'Jab', damageType: 'Iron', power: 30, accuracy: 100,
     category: 'Physical', mpCost: 2, targeting: 'single_enemy',
-    description: 'A quick punch. A hit generates 1 Pack Tempo.', tempoGeneration: 'on_hit',
+    description: 'A quick, reliable punch.',
   },
   smash: {
-    id: 'smash', name: 'Smash', damageType: 'Fighting', power: 50, accuracy: 100,
+    id: 'smash', name: 'Smash', damageType: 'Iron', power: 50, accuracy: 100,
     category: 'Physical', mpCost: 4, targeting: 'single_enemy',
-    description: 'A solid strike. A hit generates 1 Pack Tempo.', tempoGeneration: 'on_hit',
+    description: 'A solid strike.',
   },
   thrash: {
-    id: 'thrash', name: 'Thrash', damageType: 'Fighting', power: 75, accuracy: 100,
+    id: 'thrash', name: 'Thrash', damageType: 'Iron', power: 75, accuracy: 100,
     category: 'Physical', mpCost: 5, targeting: 'single_enemy',
     description: 'A wild thrashing attack that damages the user slightly.',
     effects: [{ type: 'recoil', value: 0.1 }],
   },
   slash: {
-    id: 'slash', name: 'Slash', damageType: 'Wind', power: 45, accuracy: 100,
+    id: 'slash', name: 'Keening', damageType: 'Breath', power: 45, accuracy: 100,
     category: 'Physical', mpCost: 3, targeting: 'single_enemy',
     description: 'Keen. Critical against a debuffed target.',
     critCondition: 'target_debuffed', keen: true,
   },
   cross_counter: {
-    id: 'cross_counter', name: 'Cross Counter', damageType: 'Fighting', power: 60, accuracy: 100,
+    id: 'cross_counter', name: 'Cross Counter', damageType: 'Iron', power: 60, accuracy: 100,
     category: 'Physical', mpCost: 5, targeting: 'single_enemy',
     description: 'A powerful counter-punch.',
   },
   seismic_slam: {
-    id: 'seismic_slam', name: 'Seismic Slam', damageType: 'Fighting', power: 70, accuracy: 90,
+    id: 'seismic_slam', name: 'Seismic Slam', damageType: 'Iron', power: 70, accuracy: 90,
     category: 'Physical', mpCost: 5, targeting: 'single_enemy',
     description: 'A heavy strike that shakes the ground. May lower Defense.',
     effects: [{ type: 'debuff', stat: 'def', stages: -1, chance: 0.3 }],
   },
   razor_wind: {
-    id: 'razor_wind', name: 'Razor Wind', damageType: 'Wind', power: 70, accuracy: 95,
+    id: 'razor_wind', name: 'Hollowing', damageType: 'Breath', power: 70, accuracy: 95,
     category: 'Physical', mpCost: 6, targeting: 'single_enemy',
     description: 'Keen. Critical against a target below half HP.',
     critCondition: 'target_below_half', keen: true,
   },
-  // --- Electric ---
+  // --- Bell ---
   crackle: {
-    id: 'crackle', name: 'Crackle', damageType: 'Electric', power: 35, accuracy: 100,
+    id: 'crackle', name: 'Chime', damageType: 'Bell', power: 35, accuracy: 100,
     category: 'Special', mpCost: 2, targeting: 'single_enemy',
-    description: 'A crackling burst. A hit generates 1 Pack Tempo.', tempoGeneration: 'on_hit',
+    description: 'A single clear note, close to the ear.',
   },
   spark: {
-    id: 'spark', name: 'Spark', damageType: 'Electric', power: 40, accuracy: 100,
+    id: 'spark', name: 'Toll', damageType: 'Bell', power: 40, accuracy: 100,
     category: 'Special', mpCost: 3, targeting: 'single_enemy',
-    description: 'A burst of electricity strikes the opponent.',
+    description: 'One strike of the bell, felt more than heard.',
   },
   discharge: {
-    id: 'discharge', name: 'Discharge', damageType: 'Electric', power: 70, accuracy: 100,
+    id: 'discharge', name: 'Peal', damageType: 'Bell', power: 70, accuracy: 100,
     category: 'Special', mpCost: 7, targeting: 'all_enemies',
-    description: 'A powerful burst of electricity hitting all enemies.',
+    description: 'The full ring, and nothing nearby is spared.',
     effects: [{ type: 'status', status: 'stun', chance: 0.1 }],
   },
-  // --- Wind ---
+  // --- Breath ---
   gust: {
-    id: 'gust', name: 'Gust', damageType: 'Wind', power: 40, accuracy: 100,
+    id: 'gust', name: 'Exhale', damageType: 'Breath', power: 40, accuracy: 100,
     category: 'Special', mpCost: 3, targeting: 'single_enemy',
-    description: 'A gust from above. A hit generates 1 Pack Tempo.', tempoGeneration: 'on_hit',
+    description: 'A breath let out against the target.',
   },
   gale: {
-    id: 'gale', name: 'Gale', damageType: 'Wind', power: 60, accuracy: 100,
+    id: 'gale', name: 'Last Breath', damageType: 'Breath', power: 60, accuracy: 100,
     category: 'Special', mpCost: 5, targeting: 'single_enemy',
-    description: 'A strong gale wind pushes the opponent back.',
+    description: 'The long breath that empties something out.',
   },
-  // --- Fire ---
+  // --- Ash ---
   ember: {
-    id: 'ember', name: 'Ember', damageType: 'Fire', power: 40, accuracy: 100,
+    id: 'ember', name: 'Ashfall', damageType: 'Ash', power: 40, accuracy: 100,
     category: 'Special', mpCost: 2, targeting: 'single_enemy',
-    description: 'A small flame bursts from the user. A hit generates 1 Pack Tempo.',
-    tempoGeneration: 'on_hit',
+    description: 'A fine grey fall, still hot where it lands.',
   },
   smolder: {
-    id: 'smolder', name: 'Smolder', damageType: 'Fire', power: 55, accuracy: 100,
+    id: 'smolder', name: 'Pyrewood', damageType: 'Ash', power: 55, accuracy: 100,
     category: 'Special', mpCost: 4, targeting: 'single_enemy',
-    description: 'A smoldering flame that slowly burns the opponent.',
+    description: 'Wood that remembers being a fire. May burn.',
     effects: [{ type: 'status', status: 'burn', chance: 0.3 }],
   },
   inferno_strike: {
-    id: 'inferno_strike', name: 'Inferno Strike', damageType: 'Fire', power: 70, accuracy: 85,
+    id: 'inferno_strike', name: 'Bonefire', damageType: 'Ash', power: 70, accuracy: 85,
     category: 'Physical', mpCost: 6, targeting: 'single_enemy',
-    description: 'A flaming strike with intense heat. May burn.',
+    description: 'The old fire, built of what was left. May burn.',
     effects: [{ type: 'status', status: 'burn', chance: 0.3 }],
   },
-  // --- Ice ---
+  // --- Salt ---
   chill: {
-    id: 'chill', name: 'Chill', damageType: 'Ice', power: 40, accuracy: 100,
+    id: 'chill', name: 'Saltline', damageType: 'Salt', power: 40, accuracy: 100,
     category: 'Special', mpCost: 2, targeting: 'single_enemy',
-    description: 'An icy breath hits the opponent.',
+    description: 'A line laid down that is difficult to cross. May lower Speed.',
     effects: [{ type: 'debuff', stat: 'spd', stages: -1, chance: 0.2 }],
   },
   frost: {
-    id: 'frost', name: 'Frost', damageType: 'Ice', power: 35, accuracy: 90,
+    id: 'frost', name: 'Rime', damageType: 'Salt', power: 35, accuracy: 90,
     category: 'Physical', mpCost: 2, targeting: 'single_enemy',
-    description: 'An ice-coated strike. A hit generates 1 Pack Tempo.',
-    tempoGeneration: 'on_hit',
+    description: 'A strike that leaves a white crust behind. May freeze.',
     effects: [{ type: 'status', status: 'freeze', chance: 0.1 }],
   },
   freeze: {
-    id: 'freeze', name: 'Freeze', damageType: 'Ice', power: 55, accuracy: 100,
+    id: 'freeze', name: 'Brinelock', damageType: 'Salt', power: 55, accuracy: 100,
     category: 'Special', mpCost: 4, targeting: 'single_enemy',
-    description: 'An icy attack that may freeze the opponent.',
+    description: 'Preserved mid-motion. May freeze.',
     effects: [{ type: 'status', status: 'freeze', chance: 0.15 }],
   },
-  // --- Ghost ---
+  // --- Mirror ---
   phantom: {
-    id: 'phantom', name: 'Phantom', damageType: 'Ghost', power: 35, accuracy: 100,
+    id: 'phantom', name: 'Reflection', damageType: 'Mirror', power: 35, accuracy: 100,
     category: 'Special', mpCost: 2, targeting: 'single_enemy',
-    description: 'A spectral burst. A hit generates 1 Pack Tempo.', tempoGeneration: 'on_hit',
+    description: 'Something looks back out of the glass.',
   },
   shadow_claw: {
-    id: 'shadow_claw', name: 'Shadow Claw', damageType: 'Ghost', power: 40, accuracy: 100,
+    id: 'shadow_claw', name: 'Silvered Edge', damageType: 'Mirror', power: 40, accuracy: 100,
     category: 'Physical', mpCost: 3, targeting: 'single_enemy',
     description: 'Keen. Critical against a target with a status condition.',
     critCondition: 'target_statused', keen: true,
   },
   spook: {
-    id: 'spook', name: 'Spook', damageType: 'Ghost', power: 65, accuracy: 95,
+    id: 'spook', name: 'Unreflected', damageType: 'Mirror', power: 65, accuracy: 95,
     category: 'Special', mpCost: 5, targeting: 'single_enemy',
-    description: 'A haunting attack.',
+    description: 'It casts nothing, and comes anyway.',
+  },
+  // --- Bane ---
+  // Bane trades burst for inevitability: Nightshade is the weakest damaging move in the
+  // game and carries the highest status chance anywhere. That inversion is the ward.
+  nightshade: {
+    id: 'nightshade', name: 'Nightshade', damageType: 'Bane', power: 30, accuracy: 100,
+    category: 'Special', mpCost: 2, targeting: 'single_enemy',
+    description: 'A dose of something that was never food. Likely to poison.',
+    effects: [{ type: 'status', status: 'poison', chance: 0.5 }],
+  },
+  wormwood: {
+    id: 'wormwood', name: 'Wormwood', damageType: 'Bane', power: 50, accuracy: 95,
+    category: 'Special', mpCost: 4, targeting: 'single_enemy',
+    description: 'Bitterness that settles in and stays. May poison.',
+    effects: [{ type: 'status', status: 'poison', chance: 0.35 }],
+  },
+  cankerbite: {
+    id: 'cankerbite', name: 'Cankerbite', damageType: 'Bane', power: 70, accuracy: 90,
+    category: 'Physical', mpCost: 6, targeting: 'single_enemy',
+    description: 'A bite that goes bad long after it closes. May poison.',
+    effects: [{ type: 'status', status: 'poison', chance: 0.25 }],
+  },
+  // --- Rust ---
+  // The counter to Iron. Rust does not kill the thing, it makes the thing killable —
+  // so its low tier is worth casting for the debuff alone.
+  tarnish: {
+    id: 'tarnish', name: 'Tarnish', damageType: 'Rust', power: 35, accuracy: 100,
+    category: 'Special', mpCost: 2, targeting: 'single_enemy',
+    description: 'A dull bloom spreads across the plating. Often lowers Defense.',
+    effects: [{ type: 'debuff', stat: 'def', stages: -1, chance: 0.5 }],
+  },
+  corrode: {
+    id: 'corrode', name: 'Corrode', damageType: 'Rust', power: 55, accuracy: 100,
+    category: 'Special', mpCost: 4, targeting: 'single_enemy',
+    description: 'Metal gives up being metal. May lower Defense.',
+    effects: [{ type: 'debuff', stat: 'def', stages: -1, chance: 0.4 }],
+  },
+  seize: {
+    id: 'seize', name: 'Seize', damageType: 'Rust', power: 70, accuracy: 90,
+    category: 'Physical', mpCost: 6, targeting: 'single_enemy',
+    description: 'The joints stop agreeing to be a thing. May stun.',
+    effects: [{ type: 'status', status: 'stun', chance: 0.2 }],
+  },
+  // --- Honey ---
+  // Honey binds rather than breaks. Amber's two-stage slow exists nowhere else, which is
+  // what gives Honey a reason to be picked over Salt.
+  cloy: {
+    id: 'cloy', name: 'Cloy', damageType: 'Honey', power: 35, accuracy: 100,
+    category: 'Special', mpCost: 2, targeting: 'single_enemy',
+    description: 'Thick, sweet, and hard to move through. Often lowers Speed.',
+    effects: [{ type: 'debuff', stat: 'spd', stages: -1, chance: 0.5 }],
+  },
+  // Physical counterpart to cloy. Every ward needs a low-tier move in BOTH categories,
+  // or the archetypes that carry it cannot serve both STR and INT roles — Salt already
+  // works this way (frost Physical 35 / chill Special 40).
+  combfall: {
+    id: 'combfall', name: 'Combfall', damageType: 'Honey', power: 40, accuracy: 100,
+    category: 'Physical', mpCost: 2, targeting: 'single_enemy',
+    description: 'The comb breaks and everything in it comes down. May lower Speed.',
+    effects: [{ type: 'debuff', stat: 'spd', stages: -1, chance: 0.3 }],
+  },
+  amber: {
+    id: 'amber', name: 'Amber', damageType: 'Honey', power: 55, accuracy: 95,
+    category: 'Special', mpCost: 4, targeting: 'single_enemy',
+    description: 'Whatever it catches, it keeps. May sharply lower Speed.',
+    effects: [{ type: 'debuff', stat: 'spd', stages: -2, chance: 0.3 }],
+  },
+  surfeit: {
+    id: 'surfeit', name: 'Surfeit', damageType: 'Honey', power: 60, accuracy: 95,
+    category: 'Special', mpCost: 5, targeting: 'single_enemy',
+    description: 'Too much of a good thing. May put the target to sleep.',
+    effects: [{ type: 'status', status: 'sleep', chance: 0.2 }],
+  },
+  // --- Thorn ---
+  // Thorn wants to be multi-hit; the engine has no multi-hit, so it lands as keen crits
+  // plus the briar-sleep. Blackthorn mirrors shadow_claw's pattern, keyed to debuffs, so
+  // Thorn pairs with Honey and Rust rather than with Ash's burn.
+  bramble: {
+    id: 'bramble', name: 'Bramble', damageType: 'Thorn', power: 40, accuracy: 100,
+    category: 'Physical', mpCost: 2, targeting: 'single_enemy',
+    description: 'Catches, and does not let go. May lower Speed.',
+    effects: [{ type: 'debuff', stat: 'spd', stages: -1, chance: 0.3 }],
+  },
+  // Special counterpart to bramble — see the note on combfall. Flora is all Mages in
+  // alpha, so without this the archetype's own ward reads off the wrong stat.
+  thicket: {
+    id: 'thicket', name: 'Thicket', damageType: 'Thorn', power: 40, accuracy: 100,
+    category: 'Special', mpCost: 2, targeting: 'single_enemy',
+    description: 'The growth closes in from every side. May lower Speed.',
+    effects: [{ type: 'debuff', stat: 'spd', stages: -1, chance: 0.3 }],
+  },
+  blackthorn: {
+    id: 'blackthorn', name: 'Blackthorn', damageType: 'Thorn', power: 45, accuracy: 95,
+    category: 'Physical', mpCost: 3, targeting: 'single_enemy',
+    description: "The witch's wood. Keen. Critical against a debuffed target.",
+    critCondition: 'target_debuffed', keen: true,
+  },
+  briarfall: {
+    id: 'briarfall', name: 'Briarfall', damageType: 'Thorn', power: 60, accuracy: 95,
+    category: 'Special', mpCost: 5, targeting: 'single_enemy',
+    description: 'The hedge closes over a hundred years. May put the target to sleep.',
+    effects: [{ type: 'status', status: 'sleep', chance: 0.25 }],
   },
   // --- Buffs ---
   bold: {

@@ -142,6 +142,11 @@ Promise.all([
     // player is looking at, and combat/chamber state read as null mid-battle.
     const activeScenes = game.scene.getScenes(true);
     const active = activeScenes[activeScenes.length - 1];
+    const combatState = active?.scene.key === 'CombatScene'
+      ? (active as CombatScene).combatState()
+      : null;
+    const chamberUsesSharedActions = (combatState as { resourceModel?: string } | null)
+      ?.resourceModel === 'shared_actions';
     return JSON.stringify({
       coordinateSystem: 'origin top-left; x right; y down; 960x640',
       scene: active?.scene.key ?? 'loading',
@@ -160,9 +165,7 @@ Promise.all([
         contents: gameState.backpack.slots.map(slot =>
           slot?.kind === 'item' ? slot.itemId : slot?.kind ?? null),
       },
-      combat: active?.scene.key === 'CombatScene'
-        ? (active as CombatScene).combatState()
-        : null,
+      combat: combatState,
       chamber: active?.scene.key === 'BattleChamberScene'
         ? (active as BattleChamberScene).chamberState()
         : null,
@@ -173,7 +176,10 @@ Promise.all([
         obols: gameState.currentRun.obols,
         auto: gameState.currentRun.autoCombat,
         partyHp: gameState.currentRun.partyHp,
-        partyMp: gameState.currentRun.partyMp,
+        // Shared-AP Chamber battles retain RunState's required compatibility
+        // dictionary internally, but it is not an active player resource and
+        // must not be presented as one in the test contract.
+        ...(chamberUsesSharedActions ? {} : { partyMp: gameState.currentRun.partyMp }),
         partyKO: gameState.currentRun.partyKO,
         activeBoons: gameState.currentRun.activeBoons,
         storyEncounters: gameState.currentRun.encounters

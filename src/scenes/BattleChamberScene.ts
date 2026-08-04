@@ -4,7 +4,8 @@ import { getTemplate } from '../data/creatures';
 import { createBackpack } from '../systems/Backpack';
 import {
   BATTLE_CHAMBER_PRESETS, BattleChamberResourceModel, BattleChamberResult,
-  SHARED_TEMPO_LOADOUTS,
+  BATTLE_CHAMBER_LOADOUTS, DEFAULT_BATTLE_CHAMBER_RESOURCE_MODEL,
+  battleChamberResourceRules,
 } from '../systems/BattleChamber';
 import { Encounter, RunState } from '../types';
 import {
@@ -15,12 +16,14 @@ interface BattleChamberSceneData {
   selectedPresetId?: string;
   result?: BattleChamberResult;
   resourceModel?: BattleChamberResourceModel;
+  comparisonResults?: Partial<Record<BattleChamberResourceModel, BattleChamberResult>>;
 }
 
 export class BattleChamberScene extends Phaser.Scene {
   private selected = 0;
   private lastResult: BattleChamberResult | null = null;
-  private resourceModel: BattleChamberResourceModel = 'individual_mp';
+  private comparisonResults: Partial<Record<BattleChamberResourceModel, BattleChamberResult>> = {};
+  private resourceModel: BattleChamberResourceModel = DEFAULT_BATTLE_CHAMBER_RESOURCE_MODEL;
   private keyboardBound = false;
 
   constructor() {
@@ -31,10 +34,12 @@ export class BattleChamberScene extends Phaser.Scene {
     const selectedId = data?.selectedPresetId ?? BATTLE_CHAMBER_PRESETS[0].id;
     const index = BATTLE_CHAMBER_PRESETS.findIndex(preset => preset.id === selectedId);
     this.selected = index < 0 ? 0 : index;
-    this.lastResult = data?.result ?? null;
     this.resourceModel = data?.resourceModel
       ?? data?.result?.resourceModel
-      ?? 'individual_mp';
+      ?? DEFAULT_BATTLE_CHAMBER_RESOURCE_MODEL;
+    this.comparisonResults = { ...(data?.comparisonResults ?? {}) };
+    if (data?.result) this.comparisonResults[data.result.resourceModel] = data.result;
+    this.lastResult = this.comparisonResults[this.resourceModel] ?? null;
   }
 
   create(): void {
@@ -55,12 +60,19 @@ export class BattleChamberScene extends Phaser.Scene {
       selectedPreset: selected.id,
       seed: selected.seed,
       resourceModel: this.resourceModel,
+      resourceRules: battleChamberResourceRules(this.resourceModel),
       presets: BATTLE_CHAMBER_PRESETS.map(preset => ({
         id: preset.id,
         name: preset.name,
         enemies: preset.enemyIds.map(id => getTemplate(id).name),
+        weaknesses: preset.enemyIds.map(id => [...getTemplate(id).weaknesses]),
+        initialTempo: preset.initialTempoPoints ?? 0,
+        linkArts: preset.linkArts ?? false,
+        bossDoubleAction: preset.bossDoubleAction ?? false,
+        encoreRelay: preset.encoreRelay ?? false,
       })),
       lastResult: this.lastResult,
+      comparisonResults: this.comparisonResults,
       controls: { previous: 'left', next: 'right', model: 'm', manual: 'enter', auto: 'a' },
     };
   }
@@ -68,24 +80,25 @@ export class BattleChamberScene extends Phaser.Scene {
   private shift(delta: number): void {
     this.selected = (this.selected + delta + BATTLE_CHAMBER_PRESETS.length)
       % BATTLE_CHAMBER_PRESETS.length;
+    this.comparisonResults = {};
     this.lastResult = null;
     this.draw();
   }
 
   private setResourceModel(model: BattleChamberResourceModel): void {
     this.resourceModel = model;
-    this.lastResult = null;
+    this.lastResult = this.comparisonResults[model] ?? null;
     this.draw();
   }
 
   private toggleResourceModel(): void {
-    this.setResourceModel(this.resourceModel === 'individual_mp' ? 'shared_tempo' : 'individual_mp');
+    this.setResourceModel(this.resourceModel === 'individual_mp' ? 'shared_actions' : 'individual_mp');
   }
 
   private draw(): void {
     this.children.removeAll(true);
     screenFrame(this);
-    header(this, 'BATTLE CHAMBER', 'REPEATABLE COMBAT LAB — NO REWARDS OR SAVE PROGRESSION',
+    header(this, 'BATTLE CHAMBER', 'MP TEMPO / RELAY LAB — REPEATABLE, SEEDED, NO PROGRESSION',
       'DEV TOOL', UI.tealCss);
 
     const cardW = 278;
@@ -122,11 +135,22 @@ export class BattleChamberScene extends Phaser.Scene {
         });
 
       const hp = Math.round(preset.initialHpFraction * 100);
-      const mp = Math.round(preset.initialMpFraction * 100);
-      this.add.text(x, 376, `ENEMY LV ${preset.enemyLevel}  ·  HP ${hp}%  ·  MP ${mp}%`, {
+      const startingResource = this.resourceModel === 'shared_actions'
+        ? 'AP 3/3'
+        : `MP ${Math.round(preset.initialMpFraction * 100)}%`;
+      this.add.text(x, 376, `ENEMY LV ${preset.enemyLevel}  ·  PARTY HP ${hp}%  ·  ${startingResource}`, {
         fontFamily: BODY_FONT, fontSize: '9px', color: UI.mutedBright,
       }).setOrigin(0.5);
-      this.add.text(x, 397, `FIXED SEED ${preset.seed}`, {
+      const fixtureRules = [
+        preset.initialTempoPoints ? `T${preset.initialTempoPoints}` : null,
+        preset.linkArts ? 'LINKS' : null,
+        preset.bossDoubleAction ? 'BOSS ×2' : null,
+        preset.encoreRelay ? 'ENCORE' : null,
+      ].filter(Boolean).join(' · ');
+      const fixture = fixtureRules
+        ? `FIXTURE ${fixtureRules} · SEED ${preset.seed}`
+        : `FIXED SEED ${preset.seed}`;
+      this.add.text(x, 397, fixture, {
         fontFamily: BODY_FONT, fontSize: '9px', color: UI.muted,
       }).setOrigin(0.5);
 
@@ -137,36 +161,38 @@ export class BattleChamberScene extends Phaser.Scene {
       });
     });
 
-    this.add.text(480, 425, 'RESOURCE MODEL — CHAMBER ONLY', {
+    this.add.text(480, 425, 'PLAYER MOVE ECONOMY — CHAMBER ONLY', {
       fontFamily: DISPLAY_FONT, fontSize: '9px', color: UI.muted,
     }).setOrigin(0.5);
     button(this, 375, 451, 190, 34,
-      this.resourceModel === 'individual_mp' ? '● MP CONTROL' : '○ MP CONTROL',
+      this.resourceModel === 'individual_mp' ? '● EXPEDITION MP' : '○ EXPEDITION MP',
       () => this.setResourceModel('individual_mp'),
       this.resourceModel === 'individual_mp' ? UI.gold : UI.line);
     button(this, 585, 451, 190, 34,
-      this.resourceModel === 'shared_tempo' ? '● SHARED TEMPO' : '○ SHARED TEMPO',
-      () => this.setResourceModel('shared_tempo'),
-      this.resourceModel === 'shared_tempo' ? UI.teal : UI.line);
+      this.resourceModel === 'shared_actions' ? '● LEGACY AP TEST' : '○ LEGACY AP TEST',
+      () => this.setResourceModel('shared_actions'),
+      this.resourceModel === 'shared_actions' ? UI.teal : UI.line);
 
-    if (this.lastResult) {
-      const r = this.lastResult;
-      const color = r.outcome === 'victory' ? UI.greenCss : UI.redCss;
-      this.add.text(480, 484, `${r.outcome.toUpperCase()} · ${r.rounds} ROUNDS · ${r.resourceModel === 'shared_tempo' ? 'SHARED TEMPO' : 'MP CONTROL'}`, {
-        fontFamily: DISPLAY_FONT, fontSize: '10px', color,
-      }).setOrigin(0.5);
-      this.add.text(480, 503,
-        `TEMPO +${r.tempoGenerated}  SPENT ${r.tempoSpent} (MOVE ${r.tempoSpentOnMoves} · RELAY ${r.tempoSpentOnRelay})  WASTED ${r.tempoWasted}`, {
-          fontFamily: BODY_FONT, fontSize: '11px', color: UI.body,
-        }).setOrigin(0.5);
-      this.add.text(480, 520,
-        `PACK FIRST ${r.packFirstRounds}/${r.initiativeRounds}  ·  ACTIONS P${r.playerActions}/E${r.enemyActions}  ·  RELAYS ${r.relays}`, {
-          fontFamily: BODY_FONT, fontSize: '10px', color: UI.mutedBright,
-        }).setOrigin(0.5);
+    const resultRows = (['individual_mp', 'shared_actions'] as const)
+      .map(model => this.comparisonResults[model])
+      .filter((result): result is BattleChamberResult => !!result);
+    if (resultRows.length > 0) {
+      resultRows.forEach((r, index) => {
+        const label = r.resourceModel === 'shared_actions' ? 'AP LEGACY' : 'MP TEST';
+        const outcome = r.outcome === 'victory' ? 'WIN' : 'LOSS';
+        const moveSpend = r.resourceModel === 'shared_actions'
+          ? `AP SPENT ${r.actionPointsSpent}`
+          : 'INDIVIDUAL MP';
+        this.add.text(480, 486 + index * 24,
+          `${label} · ${outcome} R${r.rounds} · ${moveSpend} · T +${r.tempoGenerated}/-${r.tempoSpent} · RELAY ${r.relays} · LINK ${r.linkArtsCompleted}`, {
+            fontFamily: BODY_FONT, fontSize: '10px',
+            color: r.resourceModel === this.resourceModel ? UI.hi : UI.mutedBright,
+          }).setOrigin(0.5);
+      });
     } else {
-      this.add.text(480, 503, this.resourceModel === 'shared_tempo'
-        ? 'BUILDERS ARE FREE; MOVES AND RELAY COMPETE FOR ONE CAPPED POOL.'
-        : 'CONTROL: INDIVIDUAL MP PAYS FOR MOVES; TEMPO ONLY PAYS FOR RELAY.', {
+      this.add.text(480, 503, this.resourceModel === 'shared_actions'
+        ? 'LEGACY TEST: 3 SHARED AP/ROUND · BASIC 0 · MOVES 1–2.'
+        : 'ACTIVE: INDIVIDUAL MP · WEAKNESS → TEMPO · 3 TEMPO → RELAY.', {
         fontFamily: BODY_FONT, fontSize: '11px', color: UI.mutedBright,
       }).setOrigin(0.5);
     }
@@ -183,10 +209,8 @@ export class BattleChamberScene extends Phaser.Scene {
     gameState.runParty = preset.partyIds.map((id, index) => {
       const creature = gameState.createCreatureInstance(id, 0);
       creature.instanceId = `chamber-${preset.id}-player-${index}`;
-      if (this.resourceModel === 'shared_tempo') {
-        const loadout = SHARED_TEMPO_LOADOUTS[id];
-        if (loadout) creature.abilities = [...loadout, null, null].slice(0, 4);
-      }
+      const loadout = BATTLE_CHAMBER_LOADOUTS[id];
+      if (loadout) creature.abilities = [...loadout, null, null].slice(0, 4);
       return creature;
     });
     gameState.startRun();
@@ -226,7 +250,18 @@ export class BattleChamberScene extends Phaser.Scene {
 
     this.scene.start('CombatScene', {
       encounter,
-      chamber: { presetId: preset.id, seed: preset.seed, auto, resourceModel: this.resourceModel },
+      chamber: {
+        presetId: preset.id,
+        seed: preset.seed,
+        auto,
+        resourceModel: this.resourceModel,
+        initialTempoPoints: preset.initialTempoPoints,
+        linkArts: preset.linkArts,
+        bossDoubleAction: preset.bossDoubleAction,
+        encoreRelay: preset.encoreRelay,
+        revealWeaknesses: true,
+        comparisonResults: this.comparisonResults,
+      },
     });
   }
 }

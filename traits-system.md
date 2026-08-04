@@ -148,14 +148,24 @@ Triggered once at the beginning of combat.
 
 ### **Resistance Traits**
 
-Passive reduction to incoming damage of a specific type. Trait level determines resistance magnitude.
+Passive reduction to incoming damage of a specific **ward**. Trait level determines resistance magnitude.
 
-* Resist Fire  
-* Resist Ice  
-* Resist Lightning  
-* Resist Physical  
-* Resist Status (reduces chance of debuffs landing)  
-* others per damage type TBD
+**One per ward, all ten present** — `resist_iron`, `resist_bell`, `resist_breath`, `resist_ash`,
+`resist_salt`, `resist_mirror`, `resist_bane`, `resist_rust`, `resist_honey`, `resist_thorn` —
+plus `resist_status` (reduces the chance of debuffs landing), which is not a ward and keeps its
+name.
+
+> **Two test invariants hold this shape**, and they are worth knowing before adding a ward:
+> `Traits.test.ts` asserts that **every `DamageType` has exactly one resistance trait**, and
+> that **every resistance trait appears in at least one species' `naturalTraitPool`**. Adding
+> an eleventh ward means adding its trait *and* placing it in a real pool, or the suite fails.
+> The four new wards were placed following the existing authoring rule — a kin is inured to its
+> own archetype's ward: Dragon carries `resist_bane`, Mecha `resist_rust`, Food `resist_honey`,
+> Flora `resist_thorn`.
+
+> ⚠️ **All of them are still inert.** `applyStatTraitBonuses` is the only consumer of trait data
+> anywhere and it handles the `stat` category alone, so a `resistance` trait imbues successfully
+> and does nothing. The rename changed names, not that fact.
 
 ### **Party Affinity Traits**
 

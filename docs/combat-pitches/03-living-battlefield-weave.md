@@ -1,5 +1,7 @@
 # Hollow Kin Combat Pitch 3 — The Living Battlefield Weave
 
+> Historical pitch. The authoritative distinction between interruptible Link Arts and encounter-authored Weaves is maintained in `../combat-architecture-spec.md`.
+
 > **Summary:** Every move leaves an elemental or conceptual **Echo** on a shared three-slot Battlefield Weave. Allies and enemies contribute to the same Weave. Completing a recognizable combination triggers a Field Reaction and temporarily changes the rules of the encounter. The player can build a reaction, steal one the enemy began, or deny an enemy’s expected recipe. Moves learned and upgraded during the expedition gain different ways to seed, bend and harvest the battlefield, while creatures earn Afterform by expressing their Instinct through reactions.
 
 > **Status:** Competing design pitch, not a change to the GDD. Numbers, recipes and terminology are illustrative. “Move” is the player-facing term used here for the current Ability object.

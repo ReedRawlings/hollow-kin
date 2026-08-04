@@ -20,7 +20,7 @@ import { depthUnlockCost, depthRunFee } from '../systems/Economy';
 import { breed } from '../systems/BreedingSystem';
 import { isCreatureBreedReady, TRAIT_SLOT_LEVELS, MAX_TRAIT_SLOTS, unlockedSlotCount } from '../systems/Traits';
 import { STAR_LEVEL_CAPS, TOWER_FLOORS } from '../types';
-import { getTemplate } from '../data/creatures';
+import { getTemplate, STARTER_HAND_LOADOUTS, STARTER_TRIO_A } from '../data/creatures';
 import { add as addToBackpack, createBackpack, usedSlots } from '../systems/Backpack';
 
 beforeEach(() => {
@@ -34,6 +34,20 @@ describe('createCreatureInstance', () => {
     expect(c.currentLevel).toBe(1);
     expect(c.essenceInvested).toBe(0);
     expect('longevity' in c).toBe(false);
+  });
+
+  it('keeps species defaults for non-starter creation', () => {
+    const cat = gameState.createCreatureInstance('kin_070', 0);
+    expect(cat.abilities.filter(Boolean)).toEqual(getTemplate('kin_070').defaultAbilities);
+  });
+});
+
+describe('initializeNewGame', () => {
+  it('equips the real Founding Hand with the Link-ready starter loadouts', () => {
+    gameState.initializeNewGame(STARTER_TRIO_A);
+    for (const starter of gameState.creatureBox) {
+      expect(starter.abilities.filter(Boolean)).toEqual(STARTER_HAND_LOADOUTS[starter.speciesId]);
+    }
   });
 });
 
@@ -491,7 +505,7 @@ describe('seenSpecies fog timing (finding 2 regression)', () => {
     gameState.seenSpecies = new Set();
 
     const attacker = makeTestCreature({ speciesId: 'attacker' });
-    const foe = makeTestCreature({ speciesId: 'weak-foe', weaknesses: ['Fire'] });
+    const foe = makeTestCreature({ speciesId: 'weak-foe', weaknesses: ['Ash'] });
     const ability = getAbility('ember');
     const blindDamage = estimateDamage(attacker, foe, ability, NO_KNOWLEDGE);
 

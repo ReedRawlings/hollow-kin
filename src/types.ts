@@ -14,7 +14,25 @@ export type Role =
   | 'Healer Buff' | 'Healer Debuff'
   | 'Fighter';
 
-export type DamageType = 'Fighting' | 'Electric' | 'Wind' | 'Fire' | 'Ice' | 'Ghost';
+/**
+ * The wards. Damage types are named for folk remedies rather than elements — the chart is
+ * folk knowledge, not physics, which is why resistances are authored per creature and are
+ * deliberately not inferable from archetype or appearance. See `combat-system.md` → The Wards.
+ *
+ * Renamed from Fighting/Electric/Wind/Fire/Ice/Ghost on 2026-08-02; Bane, Rust, Honey and
+ * Thorn are new and have no abilities yet, so they are currently resistance/weakness-only.
+ */
+export type DamageType =
+  | 'Iron'    // physical force        — Fauna, Human, Rock
+  | 'Bell'    // shock, concussion     — Kami, Human
+  | 'Breath'  // wind, air             — Kami, Spirits
+  | 'Ash'     // fire, burning         — Devils
+  | 'Salt'    // cold, stillness       — Kami
+  | 'Mirror'  // spectral              — Spirits
+  | 'Bane'    // venom, lingering rot  — Dragon
+  | 'Rust'    // corrosion, entropy    — Mecha (the one explicit counter to Iron)
+  | 'Honey'   // sticky, slowing       — Food
+  | 'Thorn';  // piercing, entangling  — Flora
 
 export type StatName = 'hp' | 'mp' | 'str' | 'def' | 'wis' | 'spd' | 'int';
 

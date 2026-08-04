@@ -1,5 +1,7 @@
 # Hollow Kin Combat Pitch 2 — Omen and Break
 
+> Historical pitch. The authoritative combat foundation and current Omen/Break boundaries are maintained in `../combat-architecture-spec.md`.
+
 > **Summary:** Combat is divided into a **Command Phase** and a **Resolution Phase**. Enemies reveal their intentions before the player commits one action for each Kin. Dangerous actions display an **Omen** made from breakable move tags. The player plans the whole pack’s round, then watches actions resolve by SPD. Partially breaking an Omen weakens the threat; completely breaking it cancels the action and exposes the enemy to deterministic critical attacks. Moves learned and upgraded during the expedition expand the party’s ability to answer different Omens.
 
 > **Status:** Competing design pitch, not a change to the GDD. Numbers and terminology are illustrative. “Move” is the player-facing term used here for the current Ability object.

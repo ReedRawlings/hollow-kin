@@ -44,15 +44,15 @@ describe('newLogBook', () => {
 describe('recordDamageTypeUsed — battle-wide tally', () => {
   it('tallies onto every enemy log, because the condition is about the battle', () => {
     const { b, enemies } = book(enemy('a'), enemy('c'));
-    recordDamageTypeUsed(b, getAbility('ember')); // Fire
-    for (const e of enemies) expect(logFor(b, e)!.damageTypesDealt.Fire).toBe(1);
+    recordDamageTypeUsed(b, getAbility('ember')); // Ash
+    for (const e of enemies) expect(logFor(b, e)!.damageTypesDealt.Ash).toBe(1);
   });
 
   it('counts repeats, since "twice" cannot be a membership check', () => {
     const { b, enemies } = book(enemy('a'));
     recordDamageTypeUsed(b, getAbility('ember'));
     recordDamageTypeUsed(b, getAbility('ember'));
-    expect(logFor(b, enemies[0])!.damageTypesDealt.Fire).toBe(2);
+    expect(logFor(b, enemies[0])!.damageTypesDealt.Ash).toBe(2);
   });
 
   it('ignores an ability with no damage type', () => {
@@ -66,7 +66,7 @@ describe('recordDamageTaken — per-creature', () => {
   it('records only on the creature that was hit', () => {
     const { b, enemies } = book(enemy('a'), enemy('c'));
     recordDamageTaken(b, enemies[0], getAbility('ember'));
-    expect(logFor(b, enemies[0])!.damageTypesTaken).toContain('Fire');
+    expect(logFor(b, enemies[0])!.damageTypesTaken).toContain('Ash');
     expect(logFor(b, enemies[1])!.damageTypesTaken).toEqual([]);
   });
 
@@ -74,7 +74,7 @@ describe('recordDamageTaken — per-creature', () => {
     const { b, enemies } = book(enemy('a'));
     recordDamageTaken(b, enemies[0], getAbility('ember'));
     recordDamageTaken(b, enemies[0], getAbility('ember'));
-    expect(logFor(b, enemies[0])!.damageTypesTaken).toEqual(['Fire']);
+    expect(logFor(b, enemies[0])!.damageTypesTaken).toEqual(['Ash']);
   });
 
   it('silently ignores a player target — players are never captured', () => {

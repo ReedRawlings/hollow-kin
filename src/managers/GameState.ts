@@ -4,7 +4,7 @@ import {
   BattleSpeed, TacticId, BACKPACK_START_GUARANTEED,
   LastRunSummary, RelationshipProgress,
 } from '../types';
-import { getTemplate } from '../data/creatures';
+import { getTemplate, STARTER_HAND_LOADOUTS } from '../data/creatures';
 import { convertObolsToEssence, essenceCostForLevel, depthUnlockCost, depthRunFee } from '../systems/Economy';
 import { unlockedSlotCount, applyStatTraitBonuses, MAX_TRAIT_SLOTS } from '../systems/Traits';
 import { createBackpack, applyWipeLoss, unloadCapturesToBox } from '../systems/Backpack';
@@ -22,8 +22,19 @@ const STAT_NAMES: (keyof BaseStats)[] = ['hp', 'mp', 'str', 'def', 'wis', 'spd',
  * Saves at any other version are discarded, never migrated. This is alpha: bump
  * this freely whenever the shape changes and let players restart. Do not add a
  * migration path.
+ *
+ * v9 (2026-08-02) — the ward rename. Bumping here is load-bearing, not hygiene:
+ * `resistances`/`weaknesses` are SNAPSHOT onto each creature instance at creation
+ * (see `createCreatureInstance` below and `BreedingSystem.breed`), and combat reads
+ * `instance.resistances`, never the template. A creature already sitting in a save
+ * therefore keeps the empty arrays it was born with forever — authoring weaknesses
+ * onto a template does nothing for it. Discarding the save is what makes newly
+ * authored ward data actually reach the fight.
  */
-export const SAVE_VERSION = 8;
+// v10 (2026-08-02) — ward move set + archetype signature reassignment. `abilities` is
+// snapshot from the template at creation just like `resistances`, so a creature already
+// in a save keeps the moves it was born with. Same reason as v9.
+export const SAVE_VERSION = 10;
 
 /**
  * Level-scaled stats for `instance`, EXCLUDING trait bonuses — a pure function of the
@@ -381,7 +392,10 @@ class GameStateManager {
     this.playerName = sanitizePlayerName(playerName).trim() || 'Keeper';
     this.creatureBox = [];
     for (const id of starterIds) {
-      this.addToBox(this.createCreatureInstance(id, 0));
+      const starter = this.createCreatureInstance(id, 0);
+      const loadout = STARTER_HAND_LOADOUTS[id];
+      if (loadout) starter.abilities = [...loadout, null, null].slice(0, 4);
+      this.addToBox(starter);
     }
     this.essence = 0;
     this.deepestBreakCleared = 0;

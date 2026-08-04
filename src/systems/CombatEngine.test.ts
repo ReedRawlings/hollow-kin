@@ -136,14 +136,14 @@ describe('baseDamage', () => {
 
   it('applies the weakness multiplier only when asked', () => {
     const a = makeTestCreature({ speciesId: 'a' });
-    const weak = makeTestCreature({ speciesId: 'd', weaknesses: ['Fire'] });
+    const weak = makeTestCreature({ speciesId: 'd', weaknesses: ['Ash'] });
     const ember = getAbility('ember');
     expect(baseDamage(a, weak, ember, true)).toBeCloseTo(baseDamage(a, weak, ember, false) * 1.5);
   });
 
   it('applies the resistance multiplier only when asked', () => {
     const a = makeTestCreature({ speciesId: 'a' });
-    const tough = makeTestCreature({ speciesId: 'd', resistances: ['Fire'] });
+    const tough = makeTestCreature({ speciesId: 'd', resistances: ['Ash'] });
     const ember = getAbility('ember');
     expect(baseDamage(a, tough, ember, true)).toBeCloseTo(baseDamage(a, tough, ember, false) * 0.5);
   });

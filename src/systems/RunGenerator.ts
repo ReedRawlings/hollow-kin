@@ -1,7 +1,10 @@
 import {
   Encounter, EncounterType, TOWER_FLOORS, bandForFloor, isBossFloor, bossTierForFloor,
 } from '../types';
-import { poolForBand } from '../data/creatures';
+import {
+  getTemplate, poolForBand, STARTER_HAND_LOADOUTS, STARTER_TRIO_A,
+} from '../data/creatures';
+import { getAbility } from '../data/abilities';
 
 /**
  * Wild pool for a floor, via its tower band. Bands with no creatures authored
@@ -11,6 +14,22 @@ import { poolForBand } from '../data/creatures';
 export function poolForFloor(floor: number): string[] {
   const pool = poolForBand(bandForFloor(floor));
   return pool.length > 0 ? pool : poolForBand(1);
+}
+
+/**
+ * A randomized subset of the ordinary shallow pool whose members each expose at
+ * least one weakness the Founding Hand can hit. Unlike the Chamber fixture, this
+ * does not prescribe enemy identities or reveal their wards before discovery.
+ */
+export function openingEncounterPool(): string[] {
+  const starterWards = new Set(STARTER_TRIO_A.flatMap(id => (
+    STARTER_HAND_LOADOUTS[id]
+      .map(abilityId => getAbility(abilityId).damageType)
+      .filter(damageType => damageType !== 'None')
+  )));
+  return poolForFloor(1).filter(id => (
+    getTemplate(id).weaknesses.some(weakness => starterWards.has(weakness))
+  ));
 }
 
 /** `count` distinct entries from `pool`, or as many as it holds. */
@@ -46,7 +65,8 @@ function makeEncounter(type: EncounterType, floor: number, index: number): Encou
     e.enemies = pickDistinct(pool, e.bossTier === 'major' ? 3 : 2);
     e.enemyLevels = Math.floor(floor * (e.bossTier === 'major' ? 1.2 : 1.0)) + 2;
   } else if (type === 'combat') {
-    const pool = poolForFloor(floor);
+    const openingPool = floor === 1 && index === 0 ? openingEncounterPool() : [];
+    const pool = openingPool.length > 0 ? openingPool : poolForFloor(floor);
     const isEarly = floor <= 3;
     const enemyCount = isEarly ? 1 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * 3);
     e.enemies = [];
