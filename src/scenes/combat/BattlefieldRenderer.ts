@@ -108,12 +108,58 @@ function measureWidth(scene: Phaser.Scene, text: string, fontFamily: string, fon
   return w;
 }
 
-export function renderBattlefield(scene: Phaser.Scene, view: BattlefieldView): void {
-  screenFrame(scene);
-  drawHeader(scene, view);
-  drawEnemyField(scene, view);
-  drawBottomRow(scene, view);
-  drawFooter(scene, view);
+/** Persistent combat view. High-frequency regions update existing objects. */
+export class CombatBattlefield {
+  private readonly header: Phaser.GameObjects.Container;
+  private readonly enemyField: EnemyFieldView;
+  private readonly partyStrip: PartyStripView;
+  private readonly commandPanel: Phaser.GameObjects.Container;
+  private readonly footer: FooterView;
+
+  constructor(private readonly scene: Phaser.Scene) {
+    screenFrame(scene);
+    this.header = scene.add.container(0, 0);
+    this.enemyField = new EnemyFieldView(scene);
+    scene.add.existing(this.enemyField);
+    this.partyStrip = new PartyStripView(scene);
+    scene.add.existing(this.partyStrip);
+    this.commandPanel = scene.add.container(0, 0);
+    this.footer = new FooterView(scene);
+    scene.add.existing(this.footer);
+  }
+
+  update(view: BattlefieldView): void {
+    rebuildContainer(this.scene, this.header, () => drawHeader(this.scene, view));
+    this.enemyField.update(view);
+    this.partyStrip.update(view);
+
+    const partyBlockRight = LAYOUT.contentLeft + view.playerParty.length * PARTY_CARD_W
+      + Math.max(0, view.playerParty.length - 1) * PARTY_CARD_GAP;
+    rebuildContainer(this.scene, this.commandPanel, () => {
+      drawCommandPanel(
+        this.scene,
+        view,
+        partyBlockRight + 12,
+        LAYOUT.bottomRowTop,
+        LAYOUT.contentRight,
+        LAYOUT.bottomRowBottom,
+      );
+    });
+    this.footer.update(view);
+  }
+}
+
+/** Move objects created by the existing drawing helpers into one owned region. */
+function rebuildContainer(
+  scene: Phaser.Scene,
+  container: Phaser.GameObjects.Container,
+  draw: () => void,
+): void {
+  container.removeAll(true);
+  const before = new Set(scene.children.getAll());
+  draw();
+  const created = scene.children.getAll().filter(object => !before.has(object));
+  container.add(created);
 }
 
 // ---------- Header ----------
@@ -186,113 +232,157 @@ const ENEMY_COL_GAP = 8;
 const ENEMY_ROW_GAP = 4;
 const ENEMY_TILE_H = ENEMY_SPRITE_H + 5 + 8 + 5 + 14; // sprite + gap + hpbar + gap + status
 
-function drawEnemyField(scene: Phaser.Scene, view: BattlefieldView): void {
-  const { contentLeft, contentRight, enemyFieldTop, enemyFieldBottom } = LAYOUT;
-  const w = contentRight - contentLeft;
-  const h = enemyFieldBottom - enemyFieldTop;
-  const cx = (contentLeft + contentRight) / 2;
-  const cy = (enemyFieldTop + enemyFieldBottom) / 2;
+class EnemyFieldView extends Phaser.GameObjects.Container {
+  private readonly tiles = new Map<string, EnemyTile>();
 
-  scene.add.rectangle(cx, cy, w, h, UI.panel).setStrokeStyle(3, UI.plate);
-  // Horizontal scanlines, approximating the mockup's repeating-linear-gradient.
-  const scan = scene.add.graphics();
-  scan.lineStyle(2, UI.line, 0.14);
-  for (let y = enemyFieldTop + 4; y < enemyFieldBottom; y += 8) {
-    scan.lineBetween(contentLeft + 2, y, contentRight - 2, y);
+  constructor(scene: Phaser.Scene) {
+    super(scene, 0, 0);
+    const { contentLeft, contentRight, enemyFieldTop, enemyFieldBottom } = LAYOUT;
+    const background = scene.add.rectangle(
+      (contentLeft + contentRight) / 2,
+      (enemyFieldTop + enemyFieldBottom) / 2,
+      contentRight - contentLeft,
+      enemyFieldBottom - enemyFieldTop,
+      UI.panel,
+    ).setStrokeStyle(3, UI.plate);
+    const scanlines = scene.add.graphics();
+    scanlines.lineStyle(2, UI.line, 0.14);
+    for (let y = enemyFieldTop + 4; y < enemyFieldBottom; y += 8) {
+      scanlines.lineBetween(contentLeft + 2, y, contentRight - 2, y);
+    }
+    this.add([background, scanlines]);
   }
 
-  const innerLeft = contentLeft + 3 + 12;
-  const innerRight = contentRight - 3 - 12;
-  const innerTop = enemyFieldTop + 3 + 12;
-  const innerBottom = enemyFieldBottom - 3 - 12;
-  const innerW = innerRight - innerLeft;
-  const innerH = innerBottom - innerTop;
+  update(view: BattlefieldView): void {
+    const { contentLeft, contentRight, enemyFieldTop, enemyFieldBottom } = LAYOUT;
+    const innerLeft = contentLeft + 15;
+    const innerRight = contentRight - 15;
+    const innerTop = enemyFieldTop + 15;
+    const innerBottom = enemyFieldBottom - 15;
+    const columns = Math.min(3, Math.max(1, view.enemyParty.length));
+    const rows = Math.ceil(view.enemyParty.length / 3);
+    const groupWidth = columns * ENEMY_TILE_W + (columns - 1) * ENEMY_COL_GAP;
+    const groupHeight = rows * ENEMY_TILE_H + (rows - 1) * ENEMY_ROW_GAP;
+    const groupLeft = innerLeft + Math.max(0, (innerRight - innerLeft - groupWidth) / 2);
+    const groupTop = innerTop + Math.max(0, (innerBottom - innerTop - groupHeight) / 2);
+    const liveIds = new Set(view.enemyParty.map(enemy => enemy.instance.instanceId));
 
-  const n = view.enemyParty.length;
-  const cols = Math.min(3, Math.max(1, n));
-  const rows = Math.ceil(n / 3);
-  const groupW = cols * ENEMY_TILE_W + (cols - 1) * ENEMY_COL_GAP;
-  const groupH = rows * ENEMY_TILE_H + (rows - 1) * ENEMY_ROW_GAP;
-  const groupLeft = innerLeft + Math.max(0, (innerW - groupW) / 2);
-  const groupTop = innerTop + Math.max(0, (innerH - groupH) / 2);
+    for (const [id, tile] of this.tiles) {
+      if (liveIds.has(id)) continue;
+      tile.destroy();
+      this.tiles.delete(id);
+    }
 
-  view.enemyParty.forEach((enemy, i) => {
-    const col = i % 3;
-    const row = Math.floor(i / 3);
-    const tileX = groupLeft + col * (ENEMY_TILE_W + ENEMY_COL_GAP) + ENEMY_TILE_W / 2;
-    const tileTop = groupTop + row * (ENEMY_TILE_H + ENEMY_ROW_GAP);
-    drawEnemyTile(scene, view, enemy, tileX, tileTop);
-  });
+    view.enemyParty.forEach((enemy, index) => {
+      const id = enemy.instance.instanceId;
+      let tile = this.tiles.get(id);
+      if (!tile) {
+        tile = new EnemyTile(this.scene);
+        this.tiles.set(id, tile);
+        this.add(tile);
+      }
+      const column = index % 3;
+      const row = Math.floor(index / 3);
+      tile.setPosition(
+        groupLeft + column * (ENEMY_TILE_W + ENEMY_COL_GAP) + ENEMY_TILE_W / 2,
+        groupTop + row * (ENEMY_TILE_H + ENEMY_ROW_GAP),
+      );
+      tile.update(enemy, view);
+    });
+  }
 }
 
-function drawEnemyTile(
-  scene: Phaser.Scene, view: BattlefieldView, enemy: CombatCreature, x: number, tileTop: number,
-): void {
-  const targeted = view.currentTarget === enemy && !enemy.isKnockedOut;
-  const color = archetypeColor(enemy.template.archetype);
-  const spriteCenterY = tileTop + ENEMY_SPRITE_H / 2;
+class EnemyTile extends Phaser.GameObjects.Container {
+  private readonly stripes: Phaser.GameObjects.Graphics;
+  private readonly downText: Phaser.GameObjects.Text;
+  private readonly intentBg: Phaser.GameObjects.Rectangle;
+  private readonly intentText: Phaser.GameObjects.Text;
+  private readonly hotspot: Phaser.GameObjects.Rectangle;
+  private readonly hpFrame: Phaser.GameObjects.Rectangle;
+  private readonly hpFill: Phaser.GameObjects.Rectangle;
+  private readonly statusText: Phaser.GameObjects.Text;
+  private readonly targetMarker: Phaser.GameObjects.Graphics;
+  private enemy: CombatCreature | null = null;
+  private view: BattlefieldView | null = null;
 
-  // Diagonal-stripe tint, no border (the mockup's sprite plate has none).
-  const g = scene.add.graphics();
-  const alpha = enemy.isKnockedOut ? 0.12 : (targeted ? 0.35 : 0.27); // dim when unselected
-  g.lineStyle(5, color, alpha);
-  const left = x - ENEMY_TILE_W / 2;
-  const top = tileTop;
-  const right = x + ENEMY_TILE_W / 2;
-  const bottom = tileTop + ENEMY_SPRITE_H;
-  for (let d = -ENEMY_SPRITE_H; d < ENEMY_TILE_W; d += 10) {
-    const x1 = Math.max(left, left + d);
-    const y1 = top + Math.max(0, -d);
-    const x2 = Math.min(right, left + d + ENEMY_SPRITE_H);
-    const y2 = bottom - Math.max(0, d + ENEMY_SPRITE_H - ENEMY_TILE_W);
-    g.lineBetween(x1, y1, x2, y2);
-  }
-
-  if (enemy.isKnockedOut) {
-    scene.add.text(x, spriteCenterY, 'DOWN', {
+  constructor(scene: Phaser.Scene) {
+    super(scene, 0, 0);
+    const barY = ENEMY_SPRITE_H + 9;
+    this.stripes = scene.add.graphics();
+    this.downText = scene.add.text(0, ENEMY_SPRITE_H / 2, 'DOWN', {
       fontFamily: DISPLAY_FONT, fontSize: '9px', color: UI.muted,
     }).setOrigin(0.5);
-  }
-  const intent = enemy.isKnockedOut ? null : view.enemyIntent(enemy);
-  if (intent) {
-    const intentY = tileTop + ENEMY_SPRITE_H - 11;
-    scene.add.rectangle(x, intentY, ENEMY_TILE_W - 12, 17, UI.void, 0.9).setStrokeStyle(1, UI.line);
-    scene.add.text(x, intentY, `INTENT · ${intent}`, {
+    this.intentBg = scene.add.rectangle(0, ENEMY_SPRITE_H - 11, ENEMY_TILE_W - 12, 17, UI.void, 0.9)
+      .setStrokeStyle(1, UI.line);
+    this.intentText = scene.add.text(0, ENEMY_SPRITE_H - 11, '', {
       fontFamily: BODY_FONT, fontSize: '9px', color: UI.mutedBright,
     }).setOrigin(0.5);
-  }
-
-  // Targeting hotspot covers the whole tile (sprite + bars).
-  if (view.enemyInteractive && !enemy.isKnockedOut) {
-    const hotspot = scene.add.rectangle(x, tileTop + ENEMY_TILE_H / 2, ENEMY_TILE_W, ENEMY_TILE_H, 0x000000, 0)
-      .setInteractive({ useHandCursor: true });
-    hotspot.on('pointerover', () => view.onEnemyHover(enemy));
-    hotspot.on('pointerdown', () => view.onEnemyClick(enemy));
-  }
-
-  // HP bar: 116x8, 2px border, gold when targeted.
-  const barY = tileTop + ENEMY_SPRITE_H + 5 + 4;
-  scene.add.rectangle(x, barY, 116, 8, UI.void).setStrokeStyle(2, targeted ? UI.gold : UI.line);
-  const pct = enemy.maxHp > 0 ? Math.max(0, enemy.currentHp / enemy.maxHp) : 0;
-  if (pct > 0) {
-    scene.add.rectangle(x - 56, barY, 112 * pct, 6, hpColor(enemy.currentHp, enemy.maxHp)).setOrigin(0, 0.5);
-  }
-
-  // Status text.
-  const statusY = barY + 4 + 5 + 7;
-  const statusLabel = enemy.statusEffects.map(s => s.type.slice(0, 3).toUpperCase()).join(' ');
-  if (statusLabel) {
-    scene.add.text(x, statusY, statusLabel, {
+    this.hotspot = scene.add.rectangle(0, ENEMY_TILE_H / 2, ENEMY_TILE_W, ENEMY_TILE_H, 0x000000, 0);
+    this.hpFrame = scene.add.rectangle(0, barY, 116, 8, UI.void).setStrokeStyle(2, UI.line);
+    this.hpFill = scene.add.rectangle(-56, barY, 112, 6, UI.hp).setOrigin(0, 0.5);
+    this.statusText = scene.add.text(0, barY + 16, '', {
       fontFamily: BODY_FONT, fontSize: '10px', color: '#de5d3a',
     }).setOrigin(0.5);
+    this.targetMarker = scene.add.graphics();
+    this.targetMarker.fillStyle(UI.gold, 1);
+    this.targetMarker.fillTriangle(-9, 2, 9, 2, 0, 14);
+    this.add([
+      this.stripes,
+      this.downText,
+      this.intentBg,
+      this.intentText,
+      this.hpFrame,
+      this.hpFill,
+      this.statusText,
+      this.targetMarker,
+      this.hotspot,
+    ]);
+    this.hotspot.on('pointerover', () => {
+      if (this.enemy && this.view) this.view.onEnemyHover(this.enemy);
+    });
+    this.hotspot.on('pointerdown', () => {
+      if (this.enemy && this.view) this.view.onEnemyClick(this.enemy);
+    });
   }
 
-  // Gold downward triangle above the targeted enemy.
-  if (targeted) {
-    const tri = scene.add.graphics();
-    tri.fillStyle(UI.gold, 1);
-    const triTop = tileTop + 2;
-    tri.fillTriangle(x - 9, triTop, x + 9, triTop, x, triTop + 12);
+  update(enemy: CombatCreature, view: BattlefieldView): void {
+    this.enemy = enemy;
+    this.view = view;
+    const targeted = view.currentTarget === enemy && !enemy.isKnockedOut;
+    const color = archetypeColor(enemy.template.archetype);
+    const alpha = enemy.isKnockedOut ? 0.12 : (targeted ? 0.35 : 0.27);
+
+    this.stripes.clear();
+    this.stripes.lineStyle(5, color, alpha);
+    const left = -ENEMY_TILE_W / 2;
+    const right = ENEMY_TILE_W / 2;
+    for (let d = -ENEMY_SPRITE_H; d < ENEMY_TILE_W; d += 10) {
+      const x1 = Math.max(left, left + d);
+      const y1 = Math.max(0, -d);
+      const x2 = Math.min(right, left + d + ENEMY_SPRITE_H);
+      const y2 = ENEMY_SPRITE_H - Math.max(0, d + ENEMY_SPRITE_H - ENEMY_TILE_W);
+      this.stripes.lineBetween(x1, y1, x2, y2);
+    }
+
+    this.downText.setVisible(enemy.isKnockedOut);
+    const intent = enemy.isKnockedOut ? null : view.enemyIntent(enemy);
+    this.intentBg.setVisible(!!intent);
+    this.intentText.setVisible(!!intent).setText(intent ? `INTENT · ${intent}` : '');
+
+    const interactive = view.enemyInteractive && !enemy.isKnockedOut;
+    if (interactive) this.hotspot.setInteractive({ useHandCursor: true });
+    else this.hotspot.disableInteractive();
+
+    this.hpFrame.setStrokeStyle(2, targeted ? UI.gold : UI.line);
+    const hpFraction = enemy.maxHp > 0 ? Math.max(0, enemy.currentHp / enemy.maxHp) : 0;
+    this.hpFill
+      .setVisible(hpFraction > 0)
+      .setDisplaySize(112 * hpFraction, 6)
+      .setFillStyle(hpColor(enemy.currentHp, enemy.maxHp));
+
+    const statuses = enemy.statusEffects.map(status => status.type.slice(0, 3).toUpperCase()).join(' ');
+    this.statusText.setText(statuses).setVisible(!!statuses);
+    this.targetMarker.setVisible(targeted);
   }
 }
 
@@ -301,87 +391,153 @@ function drawEnemyTile(
 const PARTY_CARD_W = 128;
 const PARTY_CARD_GAP = 8;
 
-function drawBottomRow(scene: Phaser.Scene, view: BattlefieldView): void {
-  const { contentLeft, bottomRowTop, bottomRowBottom } = LAYOUT;
-  const cardTop = bottomRowTop;
-  view.playerParty.forEach((creature, i) => {
-    const x = contentLeft + PARTY_CARD_W / 2 + i * (PARTY_CARD_W + PARTY_CARD_GAP);
-    drawPartyCard(scene, view, creature, x, cardTop, bottomRowBottom - bottomRowTop);
-  });
+class PartyStripView extends Phaser.GameObjects.Container {
+  private readonly cards = new Map<string, PartyCardView>();
 
-  const partyBlockRight = contentLeft + view.playerParty.length * PARTY_CARD_W
-    + Math.max(0, view.playerParty.length - 1) * PARTY_CARD_GAP;
-  drawCommandPanel(scene, view, partyBlockRight + 12, bottomRowTop, LAYOUT.contentRight, bottomRowBottom);
+  constructor(scene: Phaser.Scene) {
+    super(scene, 0, 0);
+  }
+
+  update(view: BattlefieldView): void {
+    const liveIds = new Set(view.playerParty.map(creature => creature.instance.instanceId));
+    for (const [id, card] of this.cards) {
+      if (liveIds.has(id)) continue;
+      card.destroy();
+      this.cards.delete(id);
+    }
+
+    view.playerParty.forEach((creature, index) => {
+      const id = creature.instance.instanceId;
+      let card = this.cards.get(id);
+      if (!card) {
+        card = new PartyCardView(this.scene);
+        this.cards.set(id, card);
+        this.add(card);
+      }
+      card.setPosition(
+        LAYOUT.contentLeft + PARTY_CARD_W / 2 + index * (PARTY_CARD_W + PARTY_CARD_GAP),
+        LAYOUT.bottomRowTop,
+      );
+      card.update(creature, view);
+    });
+  }
 }
 
-function drawPartyCard(
-  scene: Phaser.Scene, view: BattlefieldView, creature: CombatCreature, x: number, top: number, h: number,
-): void {
-  const ko = creature.isKnockedOut;
-  const active = view.currentActor === creature;
-  const frame = ko ? UI.plate : (active ? UI.gold : UI.lineBright);
-  const plateColor = ko ? 0x1a1a26 : (active ? UI.line : UI.plate);
-  const cy = top + h / 2;
+class PartyCardView extends Phaser.GameObjects.Container {
+  private readonly background: Phaser.GameObjects.Rectangle;
+  private readonly sprite: Phaser.GameObjects.Graphics;
+  private readonly nameText: Phaser.GameObjects.Text;
+  private readonly hpText: Phaser.GameObjects.Text;
+  private readonly resourceLabel: Phaser.GameObjects.Text;
+  private readonly resourceText: Phaser.GameObjects.Text;
+  private readonly statusText: Phaser.GameObjects.Text;
+  private readonly hotspot: Phaser.GameObjects.Rectangle;
+  private creature: CombatCreature | null = null;
+  private view: BattlefieldView | null = null;
 
-  scene.add.rectangle(x, cy, PARTY_CARD_W, h, plateColor).setStrokeStyle(3, frame);
+  constructor(scene: Phaser.Scene) {
+    super(scene, 0, 0);
+    const height = LAYOUT.bottomRowBottom - LAYOUT.bottomRowTop;
+    const innerLeft = -PARTY_CARD_W / 2 + 7;
+    const innerWidth = PARTY_CARD_W - 14;
 
-  const targetable = view.allyTargetable ? view.allyTargetable(creature) : !ko;
-  if (view.allyInteractive && targetable) {
-    const hotspot = scene.add.rectangle(x, cy, PARTY_CARD_W, h, 0x000000, 0)
-      .setInteractive({ useHandCursor: true });
-    hotspot.on('pointerover', () => view.onAllyHover(creature));
-    hotspot.on('pointerdown', () => view.onAllyClick(creature));
+    this.background = scene.add.rectangle(0, height / 2, PARTY_CARD_W, height, UI.plate)
+      .setStrokeStyle(3, UI.lineBright);
+    this.sprite = scene.add.graphics();
+    this.nameText = scene.add.text(innerLeft, 74, '', {
+      fontFamily: DISPLAY_FONT,
+      fontSize: '9px',
+      color: UI.text,
+      wordWrap: { width: innerWidth },
+    });
+    const hpLabel = scene.add.text(innerLeft, 92, 'HP', {
+      fontFamily: BODY_FONT, fontSize: '10px', color: UI.muted,
+    });
+    this.hpText = scene.add.text(innerLeft + innerWidth, 92, '', {
+      fontFamily: BODY_FONT, fontSize: '11px', color: UI.greenCss,
+    }).setOrigin(1, 0);
+    this.resourceLabel = scene.add.text(innerLeft, 112, 'MP', {
+      fontFamily: BODY_FONT, fontSize: '10px', color: UI.muted,
+    });
+    this.resourceText = scene.add.text(innerLeft + innerWidth, 112, '', {
+      fontFamily: BODY_FONT, fontSize: '11px', color: UI.tealCss,
+    }).setOrigin(1, 0);
+    this.statusText = scene.add.text(innerLeft, 132, '', {
+      fontFamily: BODY_FONT, fontSize: '10px', color: '#de5d3a',
+    });
+    this.hotspot = scene.add.rectangle(0, height / 2, PARTY_CARD_W, height, 0x000000, 0);
+    this.add([
+      this.background,
+      this.sprite,
+      this.nameText,
+      hpLabel,
+      this.hpText,
+      this.resourceLabel,
+      this.resourceText,
+      this.statusText,
+      this.hotspot,
+    ]);
+    this.hotspot.on('pointerover', () => {
+      if (this.creature && this.view) this.view.onAllyHover(this.creature);
+    });
+    this.hotspot.on('pointerdown', () => {
+      if (this.creature && this.view) this.view.onAllyClick(this.creature);
+    });
   }
 
-  const innerLeft = x - PARTY_CARD_W / 2 + 7;
-  const innerW = PARTY_CARD_W - 14;
-  let y = top + 7;
+  update(creature: CombatCreature, view: BattlefieldView): void {
+    this.creature = creature;
+    this.view = view;
+    const knockedOut = creature.isKnockedOut;
+    const active = view.currentActor === creature;
+    const frame = knockedOut ? UI.plate : (active ? UI.gold : UI.lineBright);
+    const plate = knockedOut ? 0x1a1a26 : (active ? UI.line : UI.plate);
+    this.background.setFillStyle(plate).setStrokeStyle(3, frame);
 
-  const color = archetypeColor(creature.template.archetype);
-  const spriteCy = y + 31;
-  const sg = scene.add.graphics();
-  sg.lineStyle(2, UI.line, 1);
-  sg.strokeRect(innerLeft, y, innerW, 62);
-  sg.lineStyle(4, color, ko ? 0.12 : 0.35);
-  const left = innerLeft, spTop = y, right = innerLeft + innerW, bottom = y + 62;
-  for (let d = -62; d < innerW; d += 8) {
-    const x1 = Math.max(left, left + d);
-    const y1 = spTop + Math.max(0, -d);
-    const x2 = Math.min(right, left + d + 62);
-    const y2 = bottom - Math.max(0, d + 62 - innerW);
-    sg.lineBetween(x1, y1, x2, y2);
+    const innerLeft = -PARTY_CARD_W / 2 + 7;
+    const innerWidth = PARTY_CARD_W - 14;
+    const color = archetypeColor(creature.template.archetype);
+    this.sprite.clear();
+    this.sprite.lineStyle(2, UI.line, 1);
+    this.sprite.strokeRect(innerLeft, 7, innerWidth, 62);
+    this.sprite.lineStyle(4, color, knockedOut ? 0.12 : 0.35);
+    const right = innerLeft + innerWidth;
+    for (let d = -62; d < innerWidth; d += 8) {
+      const x1 = Math.max(innerLeft, innerLeft + d);
+      const y1 = 7 + Math.max(0, -d);
+      const x2 = Math.min(right, innerLeft + d + 62);
+      const y2 = 69 - Math.max(0, d + 62 - innerWidth);
+      this.sprite.lineBetween(x1, y1, x2, y2);
+    }
+
+    this.nameText
+      .setText(creature.template.name.toUpperCase())
+      .setColor(knockedOut ? UI.muted : UI.text);
+    this.hpText
+      .setText(`${creature.currentHp}/${creature.maxHp}`)
+      .setColor(Phaser.Display.Color.IntegerToColor(
+        hpColor(creature.currentHp, creature.maxHp),
+      ).rgba);
+    this.resourceLabel.setText(view.usesSharedActions ? 'AP POOL' : 'MP');
+    this.resourceText
+      .setText(view.usesSharedActions
+        ? `${view.actionPoints}/${view.actionPointCap}`
+        : `${creature.currentMp}/${creature.maxMp}`)
+      .setColor(view.usesSharedActions || creature.currentMp > 0 ? UI.tealCss : '#5e5b8c');
+    const statuses = creature.statusEffects
+      .map(status => status.type.slice(0, 3).toUpperCase())
+      .join(' ');
+    this.statusText
+      .setText(knockedOut ? 'FAINTED' : statuses)
+      .setColor(knockedOut ? UI.muted : '#de5d3a');
+
+    const targetable = view.allyTargetable ? view.allyTargetable(creature) : !knockedOut;
+    if (view.allyInteractive && targetable) {
+      this.hotspot.setInteractive({ useHandCursor: true });
+    } else {
+      this.hotspot.disableInteractive();
+    }
   }
-  void spriteCy;
-  y += 62 + 5;
-
-  scene.add.text(innerLeft, y, creature.template.name.toUpperCase(), {
-    fontFamily: DISPLAY_FONT, fontSize: '9px', color: ko ? UI.muted : UI.text,
-    wordWrap: { width: innerW },
-  });
-  y += 13 + 5;
-
-  scene.add.text(innerLeft, y, 'HP', { fontFamily: BODY_FONT, fontSize: '10px', color: UI.muted });
-  scene.add.text(innerLeft + innerW, y, `${creature.currentHp}/${creature.maxHp}`, {
-    fontFamily: BODY_FONT, fontSize: '11px',
-    color: Phaser.Display.Color.IntegerToColor(hpColor(creature.currentHp, creature.maxHp)).rgba,
-  }).setOrigin(1, 0);
-  y += 15 + 5;
-
-  scene.add.text(innerLeft, y, view.usesSharedActions ? 'AP POOL' : 'MP', {
-    fontFamily: BODY_FONT, fontSize: '10px', color: UI.muted,
-  });
-  scene.add.text(innerLeft + innerW, y, view.usesSharedActions
-    ? `${view.actionPoints}/${view.actionPointCap}`
-    : `${creature.currentMp}/${creature.maxMp}`, {
-    fontFamily: BODY_FONT, fontSize: '11px',
-    color: view.usesSharedActions || creature.currentMp > 0 ? UI.tealCss : '#5e5b8c',
-  }).setOrigin(1, 0);
-  y += 15 + 5;
-
-  const statuses = creature.statusEffects.map(s => s.type.slice(0, 3).toUpperCase()).join(' ');
-  scene.add.text(innerLeft, y, ko ? 'FAINTED' : statuses, {
-    fontFamily: BODY_FONT, fontSize: '10px', color: ko ? UI.muted : '#de5d3a',
-  });
 }
 
 // ---------- Command panel ----------
@@ -480,12 +636,23 @@ function drawCommandPanel(
 
 // ---------- Footer ----------
 
-function drawFooter(scene: Phaser.Scene, view: BattlefieldView): void {
-  const { contentLeft, contentRight, footerY } = LAYOUT;
-  scene.add.text(contentLeft, footerY, view.footerDetail, {
-    fontFamily: BODY_FONT, fontSize: '12px', color: UI.body,
-  }).setOrigin(0, 0.5);
-  scene.add.text(contentRight, footerY, view.footerTarget, {
-    fontFamily: BODY_FONT, fontSize: '12px', color: UI.mutedBright,
-  }).setOrigin(1, 0.5);
+class FooterView extends Phaser.GameObjects.Container {
+  private readonly detail: Phaser.GameObjects.Text;
+  private readonly target: Phaser.GameObjects.Text;
+
+  constructor(scene: Phaser.Scene) {
+    super(scene, 0, 0);
+    this.detail = scene.add.text(LAYOUT.contentLeft, LAYOUT.footerY, '', {
+      fontFamily: BODY_FONT, fontSize: '12px', color: UI.body,
+    }).setOrigin(0, 0.5);
+    this.target = scene.add.text(LAYOUT.contentRight, LAYOUT.footerY, '', {
+      fontFamily: BODY_FONT, fontSize: '12px', color: UI.mutedBright,
+    }).setOrigin(1, 0.5);
+    this.add([this.detail, this.target]);
+  }
+
+  update(view: BattlefieldView): void {
+    this.detail.setText(view.footerDetail);
+    this.target.setText(view.footerTarget);
+  }
 }

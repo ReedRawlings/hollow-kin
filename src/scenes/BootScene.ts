@@ -16,6 +16,13 @@ export class BootScene extends Phaser.Scene {
     super({ key: 'BootScene' });
   }
 
+  preload(): void {
+    // Phaser Editor's Asset Pack Editor writes this built-in Phaser manifest.
+    // Keeping the load centralized means future editor-created scenes can use
+    // assets from the pack without adding one-off preload code to every scene.
+    this.load.pack('hollow-kin-assets', 'assets/asset-pack.json');
+  }
+
   create(): void {
     const loaded = gameState.loadFromLocalStorage();
     if (loaded && gameState.creatureBox.length > 0) {

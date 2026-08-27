@@ -1,0 +1,17 @@
+{
+  "plugins": [],
+  "skip": [
+    ".git",
+    "node_modules",
+    "dist",
+    "output",
+    "_to_delete",
+    "test-actions",
+    "design_handoff_tower_screens",
+    "docs"
+  ],
+  "playUrl": "http://127.0.0.1:5173/?editor=1",
+  "settings": {
+    "phasereditor2d.scene.enablePixelArt": true
+  }
+}

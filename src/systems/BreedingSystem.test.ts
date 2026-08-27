@@ -8,6 +8,13 @@ import { PARTY_SIZE } from './PartyStatus';
 import { CreatureInstance, TraitSlot } from '../types';
 import { unlockedSlotCount, MAX_TRAIT_SLOTS, TRAIT_SLOT_LEVELS, applyStatTraitBonuses } from './Traits';
 import { calculateLevelScaledStats } from '../managers/GameState';
+import { essenceCostForLevel, levelFromEssence } from './Economy';
+import { BREED_CARRYOVER_FRACTION } from '../types';
+
+// A level-3 parent's total investment, read from the cost curve rather than written
+// out, so retuning LEVEL_COST_BASE or the exponent does not turn these tests red.
+const LV3_INVESTED = essenceCostForLevel(1) + essenceCostForLevel(2);
+const CARRIED = levelFromEssence(Math.floor(LV3_INVESTED * BREED_CARRYOVER_FRACTION), 50);
 
 // Minimal creature-instance factory for tests (only fields breeding reads).
 function makeParent(overrides: Partial<CreatureInstance>): CreatureInstance {
@@ -62,12 +69,16 @@ describe('carryoverForParents', () => {
     expect(carryoverForParents(a, b, 50)).toEqual({ level: 1, invested: 0 });
   });
 
-  it('carries half the average invested essence, converted through the cost curve', () => {
-    // Two Lv3 parents: essenceInvested 38 each. avg 38, *0.5 = 19 pool.
-    // levelFromEssence(19,50) -> level 2, invested 10.
-    const a = makeParent({ essenceInvested: 38 });
-    const b = makeParent({ essenceInvested: 38 });
-    expect(carryoverForParents(a, b, 50)).toEqual({ level: 2, invested: 10 });
+  it('carries a share of the average invested essence, converted through the cost curve', () => {
+    const a = makeParent({ essenceInvested: LV3_INVESTED });
+    const b = makeParent({ essenceInvested: LV3_INVESTED });
+    expect(carryoverForParents(a, b, 50)).toEqual(CARRIED);
+  });
+
+  it('carries strictly less than the parents put in, so breeding costs progress', () => {
+    const a = makeParent({ essenceInvested: LV3_INVESTED });
+    const b = makeParent({ essenceInvested: LV3_INVESTED });
+    expect(carryoverForParents(a, b, 50).invested).toBeLessThan(LV3_INVESTED);
   });
 
   it('respects the offspring level cap', () => {
@@ -80,12 +91,12 @@ describe('carryoverForParents', () => {
 
 describe('breed applies carry-over to the offspring', () => {
   it('sets permanentLevel = currentLevel = carried level, and matching essenceInvested', () => {
-    const a = makeParent({ instanceId: 'a', essenceInvested: 38 });
-    const b = makeParent({ instanceId: 'b', essenceInvested: 38 });
+    const a = makeParent({ instanceId: 'a', essenceInvested: LV3_INVESTED });
+    const b = makeParent({ instanceId: 'b', essenceInvested: LV3_INVESTED });
     const child = breed(a, b, 'kin_070', []);
-    expect(child.permanentLevel).toBe(2);
-    expect(child.currentLevel).toBe(2);
-    expect(child.essenceInvested).toBe(10);
+    expect(child.permanentLevel).toBe(CARRIED.level);
+    expect(child.currentLevel).toBe(CARRIED.level);
+    expect(child.essenceInvested).toBe(CARRIED.invested);
   });
 
   it('still retires both parents', () => {

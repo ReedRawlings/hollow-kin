@@ -40,14 +40,22 @@ describe('estimateDamage', () => {
 });
 
 describe('chooseAction — enemy_default', () => {
-  it('matches getEnemyAction: strongest affordable non-Status ability', () => {
+  // These were written as characterization tests during the getEnemyAction port.
+  // The rules they describe are still live design, so they stay — but the expected
+  // move is now read from ability data instead of being written out by id, because
+  // ability power is a placeholder number on the tuning list.
+  const strongestOf = (ids: string[]): string =>
+    ids.reduce((best, id) => (getAbility(id).power > getAbility(best).power ? id : best));
+
+  it('picks the strongest affordable non-Status ability', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
+    const moves = ['jab', 'thrash', 'smash'];
     const enemy = makeTestCreature({
-      speciesId: 'foe', isPlayer: false, mp: 20, abilities: ['jab', 'thrash', 'smash'],
+      speciesId: 'foe', isPlayer: false, mp: 20, abilities: moves,
     });
     const hero = makeTestCreature({ speciesId: 'hero' });
     const action = chooseAction(enemy, [enemy], [hero], 'enemy_default', NO_KNOWLEDGE);
-    expect(action).toEqual({ kind: 'ability', abilityId: 'thrash', target: hero });
+    expect(action).toEqual({ kind: 'ability', abilityId: strongestOf(moves), target: hero });
   });
 
   it('never picks a Status ability', () => {
@@ -62,14 +70,16 @@ describe('chooseAction — enemy_default', () => {
 
   it('never exploits a weakness even when handed knowledge', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
-    // Weaker-power Ash move vs an Ash-weak target: an informed AI would pick ember.
+    // 'ember' is Ash and the target is Ash-weak, but it is the weaker move. An informed
+    // AI would take it anyway; enemy_default must sort on raw power and ignore the fog.
+    const moves = ['ember', 'thrash'];
     const enemy = makeTestCreature({
-      speciesId: 'foe', isPlayer: false, mp: 20, abilities: ['ember', 'thrash'],
+      speciesId: 'foe', isPlayer: false, mp: 20, abilities: moves,
     });
     const hero = makeTestCreature({ speciesId: 'hero', weaknesses: ['Ash'] });
+    expect(getAbility('ember').power).toBeLessThan(getAbility('thrash').power); // the premise
     const action = chooseAction(enemy, [enemy], [hero], 'enemy_default', new Set(['hero']));
-    // enemy_default sorts by raw power only: thrash (75) beats ember (40).
-    expect(action).toMatchObject({ abilityId: 'thrash' });
+    expect(action).toMatchObject({ abilityId: strongestOf(moves) });
   });
 
   it('returns null when no foe is alive', () => {

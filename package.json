@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "editor:dev": "vite --host 127.0.0.1 --port 5173",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "phaser": "^3.80.0"
+    "phaser": "4.2.1"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

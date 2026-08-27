@@ -16,7 +16,7 @@ import { gameState, SAVE_VERSION } from './GameState';
 import { estimateDamage, NO_KNOWLEDGE } from '../systems/TacticsAI';
 import { makeTestCreature } from '../systems/testFixtures';
 import { getAbility } from '../data/abilities';
-import { depthUnlockCost, depthRunFee } from '../systems/Economy';
+import { depthUnlockCost, depthRunFee, convertObolsToEssence, essenceCostForLevel } from '../systems/Economy';
 import { breed } from '../systems/BreedingSystem';
 import { isCreatureBreedReady, TRAIT_SLOT_LEVELS, MAX_TRAIT_SLOTS, unlockedSlotCount } from '../systems/Traits';
 import { STAR_LEVEL_CAPS, TOWER_FLOORS } from '../types';
@@ -90,21 +90,25 @@ describe('startRun', () => {
 });
 
 describe('endRun obol conversion', () => {
-  it('converts 100% of leftover obols to essence on success', () => {
-    gameState.essence = 0;
-    gameState.setRunParty([gameState.creatureBox[0].instanceId]);
-    gameState.startRun();
-    gameState.currentRun = null; // no captures
-    gameState.endRun(true, 100); // 100 * 0.5 = 50
-    expect(gameState.essence).toBe(50);
-  });
-  it('halves leftover obols on a wipe before converting', () => {
-    gameState.essence = 0;
-    gameState.setRunParty([gameState.creatureBox[0].instanceId]);
-    gameState.startRun();
-    gameState.currentRun = null;
-    gameState.endRun(false, 100); // 100 -> 50 -> *0.5 = 25
-    expect(gameState.essence).toBe(25);
+  // The conversion arithmetic itself belongs to Economy.test.ts. What is tested here
+  // is only the wiring: that endRun routes leftover Obols through that function and
+  // credits the result, and that the wipe flag reaches it.
+  it('credits the converted leftover to essence, and a wipe credits less', () => {
+    const convertOnExit = (survived: boolean): number => {
+      gameState.essence = 0;
+      gameState.setRunParty([gameState.creatureBox[0].instanceId]);
+      gameState.startRun();
+      gameState.currentRun = null; // no captures
+      gameState.endRun(survived, 100);
+      return gameState.essence;
+    };
+
+    const clean = convertOnExit(true);
+    const wiped = convertOnExit(false);
+
+    expect(clean).toBe(convertObolsToEssence(100));
+    expect(wiped).toBe(convertObolsToEssence(100, { isWipe: true }));
+    expect(wiped).toBeLessThan(clean);
   });
 });
 
@@ -113,21 +117,23 @@ describe('spendEssenceOnLevel', () => {
     const c = gameState.creatureBox[0];
     c.permanentLevel = 1;
     c.essenceInvested = 0;
-    gameState.essence = 100;
+    const cost = essenceCostForLevel(1);
+    gameState.essence = cost + 90;
     const ok = gameState.spendEssenceOnLevel(c);
     expect(ok).toBe(true);
     expect(c.permanentLevel).toBe(2);
-    expect(gameState.essence).toBe(90); // cost 10
-    expect(c.essenceInvested).toBe(10);
+    expect(gameState.essence).toBe(90);
+    expect(c.essenceInvested).toBe(cost);
   });
   it('refuses when essence is insufficient', () => {
     const c = gameState.creatureBox[0];
     c.permanentLevel = 5;
-    gameState.essence = 1; // cost floor(10*5^1.5)=111
+    const oneShort = essenceCostForLevel(5) - 1;
+    gameState.essence = oneShort;
     const ok = gameState.spendEssenceOnLevel(c);
     expect(ok).toBe(false);
     expect(c.permanentLevel).toBe(5);
-    expect(gameState.essence).toBe(1);
+    expect(gameState.essence).toBe(oneShort);
   });
   it('refuses at the level cap', () => {
     const c = gameState.creatureBox[0];
@@ -140,7 +146,7 @@ describe('spendEssenceOnLevel', () => {
     const c = gameState.creatureBox[0];
     c.permanentLevel = 1;
     c.essenceInvested = 0;
-    gameState.essence = 10; // exactly the cost for level 1->2
+    gameState.essence = essenceCostForLevel(1); // exactly the cost for level 1->2
     const ok = gameState.spendEssenceOnLevel(c);
     expect(ok).toBe(true);
     expect(c.permanentLevel).toBe(2);
@@ -150,7 +156,9 @@ describe('spendEssenceOnLevel', () => {
   it('keeps using an offspring-specific baseline after a permanent level purchase', () => {
     const c = gameState.creatureBox[0];
     c.statBaseline = { hp: 100, mp: 50, str: 40, def: 30, wis: 25, spd: 20, int: 15 };
-    gameState.essence = 10;
+    c.permanentLevel = 1;
+    c.essenceInvested = 0;
+    gameState.essence = essenceCostForLevel(1);
 
     expect(gameState.spendEssenceOnLevel(c)).toBe(true);
     expect(c.currentStats.hp).toBe(160);
