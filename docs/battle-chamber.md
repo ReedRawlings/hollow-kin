@@ -46,15 +46,14 @@ The Relay + Links preset is deliberately arranged to demonstrate Thermal Shock a
 
 - Timeline entries have unique slot ids independent of actor ids.
 - The Twin Threat preset gives its mini-boss a standard and a boss-extra slot, each with a separately committed intent.
-- The Encore preset allows Relay to create one explicit relic-extra slot for a Kin that already acted.
-- Encore can be used once per round, only one allied extra slot can be created, and one Kin can act at most twice.
+- Allied extra action slots are not planned: the former extra-action prototype was removed along with the concept it depended on, and Relay only ever moves an unused standard action.
 
 ## Chamber presets
 
 | Preset | Rule under test |
 | --- | --- |
 | Relay + Links | Starts at zero; Iron, Ash, and Salt weakness hits build Tempo before Relay creates Link adjacency |
-| Attrition | Starts wounded with Encore Relay; tests whether one extra action is valuable without being mandatory |
+| Attrition | Starts wounded; tests whether persistent Relay is valuable under pressure without being mandatory |
 | Twin Threat | Mini-boss has two intent slots and Link Arts are enabled |
 
 ## Legacy Shared AP comparison
@@ -78,7 +77,7 @@ Both modes use the production `CombatScene`, damage and status resolution, SPD o
 | MP is the default move economy; legacy Shared AP remains selectable | Each Kin spends persistent MP |
 | The Founding Hand's real starter loadouts expose weakness hits and Link combinations under either economy | Starter Kin use those same loadouts; other Kin retain their own persistent moves |
 | Chamber weaknesses are immediately visible and Tempo-eligible | Expedition knowledge follows Monsterpedia discovery rules |
-| Selected presets enable Link Arts, boss extra slots, or Encore | These remain Chamber experiments |
+| Selected presets enable Link Arts or boss extra slots | These remain Chamber experiments |
 | Fixed parties, enemies, levels, health, and seeds | Expedition encounters use run state |
 | Results return to a comparison ledger | Victory continues to rewards and path selection |
 | No XP, Obols, recovery, knowledge, or saves | Expedition outcomes update progression |
@@ -95,7 +94,6 @@ The primary playtest questions are:
 2. Do players hold Relay for meaningful threats or Links rather than spending immediately?
 3. Does enemy interruption make Link order readable and valuable?
 4. Do two boss intents create prioritization rather than unavoidable damage?
-5. Does Encore speed up understood fights without making extra turns mandatory?
 
 ## Legacy AP consequence: rewards
 

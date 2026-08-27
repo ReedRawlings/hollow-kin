@@ -2,9 +2,8 @@
  * Timed run-scoped modifiers, chosen at the post-battle offer and active the
  * moment they are taken. No arming step, no backpack slot, no charges to spend.
  *
- * A boon is functionally a short-duration Relic. That is deliberate: when Relics
- * are built they should reuse this layer rather than duplicate it, which is why
- * `ActiveBoon.battlesLeft` already permits `null` for "lasts the run".
+ * Boons are the only run-scoped modifier layer. `ActiveBoon.battlesLeft` permits
+ * `null` for "lasts the whole run"; Gary's Gift relationship boons use this.
  *
  * There is intentionally NO MP-discount boon. `ability.mpCost` is read raw in
  * roughly thirteen places across CombatScene and TacticsAI (affordability, menu
@@ -82,7 +81,7 @@ export const BOONS: Record<string, BoonDefinition> = {
 };
 
 export const BOON_LIST: readonly BoonDefinition[] = Object.values(BOONS);
-/** Only timed boons belong in random post-combat offers; relics have owners. */
+/** Only timed boons belong in random post-combat offers; run-long boons have owners. */
 export const REWARD_BOON_LIST: readonly BoonDefinition[] = BOON_LIST.filter(b => b.battles !== null);
 
 /** Falls back rather than throwing, matching `getItem` — a bad id costs one boon,

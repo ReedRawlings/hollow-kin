@@ -164,13 +164,13 @@ An augment follows a move when it advances. The four equipped move limit may rem
 
 Run-learned moves, advancements and inscriptions reset to the permanent starting loadout at expedition end unless a separate permanent system explicitly records them.
 
-## Traits, Instincts, Marks, Relics and Afterform
+## Traits, Instincts, Marks, Boons and Afterform
 
 - **Traits** permanently shape Omen performance: opening pressure, affinity with a move tag, SPD adjustments, resistance during unbroken attacks, or recovery after a Break.
 - **Instincts** are proposed personal conditions such as “the first Debuff pip this Kin removes each round counts twice” or “gain MP when an ally completes the Omen you started.”
 - **Timed boons** remain short-duration expedition modifiers and can include first-round pressure or post-victory recovery.
-- **Relics** alter the expedition’s Break grammar: Ghost moves can answer Affliction, the first neutral pip is already cracked, or a full Break pays bonus Obols.
-- **Marks** can record unusual deeds—breaking an Omen using three different Kin, surviving an unbroken major Omen, or completing a Break with Basic Attack—and unlock future moves, relics or Instincts. The pitch does not require one of the current competing Mark permanence models.
+- **Run-long boons** alter the expedition’s Break grammar: Ghost moves can answer Affliction, the first neutral pip is already cracked, or a full Break pays bonus Obols.
+- **Marks** can record unusual deeds—breaking an Omen using three different Kin, surviving an unbroken major Omen, or completing a Break with Basic Attack—and unlock future moves, boons or Instincts. The pitch does not require one of the current competing Mark permanence models.
 - **Afterform** belongs to the Exposed window. The Kin that completes a full Break may awaken if it has also satisfied its Instinct. Its Afterform changes how it exploits Broken enemies instead of simply adding stats.
 
 Examples of Afterform rules:

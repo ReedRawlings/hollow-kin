@@ -22,7 +22,7 @@
 > built.
 >
 > Anyone resuming this must pick one first. Two things worth knowing before that choice:
-> the pitch's version depends on Relics and Heirlooms existing to unlock, and neither
+> the pitch's version depends on Heirlooms existing to unlock, and they
 > does; and `marks-catalog.md` still carries two unresolved issues either model inherits
 > — the deepest Floor Mark grants damage "deeper than" a floor with nothing below it, and
 > `mark_physical` / `mark_fighting` are the same mark twice.
@@ -81,7 +81,7 @@ Additional combat marks should be designed to cover the major damage types, heal
 
 ## **Marks and Permanence**
 
-A mark only outlives the run it was earned in if the player pays to bind it. Permanence comes from spending **essence** at the **Mark-binder**, not from retirement or relics. Once bound, a mark stays on the creature for the rest of its life.
+A mark only outlives the run it was earned in if the player pays to bind it. Permanence comes from spending **essence** at the **Mark-binder**, not from retirement or boons. Once bound, a mark stays on the creature for the rest of its life.
 
 This gives marks genuine, durable value: a creature with a weak or undesirable trait but a strong earned mark is still worth investing essence into, since binding that mark preserves an effect it earned through play.
 

@@ -79,11 +79,27 @@ Each encounter on the run map is one of the following:
 * Learn a random ability for a single pet
 * No mark progress or XP is earned at rest points
 
-### **Random Events**
+### **Random Events (built — `data/events.ts`, `systems/Events.ts`, `EventScene`)**
 
-* Narrative encounters with risk/reward choices
-* Examples: a trapped creature that can be freed (joins inventory) or left, a cursed shrine that offers a powerful relic but debuffs the party, a merchant with a rare item at an inflated price
-* Events should create memorable run moments and give the player agency outside of combat
+An event room is an **offer**, not a windfall. It shows a name, one line of flavour, the exact terms (what you pay, what you get) and two actions: **ACCEPT** or **WALK AWAY**. Walking away costs nothing and returns to the map. Rules:
+
+* **Events grant no XP.** XP is combat's reward; the only way an event yields XP is by triggering a fight.
+* **Viability is filtered before the draw** — an event whose terms could not fire in the current run state is excluded (as `RewardOffer` drops dead cards), and the event is drawn uniformly from the viable set when the room is *entered*, never at descent generation.
+* **Obol-priced events cost 10% of current Obols**, floored, free at 0.
+* **No event can knock a creature out** — HP costs always leave at least 1.
+* Resolvers are pure (`systems/Events.ts` returns an `EventResolution`; the scene applies it), the same contract as `Items.ts`.
+
+The five-event catalogue (all numbers are placeholders):
+
+| Event | Terms | Viable when |
+|---|---|---|
+| **Mercy Well** | Every living party member recovers 10% max HP and MP. Costs 10% of current Obols. | Obols > 0 and someone is below max HP or MP |
+| **Blood Boon** | Grants one random reward boon (named before accepting). A random living creature loses 20% of its current HP. | At least one living creature |
+| **The Dice** | A d12 is rolled and shown; pick a donor then a recipient. HP moved = min(roll, donor HP − 1, recipient's missing HP). | At least two living creatures |
+| **Tinker's Trade** | Pay 10% of current Obols; choose one of three distinct items from the full pool. | Obols > 0 and the bag has a free slot |
+| **Warden's Wager** | Fight a combat encounter on this floor; Obols and XP from the victory are doubled (`Encounter.rewardMultiplier`). The post-battle reward offer is unchanged. | Always |
+
+Design record: `docs/superpowers/specs/2026-08-27-event-rooms-design.md`.
 
 ---
 

@@ -48,11 +48,16 @@ export function canUseItem(def: ItemDefinition, ctx: ItemContext): boolean {
 const WRONG_PLACE = 'Not here.';
 const NO_TARGET = 'Nothing to use it on.';
 
-/** Resolve against combat state. `target` is null for effects that take none. */
+/**
+ * Resolve against combat state. `target` is null for effects that take none —
+ * including `all_living_allies`, whose real targets come from `party` instead.
+ * `party` is only read for that one targeting kind; every other case ignores it.
+ */
 export function applyItemInCombat(
   def: ItemDefinition,
   target: CombatCreature | null,
   ctx: ItemContext,
+  party?: CombatCreature[],
 ): ItemOutcome {
   if (!canUseItem(def, ctx)) return { kind: 'refused', reason: WRONG_PLACE };
 
@@ -86,6 +91,12 @@ export function applyItemInCombat(
       return { kind: 'applied', message: `${name} is cleansed of ${removed.join(', ')}.` };
     }
     case 'buff': {
+      if (def.targeting === 'all_living_allies') {
+        const living = (party ?? []).filter(ally => !ally.isKnockedOut);
+        if (!living.length) return { kind: 'refused', reason: NO_TARGET };
+        for (const ally of living) applyBuffDebuff(ally, def.effect.stat, def.effect.stages);
+        return { kind: 'applied', message: `The party's ${def.effect.stat.toUpperCase()} rises.` };
+      }
       if (!target || target.isKnockedOut) return { kind: 'refused', reason: NO_TARGET };
       applyBuffDebuff(target, def.effect.stat, def.effect.stages);
       return { kind: 'applied', message: `${name}'s ${def.effect.stat.toUpperCase()} rises.` };

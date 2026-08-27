@@ -34,7 +34,7 @@ Today `RunGenerator.fillerType()` emits `'event'` at ~15% and nothing consumes i
 | Class | Stated? | Player sees | Fires from | Example |
 | ----- | ----- | ----- | ----- | ----- |
 | **Choice** | Yes | A card, 2–3 options, costs and outcomes named | Floor is type `event` | A caged Kin: free it (uses a backpack slot) or leave it |
-| **Wager** | Yes | Visible odds, one button | Floor is type `event` | Cursed shrine: 60% a relic, 40% the party starts the next fight at −1 DEF stage |
+| **Wager** | Yes | Visible odds, one button | Floor is type `event` | Cursed shrine: 60% a run-long boon, 40% the party starts the next fight at −1 DEF stage |
 | **Condition** | Yes, passively | An icon on the floor card, before you commit | Drawn per floor / per band | *Conductive* — electric damage +30% for everyone (see §3) |
 | **Latent** | **No** | An unexplained line in the log, then an effect | Run state crossing a threshold | Descend five floors without resting → *"Something below has noticed you."* Next combat floor adds one enemy |
 | **Reactive** | No, then yes | A callback to a thing you did earlier | A flag set by a prior event | The Kin you freed on floor 4 arrives on the boss floor and takes one hit for you |
@@ -80,7 +80,7 @@ Rule of thumb: **an event that only moves Obols is a shop. An event that moves c
 
 ### **1.5 Recommended alpha scope**
 
-Twelve Choice events and four Wagers, authored as data with a small effect vocabulary (grant relic / grant item / grant trait / set combat-start flag / modify next encounter / adjust Obols). Three latent triggers, chosen from the table above. Reactive events wait until Choice events exist to set flags.
+Twelve Choice events and four Wagers, authored as data with a small effect vocabulary (grant boon / grant item / grant trait / set combat-start flag / modify next encounter / adjust Obols). Three latent triggers, chosen from the table above. Reactive events wait until Choice events exist to set flags.
 
 ---
 
@@ -140,7 +140,7 @@ All three are **combinatorial, not insight-based**, which is the side of the lin
 
 ### **2.5 Design constraints for both families**
 
-* **Never gate progression.** Reinforce it in the reward table: puzzles award cosmetics, relics, items and traits. They **never** award Essence, permanent levels, or depth-jumps. Blue Prince's own developer applies the same rule — *no individual puzzle is necessary to reach the ending* — and it is the reason its desync problem is survivable rather than fatal.
+* **Never gate progression.** Reinforce it in the reward table: puzzles award cosmetics, boons, items and traits. They **never** award Essence, permanent levels, or depth-jumps. Blue Prince's own developer applies the same rule — *no individual puzzle is necessary to reach the ending* — and it is the reason its desync problem is survivable rather than fatal.
 * **No time pressure and no fail state.** The game is turn-based; twitch and timers contradict the product. A puzzle abandoned mid-solve must be safe.
 * **Zero combat cost.** Puzzles consume no HP, MP, or turns. Own encounter, always skippable, skip button on the first screen.
 * **Respect the auto-battle player.** A real slice of the audience chose this game to *not* pay attention. Puzzles must be opt-in and must never be the cheapest source of any power.
@@ -157,7 +157,7 @@ This is the correction that costs the most and matters the most. A rare, randoml
 
 ### **2.7 Where they live**
 
-* **In the tower** — a new encounter type (`puzzle`), generated like an event. Rewards are **run-scoped**: a relic, an item, a trait drop. Short — 30 to 90 seconds. Reading Puzzles live here.
+* **In the tower** — a new encounter type (`puzzle`), generated like an event. Rewards are **run-scoped**: a boon, an item, a trait drop. Short — 30 to 90 seconds. Reading Puzzles live here.
 * **In town** — a persistent place holding the Discovery collection and any puzzle found but not yet solved. Rewards are **permanent and cosmetic**.
 
 ### **2.8 Open questions**
@@ -223,7 +223,7 @@ Aspects are coarser and pool-facing.
 ### **3.5 Where themes plug into what already exists**
 
 * **Marks get a source of specific accomplishments.** The Ice Mark already reads *"defeat the first section boss with an all-ice team."* Conditions generalise that pattern for free: *clear a Conductive floor with no Mecha in the party*, *clear a Sour Air boss*. `marks-catalog.md` can grow without new mechanics.
-* **Relics get conditional text.** *"+20% damage on Conductive floors"* is a new relic axis at zero engine cost.
+* **Boons get conditional text.** *"+20% damage on Conductive floors"* is a new boon axis at zero engine cost.
 * **Traits get a reason to be situational** rather than flat stat bumps.
 * **The Gatekeeper gets a second product.** Sell a **descent modifier** — the player chooses a harder Aspect set for a better Obol→Essence conversion. Player-authored difficulty is the pattern with the best track record (Hades' Pact, Risk of Rain's Artifacts) because it sidesteps the "modifiers feel imposed on me" complaint entirely, and it slots straight into the existing Essence economy.
 

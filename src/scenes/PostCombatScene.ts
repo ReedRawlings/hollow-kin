@@ -31,7 +31,6 @@ export class PostCombatScene extends Phaser.Scene {
   private selected = 0;
   private selectingTarget = false;
   private targetIndex = 0;
-  private keyboardBound = false;
   /** Set when the player took an item card with no room — pick a slot to drop.
    *  Guards hover/click while the swap overlay sits over the (still-interactive)
    *  cards underneath it. */
@@ -63,23 +62,23 @@ export class PostCombatScene extends Phaser.Scene {
 
   create(): void {
     this.draw();
-    if (!this.keyboardBound) {
-      this.keyboardBound = true;
-      this.input.keyboard?.on('keydown-LEFT', () => this.move(-1));
-      this.input.keyboard?.on('keydown-RIGHT', () => this.move(1));
-      this.input.keyboard?.on('keydown-ENTER', () => this.takeSelected());
-      this.input.keyboard?.on('keydown-ESC', () => {
-        if (this.swappingFor !== null) {
-          // Same outcome as clicking KEEP MY BAG: the card was already taken,
-          // so ESC forfeits the reward rather than returning to a live offer.
-          this.swappingFor = null;
-          this.continueRun();
-        } else if (this.selectingTarget) {
-          this.selectingTarget = false;
-          this.draw();
-        }
-      });
-    }
+    // Bound on every create, not once: Phaser's KeyboardPlugin drops all of its
+    // listeners in shutdown(), so a "bind once" guard would leave the scene deaf
+    // from its second visit onward.
+    this.input.keyboard?.on('keydown-LEFT', () => this.move(-1));
+    this.input.keyboard?.on('keydown-RIGHT', () => this.move(1));
+    this.input.keyboard?.on('keydown-ENTER', () => this.takeSelected());
+    this.input.keyboard?.on('keydown-ESC', () => {
+      if (this.swappingFor !== null) {
+        // Same outcome as clicking KEEP MY BAG: the card was already taken,
+        // so ESC forfeits the reward rather than returning to a live offer.
+        this.swappingFor = null;
+        this.continueRun();
+      } else if (this.selectingTarget) {
+        this.selectingTarget = false;
+        this.draw();
+      }
+    });
   }
 
   private draw(): void {

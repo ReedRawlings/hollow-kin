@@ -31,7 +31,7 @@
 
 ## **Overview**
 
-Combat in Hollow Kin is turn-based and active by default. The player controls a party of three creatures against enemy encounters in the tower. Combat is the moment-to-moment gameplay loop that everything else — breeding, traits, marks, relics — exists to support. The system must be deep enough to reward investment in creature builds while simple enough to auto-battle through low-difficulty floors.
+Combat in Hollow Kin is turn-based and active by default. The player controls a party of three creatures against enemy encounters in the tower. Combat is the moment-to-moment gameplay loop that everything else — breeding, traits, marks, boons — exists to support. The system must be deep enough to reward investment in creature builds while simple enough to auto-battle through low-difficulty floors.
 
 ---
 
@@ -280,7 +280,7 @@ cleanse — clearing debuffs too would hand the enemy a favour.
 * **Tower shops** — **BUILT** — full MP restore for Obols, alongside party heal and revive.
 * **Items** — **BUILT** — Moonwater and others; see `systems/Items.ts`.
 * **Traits (MP Up)** — a larger pool, not regen — **PARTLY BUILT.** `mp_up` is a `stat`-category trait, so it *would* work — but no code path ever grants a trait, so no creature holds one.
-* **Relics granting per-battle MP recovery** — **NOT BUILT.** Relics do not exist; see `relics.md`, which explains why the boon layer is where this should land.
+* **A boon granting per-battle MP recovery** — **NOT BUILT.** No such effect kind exists in `data/boons.ts`; if one is added it belongs in the boon layer, the only run-scoped modifier system.
 
 ---
 

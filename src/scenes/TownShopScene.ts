@@ -14,7 +14,6 @@ import {
  */
 export class TownShopScene extends Phaser.Scene {
   private selected = 0;
-  private keyboardBound = false;
 
   constructor() {
     super({ key: 'TownShopScene' });
@@ -23,13 +22,13 @@ export class TownShopScene extends Phaser.Scene {
   create(): void {
     this.selected = 0;
     this.draw();
-    if (!this.keyboardBound) {
-      this.keyboardBound = true;
-      this.input.keyboard?.on('keydown-LEFT', () => this.move(-1));
-      this.input.keyboard?.on('keydown-RIGHT', () => this.move(1));
-      this.input.keyboard?.on('keydown-ENTER', () => this.purchaseSelected());
-      this.input.keyboard?.on('keydown-ESC', () => this.returnToTown());
-    }
+    // Bound on every create, not once: Phaser's KeyboardPlugin drops all of its
+    // listeners in shutdown(), so a "bind once" guard would leave the scene deaf
+    // from its second visit onward.
+    this.input.keyboard?.on('keydown-LEFT', () => this.move(-1));
+    this.input.keyboard?.on('keydown-RIGHT', () => this.move(1));
+    this.input.keyboard?.on('keydown-ENTER', () => this.purchaseSelected());
+    this.input.keyboard?.on('keydown-ESC', () => this.returnToTown());
   }
 
   private draw(): void {

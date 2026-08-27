@@ -25,7 +25,7 @@ describe('Pack Tempo resource', () => {
   });
 
   it('allows an explicit modifier to exceed base one-point generation', () => {
-    const result = generateTempo(createPackTempoState(), 'slot-a', 'relic', 2);
+    const result = generateTempo(createPackTempoState(), 'slot-a', 'boon', 2);
     expect(result.granted).toBe(2);
     expect(result.state.points).toBe(2);
   });
@@ -38,7 +38,7 @@ describe('Pack Tempo resource', () => {
 
   it('spends all three points and never expires merely because a round ended', () => {
     let state = createPackTempoState();
-    state = generateTempo(state, 'slot-a', 'relic', 3).state;
+    state = generateTempo(state, 'slot-a', 'boon', 3).state;
     expect(spendRelay(state)?.points).toBe(0);
     expect(spendRelay(createPackTempoState())).toBeNull();
   });

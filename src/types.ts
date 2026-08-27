@@ -231,6 +231,8 @@ export interface Encounter {
   bossTier?: 'mini' | 'major'; // set on boss encounters
   /** Optional narrative payload resolved when this combat is won. */
   storyEventId?: string;
+  /** Multiplies Obols and XP on victory; absent = 1. Set by Warden's Wager. */
+  rewardMultiplier?: number;
 }
 
 export interface RunState {
@@ -242,7 +244,6 @@ export interface RunState {
   partyHp: Record<string, number>;
   partyMp: Record<string, number>;
   partyKO: Record<string, boolean>;
-  xpEarned: number;
   autoCombat: boolean;    // AUTO toggle state; persists across encounters within a run
   activeBoons: ActiveBoon[];  // timed modifiers; expire with the run
 }
@@ -271,9 +272,8 @@ export interface RelationshipProgress {
 /**
  * A timed modifier active for the current run, chosen at the post-battle offer.
  *
- * `battlesLeft: null` means "lasts the whole run". Nothing produces that today —
- * it exists because a Relic is the same shape with no expiry, so Relics can reuse
- * this layer instead of duplicating it.
+ * `battlesLeft: null` means "lasts the whole run" — a run-long boon. Gary's Gift
+ * relationship boons use this; random post-combat offers never do.
  */
 export interface ActiveBoon {
   boonId: string;

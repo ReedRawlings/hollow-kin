@@ -22,7 +22,6 @@ function runAt(index: number, startFloor = 1): RunState {
     partyHp: {},
     partyMp: {},
     partyKO: {},
-    xpEarned: 0,
     autoCombat: false,
     activeBoons: [],
   };

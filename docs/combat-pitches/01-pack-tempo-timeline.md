@@ -75,7 +75,7 @@ Relaying can be chained if the party has enough Tempo:
 
 > Cat opens a weakness → gains Tempo → relays to Wiggledrake → Wiggledrake exploits the opening → relays to Geta before the boss’s charged move.
 
-Specific moves, relics and Afterforms may introduce rarer Tempo spends, but the base game should teach only Relay.
+Specific moves, run-long boons and Afterforms may introduce rarer Tempo spends, but the base game should teach only Relay.
 
 ### 5. End the round
 
@@ -127,15 +127,15 @@ An augment follows the move when it advances from Bash to Smash or Thrash. This 
 
 Unless a future permanent system explicitly records one, learned moves, advancements and augments above the creature’s permanent starting loadout reset at expedition end. Permanent progression determines **what a Kin can begin with and what can appear**; the expedition determines what that possibility becomes this time.
 
-## Traits, Instincts, Marks, Relics and Afterform
+## Traits, Instincts, Marks, Boons and Afterform
 
 These systems occupy different layers:
 
 - **Traits** are permanent passive foundations: opening Tempo, SPD behavior, MP efficiency, resistance, or party affinity.
 - **Instincts** are proposed creature-specific combat triggers: “gain Tempo the first time an ally is hurt,” or “your Relay target gains one STR stage.”
 - **Timed boons** continue to offer short expedition stretches of power and recovery.
-- **Relics** last for the expedition and alter the party’s sequencing rules: the first Relay each battle is free, a three-Kin chain adds buildup, or unused Tempo heals a small amount after victory.
-- **Marks** are optional discovery hooks. A strange timeline accomplishment can unlock a new augment, Instinct or relic for future runs without requiring this pitch to settle whether Marks are slotted bonuses or permanent discoveries.
+- **Run-long boons** last for the expedition and alter the party’s sequencing rules: the first Relay each battle is free, a three-Kin chain adds buildup, or unused Tempo heals a small amount after victory.
+- **Marks** are optional discovery hooks. A strange timeline accomplishment can unlock a new augment, Instinct or boon for future runs without requiring this pitch to settle whether Marks are slotted bonuses or permanent discoveries.
 - **Afterform** is a battle climax. A Kin that has satisfied its Instinct may spend a full Tempo meter at the start of its turn to transform for the rest of the battle. Afterform changes a sequencing rule or signature move rather than only increasing stats.
 
 Only one Afterform should normally be activated per encounter because all three Kin compete for the same Tempo.

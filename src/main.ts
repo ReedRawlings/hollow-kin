@@ -7,6 +7,7 @@ import { CombatScene } from './scenes/CombatScene';
 import { ShopScene } from './scenes/ShopScene';
 import { TownShopScene } from './scenes/TownShopScene';
 import { RestScene } from './scenes/RestScene';
+import { EventScene } from './scenes/EventScene';
 import { BreedingScene } from './scenes/BreedingScene';
 import { LevelerScene } from './scenes/LevelerScene';
 import { GatekeeperScene } from './scenes/GatekeeperScene';
@@ -89,7 +90,7 @@ const config: Phaser.Types.Core.GameConfig = {
   height: 640,
   backgroundColor: '#10121c',
   parent: document.body,
-  scene: [BootScene, TownScene, PartySelectScene, RunScene, CombatScene, PostCombatScene, ShopScene, TownShopScene, RestScene, BreedingScene, LevelerScene, GatekeeperScene, DialogueScene, BestiaryScene, DepartureScene, BattleChamberScene],
+  scene: [BootScene, TownScene, PartySelectScene, RunScene, CombatScene, PostCombatScene, ShopScene, TownShopScene, RestScene, EventScene, BreedingScene, LevelerScene, GatekeeperScene, DialogueScene, BestiaryScene, DepartureScene, BattleChamberScene],
   // Bitmap fonts and pixel art need the renderer to stop smoothing. `pixelArt: true`
   // is Phaser's shortcut for antialias:false + antialiasGL:false + roundPixels:true.
   render: {
@@ -259,6 +260,19 @@ Promise.all([
       openChamber: () => {
         stopActiveScenes();
         game.scene.start('BattleChamberScene');
+      },
+      openEvent: (eventId?: string) => {
+        testControls.ensureNewGame();
+        stopActiveScenes();
+        if (!gameState.currentRun) {
+          gameState.setRunParty(gameState.defaultParty);
+          game.scene.start('RunScene');
+          game.scene.stop('RunScene');
+        }
+        const run = gameState.currentRun;
+        if (!run) return;
+        const encounter = { type: 'event' as const, floor: run.startFloor, index: run.currentEncounterIndex };
+        game.scene.start('EventScene', { encounter, forceEventId: eventId });
       },
     };
     (window as any).hollowKinTest = testControls;

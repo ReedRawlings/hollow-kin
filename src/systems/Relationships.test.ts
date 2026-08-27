@@ -34,7 +34,7 @@ describe('Gary relationship', () => {
     expect(p.scheduledRewards[GARY_ESSENCE_REWARD_ID]).toEqual({ returnsRemaining: 5, amount: 40 });
   });
 
-  it('maps relationship stages to costs and Gary Gift relics', () => {
+  it('maps relationship stages to costs and Gary Gift relationship boons', () => {
     const p = createRelationshipProgress();
     expect(garyDeepStartDiscount(p)).toBe(0);
     p.stage = 2;

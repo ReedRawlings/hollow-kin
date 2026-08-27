@@ -33,8 +33,8 @@ export function grantBoon(active: ActiveBoon[], boonId: string): ActiveBoon[] {
 /**
  * Count every timed boon down one battle and drop the spent ones.
  *
- * A `battlesLeft` of `null` means "lasts the run" and is left untouched — the
- * shape Relics will use.
+ * A `battlesLeft` of `null` means "lasts the run" and is left untouched (Gary's
+ * Gift uses this).
  */
 export function tickAfterBattle(active: ActiveBoon[]): ActiveBoon[] {
   const out: ActiveBoon[] = [];
@@ -78,7 +78,7 @@ export function postVictoryHealFraction(active: ActiveBoon[]): number {
   return f;
 }
 
-/** Flat maximum-HP increase from run-long relics and any future timed effects. */
+/** Flat maximum-HP increase from run-long boons and any future timed effects. */
 export function maxHpBonus(active: ActiveBoon[]): number {
   let amount = 0;
   for (const e of effects(active)) if (e.kind === 'max_hp_flat') amount += e.amount;

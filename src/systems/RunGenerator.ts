@@ -54,7 +54,7 @@ function fillerType(): EncounterType {
   return 'event';
 }
 
-function makeEncounter(type: EncounterType, floor: number, index: number): Encounter {
+export function makeEncounter(type: EncounterType, floor: number, index: number): Encounter {
   const e: Encounter = { type, floor, index };
   if (type === 'boss') {
     e.bossTier = bossTierForFloor(floor);

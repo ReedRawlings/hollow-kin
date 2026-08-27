@@ -24,7 +24,6 @@ export class BattleChamberScene extends Phaser.Scene {
   private lastResult: BattleChamberResult | null = null;
   private comparisonResults: Partial<Record<BattleChamberResourceModel, BattleChamberResult>> = {};
   private resourceModel: BattleChamberResourceModel = DEFAULT_BATTLE_CHAMBER_RESOURCE_MODEL;
-  private keyboardBound = false;
 
   constructor() {
     super({ key: 'BattleChamberScene' });
@@ -43,14 +42,14 @@ export class BattleChamberScene extends Phaser.Scene {
   }
 
   create(): void {
-    if (!this.keyboardBound) {
-      this.keyboardBound = true;
-      this.input.keyboard?.on('keydown-LEFT', () => this.shift(-1));
-      this.input.keyboard?.on('keydown-RIGHT', () => this.shift(1));
-      this.input.keyboard?.on('keydown-ENTER', () => this.launch(false));
-      this.input.keyboard?.on('keydown-A', () => this.launch(true));
-      this.input.keyboard?.on('keydown-M', () => this.toggleResourceModel());
-    }
+    // Bound on every create, not once: Phaser's KeyboardPlugin drops all of its
+    // listeners in shutdown(), so a "bind once" guard would leave the scene deaf
+    // from its second visit onward.
+    this.input.keyboard?.on('keydown-LEFT', () => this.shift(-1));
+    this.input.keyboard?.on('keydown-RIGHT', () => this.shift(1));
+    this.input.keyboard?.on('keydown-ENTER', () => this.launch(false));
+    this.input.keyboard?.on('keydown-A', () => this.launch(true));
+    this.input.keyboard?.on('keydown-M', () => this.toggleResourceModel());
     this.draw();
   }
 
@@ -69,7 +68,6 @@ export class BattleChamberScene extends Phaser.Scene {
         initialTempo: preset.initialTempoPoints ?? 0,
         linkArts: preset.linkArts ?? false,
         bossDoubleAction: preset.bossDoubleAction ?? false,
-        encoreRelay: preset.encoreRelay ?? false,
       })),
       lastResult: this.lastResult,
       comparisonResults: this.comparisonResults,
@@ -145,7 +143,6 @@ export class BattleChamberScene extends Phaser.Scene {
         preset.initialTempoPoints ? `T${preset.initialTempoPoints}` : null,
         preset.linkArts ? 'LINKS' : null,
         preset.bossDoubleAction ? 'BOSS ×2' : null,
-        preset.encoreRelay ? 'ENCORE' : null,
       ].filter(Boolean).join(' · ');
       const fixture = fixtureRules
         ? `FIXTURE ${fixtureRules} · SEED ${preset.seed}`
@@ -233,7 +230,6 @@ export class BattleChamberScene extends Phaser.Scene {
       partyHp: {},
       partyMp: {},
       partyKO: {},
-      xpEarned: 0,
       autoCombat: auto,
       activeBoons: [],
     };
@@ -258,7 +254,6 @@ export class BattleChamberScene extends Phaser.Scene {
         initialTempoPoints: preset.initialTempoPoints,
         linkArts: preset.linkArts,
         bossDoubleAction: preset.bossDoubleAction,
-        encoreRelay: preset.encoreRelay,
         revealWeaknesses: true,
         comparisonResults: this.comparisonResults,
       },

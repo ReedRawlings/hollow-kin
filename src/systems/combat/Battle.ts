@@ -3,6 +3,7 @@ import { getTemplate } from '../../data/creatures';
 import { getItem } from '../../data/items';
 import { gameState } from '../../managers/GameState';
 import {
+  ActiveBoon,
   BattlePhase,
   CombatAction,
   CombatCreature,
@@ -71,7 +72,7 @@ import {
 import { chooseSharedAction } from '../SharedActionAI';
 import { chooseAction, getEnemyAction } from '../TacticsAI';
 import { RandomSource } from '../SeededRandom';
-import { buildTurnSlots, createExtraTurnSlot, TurnSlot } from '../TurnTimeline';
+import { buildTurnSlots, TurnSlot } from '../TurnTimeline';
 import {
   LinkArtRecipe,
   LinkChainState,
@@ -103,7 +104,6 @@ export interface TempoMetrics {
   linkArtsCompleted: number;
   linksInterrupted: number;
   relayEnabledLinks: number;
-  extraTurnsGranted: number;
 }
 
 function newTempoMetrics(): TempoMetrics {
@@ -122,7 +122,6 @@ function newTempoMetrics(): TempoMetrics {
     linkArtsCompleted: 0,
     linksInterrupted: 0,
     relayEnabledLinks: 0,
-    extraTurnsGranted: 0,
   };
 }
 
@@ -144,6 +143,27 @@ export interface BattleExit {
  * Presentation-free combat model. It owns the mutable battle state and rules;
  * a scene supplies timing, redraw, menu, and navigation hooks.
  */
+/**
+ * Pure victory payout for an encounter: XP per surviving creature and the Obol
+ * gain. Composes the boon Obol multiplier with the encounter's own
+ * `rewardMultiplier` (Warden's Wager); absent multiplier = 1.
+ */
+export function victoryRewards(
+  encounter: Encounter,
+  boons: ActiveBoon[],
+): { xpPerCreature: number; obolGain: number; tier: 'normal' | 'mini' | 'major' } {
+  const rewardMul = encounter.rewardMultiplier ?? 1;
+  const depthBand = bandForFloor(encounter.floor);
+  const baseXp = 8 + (encounter.type === 'boss' ? 20 : 5) * depthBand;
+  const xpPerCreature = Math.max(1, Math.round(baseXp * rewardMul));
+  const tier = encounter.type === 'boss' ? (encounter.bossTier ?? 'mini') : 'normal';
+  const obolGain = Math.max(
+    1,
+    Math.round(obolsForEncounter(tier, encounter.floor) * obolMultiplier(boons) * rewardMul),
+  );
+  return { xpPerCreature, obolGain, tier };
+}
+
 export class Battle {
   readonly encounter: Encounter;
   readonly chamberContext: BattleChamberContext | null;
@@ -162,7 +182,6 @@ export class Battle {
   tempoMetrics: TempoMetrics = newTempoMetrics();
   queuedRelayTargetSlotId: string | null = null;
   relayedSlotIds = new Set<string>();
-  encoreUsedThisRound = false;
   roundNumber = 1;
   riteLogs: RiteLogBook = new Map();
   actedPlayerIds = new Set<string>();
@@ -292,7 +311,6 @@ export class Battle {
       this.packTempo = beginTempoRound(this.packTempo);
       this.linkChain = createLinkChainState();
       this.activeLinkArt = null;
-      this.encoreUsedThisRound = false;
       if (this.usesSharedActions()) {
         this.sharedActions = beginSharedActionRound(this.sharedActions);
       }
@@ -513,7 +531,7 @@ export class Battle {
     if (!actor) return;
     const definition = getItem(itemId);
     const context = { where: 'combat' as const, isBoss: this.encounter.type === 'boss' };
-    const outcome = applyItemInCombat(definition, target, context);
+    const outcome = applyItemInCombat(definition, target, context, this.playerParty);
 
     if (outcome.kind === 'refused' || outcome.kind === 'depart') {
       this.addMessage(outcome.kind === 'refused'
@@ -743,53 +761,32 @@ export class Battle {
   }
 
   relayCandidatesForCurrentTurn(): TurnSlot[] {
-    const ordinary = relayCandidates(
+    return relayCandidates(
       this.turnOrder,
       this.currentTurnIndex,
       slot => slot.slotId,
       slot => slot.actor.isPlayerOwned && !slot.actor.isKnockedOut,
     );
-    if (!this.chamberContext?.encoreRelay || this.encoreUsedThisRound) return ordinary;
-
-    const acted = new Map<string, CombatCreature>();
-    for (const slot of this.turnOrder.slice(0, this.currentTurnIndex + 1)) {
-      if (slot.actor.isPlayerOwned && !slot.actor.isKnockedOut) {
-        acted.set(slot.actor.instance.instanceId, slot.actor);
-      }
-    }
-    const extras = [...acted.values()].map(actor => createExtraTurnSlot(actor, this.roundNumber));
-    return [...ordinary, ...extras];
   }
 
   private performRelay(target: TurnSlot): boolean {
-    const isExtra = target.source === 'relic_extra';
-    const reordered = isExtra
-      ? [
-        ...this.turnOrder.slice(0, this.currentTurnIndex + 1),
-        target,
-        ...this.turnOrder.slice(this.currentTurnIndex + 1),
-      ]
-      : relayTimeline(
-        this.turnOrder,
-        this.currentTurnIndex,
-        target.slotId,
-        slot => slot.slotId,
-      );
+    const reordered = relayTimeline(
+      this.turnOrder,
+      this.currentTurnIndex,
+      target.slotId,
+      slot => slot.slotId,
+    );
     const spent = spendRelay(this.packTempo);
     if (!reordered || !spent || target.actor.isKnockedOut || !target.actor.isPlayerOwned) return false;
 
     this.turnOrder = reordered;
     this.packTempo = spent;
     this.relayedSlotIds.add(target.slotId);
-    if (isExtra) {
-      this.encoreUsedThisRound = true;
-      this.tempoMetrics.extraTurnsGranted++;
-    }
     this.tempoMetrics.spent += 3;
     this.tempoMetrics.spentOnRelay += 3;
     this.tempoMetrics.relays++;
     this.addMessage(
-      `Relay! ${target.actor.template.name} ${isExtra ? 'acts again' : 'moves next'}. Tempo -3.`,
+      `Relay! ${target.actor.template.name} moves next. Tempo -3.`,
     );
     this.advanceAfterTurn();
     return true;
@@ -828,7 +825,6 @@ export class Battle {
         linkArtsCompleted: this.tempoMetrics.linkArtsCompleted,
         linksInterrupted: this.tempoMetrics.linksInterrupted,
         relayEnabledLinks: this.tempoMetrics.relayEnabledLinks,
-        extraTurnsGranted: this.tempoMetrics.extraTurnsGranted,
       };
       return {
         scene: 'BattleChamberScene',
@@ -856,16 +852,8 @@ export class Battle {
       return { scene: 'RunScene', data: { continueRun: true } };
     }
 
-    const depthBand = bandForFloor(this.encounter.floor);
-    const xpPerCreature = 8 + (this.encounter.type === 'boss' ? 20 : 5) * depthBand;
-    const obolKind = this.encounter.type === 'boss'
-      ? (this.encounter.bossTier ?? 'mini')
-      : 'normal';
     const boons = run.activeBoons;
-    const obolGain = Math.max(
-      1,
-      Math.round(obolsForEncounter(obolKind, this.encounter.floor) * obolMultiplier(boons)),
-    );
+    const { xpPerCreature, obolGain, tier } = victoryRewards(this.encounter, boons);
     run.obols += obolGain;
 
     if (this.encounter.type === 'boss') {
@@ -909,7 +897,7 @@ export class Battle {
       scene: 'PostCombatScene',
       data: {
         floor: this.encounter.floor,
-        tier: obolKind,
+        tier,
         obolGain,
         xpPerCreature,
         levelUpMessage: levelUpMessage.trim(),

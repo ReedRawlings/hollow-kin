@@ -12,7 +12,7 @@
 
 This document covers the onboarding flow — how the player is introduced to each piece of the game, in what order, and what each beat is meant to teach. For screen layouts and information architecture, see `ui-ux.md`.
 
-Hollow Kin has a lot of overlapping systems — essence, traits, marks, abilities, stars, breeding, capture, relics, and town vendors. Onboarding's job is to reveal them one at a time so the first descent feels simple.
+Hollow Kin has a lot of overlapping systems — essence, traits, marks, abilities, stars, breeding, capture, boons, and town vendors. Onboarding's job is to reveal them one at a time so the first descent feels simple.
 
 Two currencies form the spine everything hangs off of. **Obols** are the in-run currency, harvested from every fight and spent during the descent on survival (heals, revives, capture, shop items). **Essence** is the permanent currency: on returning to town, leftover (unspent) Obols convert to Essence, which is spent on permanent levels, traits, marks, depth-jumps, and backpack capacity. The core tension the tutorial must land is **spend-now-vs-keep** — every Obol spent on a heal mid-descent is an Obol that won't convert to Essence, so it's a permanent upgrade you didn't take home. Onboarding introduces Obols in Phase 1 so this tension is felt before it's ever explained.
 

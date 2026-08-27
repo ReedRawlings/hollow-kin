@@ -9,7 +9,6 @@ export type TempoGenerationReason =
   | 'break'
   | 'rebound'
   | 'trait'
-  | 'relic'
   | 'boon'
   | 'encounter_rule';
 
@@ -52,7 +51,7 @@ export function beginTempoRound(state: PackTempoState): PackTempoState {
 
 /**
  * Resolve all Tempo earned by one action at once. Base actions request amount 1;
- * an explicit trait/relic/boon modifier may request more without weakening the
+ * an explicit trait/boon modifier may request more without weakening the
  * invariant that generation resolves only once for that action.
  */
 export function generateTempo(

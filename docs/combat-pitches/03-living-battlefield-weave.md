@@ -20,7 +20,7 @@ This changes the central question from “what is my strongest move?” to:
 - Is the enemy about to steal or corrupt that setup?
 - Is this reaction worth its persistent MP cost?
 
-The battlefield also provides a natural bridge between combat and mystery. Recipes can be discovered through play, Marks can remember unusual reactions, relics can rewrite recipe rules, and different encounters can begin with different environmental seeds.
+The battlefield also provides a natural bridge between combat and mystery. Recipes can be discovered through play, Marks can remember unusual reactions, run-long boons can rewrite recipe rules, and different encounters can begin with different environmental seeds.
 
 ## Design Pillars
 
@@ -99,7 +99,7 @@ Unknown recipes may still be attempted. Discovery should be exciting, not depend
 
 ### 4. Resolve a Field Reaction
 
-After the move, its full Echo bundle is added atomically. Three Echoes resolve the ordinary reaction. An authored augment, Instinct, Trait, Afterform, or similar modifier may add one non-stacking bonus Echo; when that creates four, it can discover a curated secret reaction. The Kin or enemy that completed the recipe is considered the **Catalyst**, which matters for Instincts, Afterform and some relics.
+After the move, its full Echo bundle is added atomically. Three Echoes resolve the ordinary reaction. An authored augment, Instinct, Trait, Afterform, or similar modifier may add one non-stacking bonus Echo; when that creates four, it can discover a curated secret reaction. The Kin or enemy that completed the recipe is considered the **Catalyst**, which matters for Instincts, Afterform and some boons.
 
 Any resulting Field State lasts for a short number of rounds or until another reaction replaces it. Only one major Field State is active at a time to keep the UI readable.
 
@@ -156,13 +156,13 @@ An augment follows the move when it advances. The four equipped move limit can r
 
 Run-learned moves, advancements and augments reset to the permanent starting loadout at expedition end unless a future permanent system records one.
 
-## Traits, Instincts, Marks, Relics and Afterform
+## Traits, Instincts, Marks, Boons and Afterform
 
 - **Traits** are permanent foundations: begin battle with an Echo, resist a harmful field, empower a certain reaction family, or change one move’s default Echo.
 - **Instincts** are proposed personal behaviors tied to being a Catalyst: a Flora Kin may awaken by completing Vital reactions, while a Devil may seek Blight or Flame reactions.
 - **Timed boons** continue to last a fixed number of battles and may increase reaction rewards, protect the party from the first hostile reaction, or heal after a specified field victory.
-- **Relics** rewrite the expedition’s recipe grammar: Current counts as Flame for one recipe, Wildfire heals Fauna slightly, or the first reaction each battle preserves its final Echo.
-- **Marks** are particularly natural as mysterious discoveries. Completing an unusual recipe, allowing an enemy to create a field and then reversing it, or winning under a hostile state can permanently reveal a new reaction, augment, relic or Afterform possibility. This pitch does not require Marks to be equipped percentage bonuses.
+- **Run-long boons** rewrite the expedition’s recipe grammar: Current counts as Flame for one recipe, Wildfire heals Fauna slightly, or the first reaction each battle preserves its final Echo.
+- **Marks** are particularly natural as mysterious discoveries. Completing an unusual recipe, allowing an enemy to create a field and then reversing it, or winning under a hostile state can permanently reveal a new reaction, augment, boon or Afterform possibility. This pitch does not require Marks to be equipped percentage bonuses.
 - **Afterform** is earned by acting according to a Kin’s Instinct. Completing compatible reactions grants that Kin Resonance symbols. At a small threshold, it may enter Afterform for the remainder of the encounter.
 
 Afterform changes how the Kin participates in the Weave:
@@ -210,7 +210,7 @@ The offer should respond to play without becoming deterministic. The player is e
 
 The expedition loop becomes:
 
-> Discover a field vocabulary → develop moves that manipulate it → find relics that rewrite it → encounter rooms that seed different problems → risk scarce MP to create favorable reactions → leave before the temporary ecology and carried rewards disappear.
+> Discover a field vocabulary → develop moves that manipulate it → find boons that rewrite it → encounter rooms that seed different problems → risk scarce MP to create favorable reactions → leave before the temporary ecology and carried rewards disappear.
 
 Capture rites can later read combat history from the Weave. A family rite might ask the player to capture under Mist, after reversing an enemy reaction, or with a particular Echo present. Capture remains an Obol bid and the captured Kin remains cargo.
 
@@ -235,7 +235,7 @@ The enemy changed the battlefield, but the player decided how to use what it cre
 | Players must memorize recipes | Preview known reactions on move selection and keep a discovered-reaction journal |
 | Enemies accidentally give the player free power | Enemies benefit from Field States too and can forecast dangerous completions |
 | Field effects overwhelm basic move comprehension | One Weave, one active Field State, and one line of preview text per move |
-| The best recipe becomes universal | Encounter seeds, enemy kits, relics and Instincts change the value of recipes by run |
+| The best recipe becomes universal | Encounter seeds, enemy kits, boons and Instincts change the value of recipes by run |
 | Auto-combat cannot plan recipes | Initially use a one-step heuristic: complete a favorable known recipe, deny a harmful predicted recipe, otherwise use the normal tactic |
 | Visual effects slow combat | Resolve reactions with a short overlay compatible with the existing 1×/2×/4× battle speeds |
 
@@ -249,6 +249,6 @@ The enemy changed the battlefield, but the player decided how to use what it cre
 6. Preview known reactions before the player confirms a move.
 7. Convert three moves to field-dependent deterministic criticals.
 8. Give Bash, Smash and Thrash Seed, Strengthen and Harvest identities.
-9. Test one relic that changes a recipe and one encounter that starts with an Echo.
+9. Test one run-long boon that changes a recipe and one encounter that starts with an Echo.
 
 If players still choose moves by damage-per-MP while ignoring the Weave, the reactions are not consequential enough—or the interface is not communicating them.

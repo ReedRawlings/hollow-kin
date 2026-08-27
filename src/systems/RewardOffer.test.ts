@@ -14,7 +14,7 @@ function ctx(over: Partial<OfferContext> = {}): OfferContext {
 }
 
 describe('generateOffer', () => {
-  it('never offers relationship relics as random combat boons', () => {
+  it('never offers run-long relationship boons as random combat boons', () => {
     for (let i = 0; i < 100; i++) {
       const cards = generateOffer({ tier: 'major', floor: 20, anyHurt: false, anyMpMissing: false }, Math.random);
       for (const card of cards) {

@@ -19,20 +19,20 @@
 > the post-battle reward screen that take effect the moment they are chosen and expire
 > after a set number of battles. No backpack slot, no charges, no arming step.
 >
-> That change collapses this pitch's "Preparations differ from Relics in four ways" table
-> — none of those four distinctions survive. A boon is functionally a **short-duration
-> Relic**, and the code anticipates that: `ActiveBoon.battlesLeft` already accepts `null`
-> for "lasts the whole run", so Relics should reuse `src/systems/Boons.ts` rather than
-> duplicate it.
+> That change collapses this pitch's "Preparations differ from run-long modifiers in four
+> ways" table — none of those four distinctions survive. Boons are the only run-scoped
+> modifier layer: `ActiveBoon.battlesLeft` accepts `null` for a **run-long boon** that
+> lasts the whole expedition, so anything this pitch describes as an expedition-long
+> automatic effect is a run-long boon in `src/systems/Boons.ts`.
 >
 > **Heirlooms and the Marks redesign are paused, not cancelled.** Nothing was built for
 > either, and no code references them. Marks is the harder of the two to resume: the
-> reward vocabulary this pitch gives it is "unlock a Relic / Heirloom / Preparation", and
-> Relics and Heirlooms still do not exist while Preparation no longer means what this
-> document meant by it. Whoever resumes it should re-derive the reward list from what
+> reward vocabulary this pitch gives it is "unlock a Heirloom / Preparation", and
+> Heirlooms still do not exist while Preparation no longer means what this document
+> meant by it. Whoever resumes it should re-derive the reward list from what
 > actually exists at that point.
 >
-> **Original framing, preserved:** Keep **Marks**, but reshape them into mysterious permanent discoveries rather than another equipped combat-bonus system. **Breeding Stones are already formally cut.** Traits, breeding inheritance, and run-only Relics remain.
+> **Original framing, preserved:** Keep **Marks**, but reshape them into mysterious permanent discoveries rather than another equipped combat-bonus system. **Breeding Stones are already formally cut.** Traits, breeding inheritance, and run-scoped boons remain.
 
 ## Current-System Check
 
@@ -43,12 +43,12 @@ The surrounding progression systems currently divide as follows:
 | **Traits** | Permanent, intrinsic Kin effects. Up to four slots unlock through permanent levels; traits are found, imbued, upgraded, and inherited at breeding. | **Keep.** Permanent items must not duplicate trait progression or inheritance. |
 | **Marks** | Unbuilt, creature-specific bonuses earned through run thresholds, then made permanent with Essence. Still present in the GDD. | **Keep the discovery fantasy, redesign the reward.** Hidden or unusual run accomplishments permanently unlock content for the player. |
 | **Breeding Stones** | Former consumables that modified breeding outcomes through the removed Enhancer. | **Already cut.** Do not revive them as part of the item system. |
-| **Relics** | Automatically affect the whole party for one expedition and disappear when it ends. They do not occupy backpack slots. | **Keep.** Relics make each expedition mechanically different. |
+| **Boons** | Automatically affect the whole party for a stretch of the expedition — or, for run-long boons, all of it — and disappear when it ends. They do not occupy backpack slots. | **Keep.** Boons make each expedition mechanically different. |
 | **Backpack items** | Carried, manually used, compete with captures and found traits for space, and may be lost on a wipe when unprotected. | **Expand.** This becomes the expedition's tactical resource layer. |
 
 This leaves five clean identities:
 
-> **Traits are what a Kin is. Relics define this expedition. Consumables answer immediate danger. Preparations are charged advantages saved for chosen battles. Marks remember unusual deeds and unlock new possibilities. A Heirloom is the one permanent object the party brings with it.**
+> **Traits are what a Kin is. Boons define this expedition. Consumables answer immediate danger. Preparations are charged advantages saved for chosen battles. Marks remember unusual deeds and unlock new possibilities. A Heirloom is the one permanent object the party brings with it.**
 
 ## Pitch
 
@@ -144,13 +144,13 @@ Initial examples:
 | **Quiet Bell** | Reduce all allied MP costs by 1 during the next battle, to a minimum of 1. | 2 |
 | **Warding Thread** | Reduce party damage received during the first round of the next battle. | 2 |
 
-Only one Preparation should be committed to an encounter initially. That produces a clear choice and prevents several modest bonuses from multiplying into an automatic boss deletion. Relics may still interact with the prepared battle because they are the expedition's broader build layer.
+Only one Preparation should be committed to an encounter initially. That produces a clear choice and prevents several modest bonuses from multiplying into an automatic boss deletion. Active boons may still interact with the prepared battle because they are the expedition's broader build layer.
 
-Preparations differ from Relics in four important ways:
+Preparations differ from run-long boons in four important ways:
 
-| Preparations | Relics |
+| Preparations | Run-long boons |
 | --- | --- |
-| Occupy backpack space | Use dedicated Relic space |
+| Occupy backpack space | Occupy no backpack space |
 | Activate only when the player chooses | Apply automatically |
 | Have limited charges | Last for the expedition |
 | Solve a chosen future encounter | Shape the overall run |
@@ -199,7 +199,7 @@ Change the current model in three ways:
 Possible Mark rewards include:
 
 * unlock an Heirloom;
-* add a new Relic to future expedition pools;
+* add a new boon to future post-battle offers;
 * add a new Preparation or consumable to post-battle rewards and shops;
 * unlock a cosmetic variant, title, or lineage epithet;
 * add a rare Trait to the Trait-keeper's stock;
@@ -209,7 +209,7 @@ Examples:
 
 | Hidden deed | Mark discovered | Permanent unlock |
 | --- | --- | --- |
-| Defeat a boss with all three Kin sharing an archetype. | **Kindred Victory** | Unlock a party-affinity Relic. |
+| Defeat a boss with all three Kin sharing an archetype. | **Kindred Victory** | Unlock a party-affinity run-long boon. |
 | Win three battles in one expedition while a Kin remains below 20% HP. | **Last Light** | Unlock the Lastlight Charm Heirloom. |
 | Defeat a burning enemy using ice damage. | **Temper the Flame** | Add Frost Phials to the reward pool. |
 | Carry a captured Kin through two boss victories before departing. | **Long Road Home** | Unlock a capture-protection Heirloom or town upgrade. |

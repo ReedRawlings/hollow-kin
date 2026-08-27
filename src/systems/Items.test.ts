@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CreatureInstance, RunState } from '../types';
-import { ITEMS, ITEM_LIST } from '../data/items';
+import { ITEMS, ITEM_LIST, ItemDefinition } from '../data/items';
 import { makeTestCreature } from './testFixtures';
 import { applyItemInCombat, applyItemOnMap, canUseItem } from './Items';
 
@@ -41,7 +41,6 @@ function mapRun(hp = 50, mp = 5, ko = false): RunState {
     partyHp: { c1: hp },
     partyMp: { c1: mp },
     partyKO: { c1: ko },
-    xpEarned: 0,
     autoCombat: false,
     activeBoons: [],
   };
@@ -102,6 +101,48 @@ describe('applyItemInCombat', () => {
 
   it('refuses the waystone in combat', () => {
     expect(applyItemInCombat(ITEMS.waystone, null, inCombat).kind).toBe('refused');
+  });
+
+  describe('party-wide buff (power_increase)', () => {
+    it('raises every living ally by one stage and leaves a knocked-out ally untouched', () => {
+      const a = makeTestCreature();
+      const b = makeTestCreature();
+      const downed = makeTestCreature({ hp: 0 });
+      const party = [a, b, downed];
+
+      const outcome = applyItemInCombat(ITEMS.power_increase, null, inCombat, party);
+
+      expect(outcome.kind).toBe('applied');
+      expect(a.buffStages.str).toBe(1);
+      expect(b.buffStages.str).toBe(1);
+      expect(downed.buffStages.str ?? 0).toBe(0);
+    });
+
+    it('refuses when there is no living ally to receive it', () => {
+      const downed = makeTestCreature({ hp: 0 });
+      expect(applyItemInCombat(ITEMS.power_increase, null, inCombat, [downed]).kind).toBe('refused');
+    });
+  });
+
+  it('still applies a single-target buff to only the chosen ally', () => {
+    // Regression test for the pre-existing living_ally buff branch, which
+    // power_increase no longer exercises now that it targets the whole party.
+    const singleTargetBuff: ItemDefinition = {
+      id: 'test_single_target_buff',
+      name: 'Test Tonic',
+      description: 'test fixture only',
+      usableIn: 'combat',
+      targeting: 'living_ally',
+      effect: { kind: 'buff', stat: 'str', stages: 1 },
+    };
+    const a = makeTestCreature();
+    const b = makeTestCreature();
+
+    const outcome = applyItemInCombat(singleTargetBuff, a, inCombat, [a, b]);
+
+    expect(outcome.kind).toBe('applied');
+    expect(a.buffStages.str).toBe(1);
+    expect(b.buffStages.str ?? 0).toBe(0);
   });
 });
 

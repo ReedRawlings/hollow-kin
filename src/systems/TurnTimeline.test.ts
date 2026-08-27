@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CombatCreature } from '../types';
-import { buildTurnSlots, createExtraTurnSlot } from './TurnTimeline';
+import { buildTurnSlots } from './TurnTimeline';
 
 function creature(id: string, spd: number, player = false): CombatCreature {
   return {
@@ -36,10 +36,5 @@ describe('turn action slots', () => {
       'standard', 'standard', 'boss_extra', 'standard',
     ]);
     expect(new Set(slots.map(slot => slot.slotId)).size).toBe(4);
-  });
-
-  it('creates an explicitly marked relic extra action slot', () => {
-    const kin = creature('kin-a', 8, true);
-    expect(createExtraTurnSlot(kin, 3)).toMatchObject({ actor: kin, source: 'relic_extra' });
   });
 });

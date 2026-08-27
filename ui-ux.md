@@ -10,7 +10,7 @@
 
 ## **Overview**
 
-Hollow Kin has a lot of overlapping systems — traits, marks, abilities, stars, essence progression, breeding, capture, relics, and town vendors. The player needs clear, consistent ways to parse all of it without being overwhelmed. This document covers the information architecture, key screen flows, and design philosophy for how the game communicates its systems to the player.
+Hollow Kin has a lot of overlapping systems — traits, marks, abilities, stars, essence progression, breeding, capture, boons, and town vendors. The player needs clear, consistent ways to parse all of it without being overwhelmed. This document covers the information architecture, key screen flows, and design philosophy for how the game communicates its systems to the player.
 
 ---
 
@@ -133,7 +133,7 @@ See the onboarding doc for more information
 | Obols (in-run) | Coin / token | Bronze / copper |
 | Essence (permanent) | Glowing orb or spark | Amber / teal |
 | Breed-ready | Glowing heart or link icon | Pink / magenta |
-| Relics | Crystalline shard | Purple |
+| Boons | Crystalline shard | Purple |
 
 ---
 

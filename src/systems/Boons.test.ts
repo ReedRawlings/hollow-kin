@@ -108,7 +108,7 @@ describe('tickAfterBattle', () => {
   });
 
   it('leaves a run-long boon alone', () => {
-    // battlesLeft === null is the Relic shape; it must survive ticking.
+    // battlesLeft === null is the run-long boon shape; it must survive ticking.
     const active = tickAfterBattle([{ boonId: idWithEffect('obol_bonus'), battlesLeft: null }]);
     expect(active).toHaveLength(1);
     expect(active[0].battlesLeft).toBeNull();

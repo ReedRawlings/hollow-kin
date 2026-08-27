@@ -109,8 +109,8 @@ Cross-star breeding remains a valid strategy when a high-star parent carries a d
 
 ---
 
-## **Breeding Relics** *(cut for now)*
+## **Breeding Remnants** *(cut)*
 
-> **Status: cut.** Breeding Relics depended on two systems that no longer exist — the **longevity counter** (removed) and the **Enhancer** (removed; town is now an essence hub, with the **Breeder** handling breeding). Longevity no longer forces a creature to breed or retire, so there is no solo-retirement event to leave a relic behind. The concept is shelved and may return in a reworked, essence-based form later.
+> **Status: cut.** Breeding Remnants (originally named for a concept that no longer exists in the game) depended on two systems that no longer exist — the **longevity counter** (removed) and the **Enhancer** (removed; town is now an essence hub, with the **Breeder** handling breeding). Longevity no longer forces a creature to breed or retire, so there is no solo-retirement event to leave a remnant behind. The concept is shelved and may return in a reworked, essence-based form later.
 >
-> *Original mechanic, retained for reference:* a creature that retired solo left behind a Breeding Relic — a distillation of its current traits that could inject one trait into a future breeding event, substituting for a parent contribution in trait resolution.
+> *Original mechanic, retained for reference:* a creature that retired solo left behind a Breeding Remnant — a distillation of its current traits that could inject one trait into a future breeding event, substituting for a parent contribution in trait resolution.

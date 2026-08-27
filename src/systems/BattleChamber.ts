@@ -65,8 +65,6 @@ export interface BattleChamberPreset {
   linkArts?: boolean;
   /** Give the first living enemy a second, separately telegraphed action slot. */
   bossDoubleAction?: boolean;
-  /** Prototype run upgrade: Relay may schedule one already-acted Kin once per round. */
-  encoreRelay?: boolean;
   seed: number;
 }
 
@@ -78,7 +76,6 @@ export interface BattleChamberContext {
   initialTempoPoints?: number;
   linkArts?: boolean;
   bossDoubleAction?: boolean;
-  encoreRelay?: boolean;
   /** Development lab knowledge: authored weaknesses are visible and Tempo-eligible immediately. */
   revealWeaknesses?: boolean;
   comparisonResults?: Partial<Record<BattleChamberResourceModel, BattleChamberResult>>;
@@ -103,7 +100,6 @@ export interface BattleChamberResult {
   linkArtsCompleted: number;
   linksInterrupted: number;
   relayEnabledLinks: number;
-  extraTurnsGranted: number;
 }
 
 export const BATTLE_CHAMBER_PRESETS: readonly BattleChamberPreset[] = [
@@ -123,7 +119,7 @@ export const BATTLE_CHAMBER_PRESETS: readonly BattleChamberPreset[] = [
   {
     id: 'attrition',
     name: 'ATTRITION',
-    purpose: 'Test held Relay and the Encore upgrade under resource pressure.',
+    purpose: 'Test held Relay under resource pressure.',
     partyIds: STARTER_TRIO_A,
     enemyIds: ['kin_013', 'kin_087', 'kin_075'],
     enemyLevel: 2,
@@ -131,7 +127,6 @@ export const BATTLE_CHAMBER_PRESETS: readonly BattleChamberPreset[] = [
     initialHpFraction: 0.55,
     initialMpFraction: 0.35,
     initialTempoPoints: 3,
-    encoreRelay: true,
     seed: 202,
   },
   {

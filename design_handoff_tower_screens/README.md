@@ -53,7 +53,7 @@ Two things are deliberately *not* final:
 | Red | `#ec273f` | Danger, loss, critical HP, locked |
 | Red border | `#94493a` | Red panel border |
 | Orange | `#de5d3a` | Burn status, elite threat |
-| Amber | `#dab163` | Marks, relics |
+| Amber | `#dab163` | Marks, boons |
 | Fauna orange | `#e98537` | Brute/Fauna archetype |
 | Tide blue | `#5e91b4` | Tide archetype (secondary) |
 | Grove | `#93b247` | Grove archetype (secondary) |
@@ -223,7 +223,7 @@ Below the ledger: `ESSENCE GAINED` plate with the total in Press Start 22px and 
 
 **Layout:** header (`THE TOWN`, run count/deepest floor) + essence chip → left: a 2×4 grid of seven vendor tiles (colored spine, name, rank/stock tag, one-line trade) plus a bricked-up eighth door; right: default party (three cards) and a vendor detail panel (pitch + priced offers, red when unaffordable) → bottom action row: `ENTER TOWER` (gold, primary) / `PARTY` / `BREED` / `PEDIA`.
 
-**Seven vendors:** Quartermaster (bag slots, exchange bonus) · Provisioner (carryable supplies) · Hatchery (breed a pair) · Mark-binder (bind an earned mark) · Gatekeeper (depth-jumps) · The Leveler (permanent levels) · The Oracle (floor foresight, **locked** until a run reaches floor 15 — greyed spine, muted text, default cursor).
+**Six vendors:** Quartermaster (bag slots, exchange bonus) · Provisioner (carryable supplies) · Hatchery (breed a pair) · Mark-binder (bind an earned mark) · Gatekeeper (depth-jumps) · The Leveler (permanent levels).
 
 > **Vendor names were realigned on 2026-07-28.** This handoff was drawn against an earlier vendor lineup; the tiles now carry the names in `town.md` and `TownScene.ts` so the mockups can be read as a build reference. The **layout is unchanged** — only names, trade lines and two state tags moved.
 >
@@ -257,9 +257,8 @@ Ten clickable building footprints, absolutely positioned, each a hatched art pla
 | Hatchery | 170, 244 | 140 × 96 | `BREED` |
 | The Leveler | 320, 244 | 140 × 96 | vendor |
 | The Archive | 470, 244 | 140 × 96 | `PEDIA` |
-| The Oracle | 620, 244 | 140 × 96 | locked |
 
-Plus a non-clickable 118×96 `NOTICE BOARD` at 782,244 carrying run news, and a 20px gold **player avatar** on the road at `y=200` that slides to the selected building's centre with `transition: left 160ms steps(4)` — the stepped easing is intentional, it reads as pixel movement.
+Plus a 20px gold **player avatar** on the road at `y=200` that slides to the selected building's centre with `transition: left 160ms steps(4)` — the stepped easing is intentional, it reads as pixel movement.
 
 Below the map: a "standing in front of" detail panel (place name, open/shuttered status, pitch, priced chips), the default party at 300px, and a 150px context button whose label changes by place — `ENTER TOWER` / `GO IN` / `PARTY` / `BREED` / `PEDIA` / `SHUTTERED`.
 

@@ -16,7 +16,7 @@ Hollow Kin is a browser-based **permanent-progression creature collector** built
 
 **A run is a harvesting trip, not the unit of progress.** Creatures do not reset. They keep an essence-bought level floor, their bloodline, and anything permanence has been paid for. What a run risks is the *take* — the Obols you were carrying and one item from your pack — not the creatures themselves.
 
-The core loop draws its breeding from Dragon Quest Monsters, its tower from Azure Dreams, and its run pacing from Slay the Spire. The roguelite inheritance is the **shape of a descent** — procedural floors, push-your-luck depth, run-only relics. It is not the progression model.
+The core loop draws its breeding from Dragon Quest Monsters, its tower from Azure Dreams, and its run pacing from Slay the Spire. The roguelite inheritance is the **shape of a descent** — procedural floors, push-your-luck depth, run-scoped boons. It is not the progression model.
 
 ---
 
@@ -40,7 +40,7 @@ Progression is permanent. A handful of things are still deliberately run-scoped,
 | ----- | ----- |
 | **Temporary in-run levels** | Deliberate (Model A). The essence-bought level *floor* persists; levels gained on top of it during a descent do not. Do not remove in-run leveling as a reset leftover — dropping it (Model B) is a playtest fallback, not the current design. |
 | **Obols** | Deliberate. Obols are run-scoped fuel. Leftover Obols convert to Essence on exit; spent Obols are simply gone. Do not make Obols persist — a second permanent currency was explicitly rejected. |
-| **Relics** | Deliberate, and this is the roguelite element the design keeps on purpose. Run-only power-ups are the intended shape. |
+| **Boons** | Deliberate, and this is the roguelite element the design keeps on purpose. Run-scoped modifiers — timed or run-long — are the intended shape. |
 | **Unbound marks** | Deliberate (earn-then-lock). A mark earned in a run must be purchased to activate for each creature, otherwise they remain unbound and their effects don't affect creatures' |
 
 Everything else persists: Essence, permanent levels, stars, bloodline, bound marks, unlocked trait slots, purchased depth-jumps, backpack capacity, and creatures themselves.
@@ -51,7 +51,7 @@ Everything else persists: Essence, permanent levels, stars, bloodline, bound mar
 
 **The three creatures the player entered the tower with can never be lost, under any circumstance.** That is absolute and separate from inventory entirely.
 
-> **This table is the single normative statement of what is run-scoped.** The Currency, Levels, Marks, and Relics sections below describe how each system *works* and refer back here rather than restating what survives a run. If another document disagrees with this table, this table wins.
+> **This table is the single normative statement of what is run-scoped.** The Currency, Levels, Marks, and Boons sections below describe how each system *works* and refer back here rather than restating what survives a run. If another document disagrees with this table, this table wins.
 
 ---
 
@@ -144,28 +144,13 @@ After each encounter the player chooses between 2–3 offered next encounters. T
 
 * **Shops** — Spend Obols gathered during the run on heals, revives and carryable items. *("Stones" here meant Breeding Stones, which are cut.)*
 * **Rest Points** — Restore HP or MP. *(Teaching a random ability was designed and never built.)*
-* **Random Events** — Narrative encounters with risk/reward choices
+* **Random Events** — Offer rooms (built): a named event states its exact terms and the player accepts or walks away for free. Five events in alpha; no XP from events except by fighting the Warden's Wager. Catalogue in `tower-structure.md`
 
-### **Relics**
+### **Boons**
 
-Run-based relics are earned during a run and provide stackable or conditional bonuses. They do not persist after the run ends.
+Boons are the only run-scoped modifier layer (`src/data/boons.ts`, `src/systems/Boons.ts`). They are chosen at the post-battle reward offer, take effect the instant they are picked, and never persist after the run ends. A boon with `battlesLeft: null` is a **run-long boon** that lasts the whole descent; Gary's Gift is one. One boon per effect kind may be active at once — re-taking a held kind refreshes its duration rather than stacking.
 
-> **Not built.** See `relics.md` — half of this already exists as `Boons.ts` and relics
-> should extend that layer rather than duplicate it. Note the examples below reference
-> mechanics that do not exist: **Haste** is not a stat, and **Thorns** has no
-> implementation.
-
-**Relic Pool (Examples)**
-
-* **Chain Lightning** — Damage chains to one extra enemy for 10% (stacks up to 4 times)
-* **Red Meat** — Enhances Fauna ATK by 10%
-* **Beast Master** — Fauna abilities trigger with one less Fauna in the party
-* **Rock Lobster** — Enhances health by 20% for frontline units
-* **Phoenix Down** — At the end of battle, automatically revive a creature with 1 HP (3 uses)
-* **Touch Grass** — Flora have Thorns 1
-* **Mog** — Units that start battle at full health gain 1 Haste
-* **Bad Research** — Your Flora are also Fauna
-* **Oogy Boogy** — Kami share their passive with Spirits
+> **Built.** Current effects: damage dealt, damage taken (with a first-round-only variant), Obol bonus, post-victory heal. Any future run-scoped power-up is a boon, not a separate system.
 
 ---
 
@@ -260,8 +245,8 @@ Longevity has been **removed** from the design. Permanent essence progression is
 > neither is settled.** What follows describes the **earn-then-lock** model.
 > `expedition-items-pitch.md` proposes replacing it with marks as permanent *discoveries*
 > that unlock content for the player — no creature slot, no Essence payment, permanent on
-> discovery. That redesign is paused, partly because its rewards unlock Relics and
-> Heirlooms, neither of which exists. See `marks-system.md` for the full comparison and
+> discovery. That redesign is paused, partly because its rewards unlock Heirlooms,
+> which do not exist. See `marks-system.md` for the full comparison and
 > what a resumption has to decide first. No code references marks in any form.
 
 ### **What Marks Are**

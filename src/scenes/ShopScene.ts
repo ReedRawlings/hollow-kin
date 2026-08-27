@@ -47,7 +47,6 @@ const SERVICE_COPY: Record<ShopItem['id'], { description: string; glyph: string;
  */
 export class ShopScene extends Phaser.Scene {
   private selected = 0;
-  private keyboardBound = false;
   private encounter!: Encounter;
 
   constructor() {
@@ -58,15 +57,15 @@ export class ShopScene extends Phaser.Scene {
     this.selected = 0;
     this.encounter = data.encounter;
     this.draw();
-    if (!this.keyboardBound) {
-      this.keyboardBound = true;
-      this.input.keyboard?.on('keydown-LEFT', () => this.move(-1));
-      this.input.keyboard?.on('keydown-RIGHT', () => this.move(1));
-      this.input.keyboard?.on('keydown-UP', () => this.move(-1));
-      this.input.keyboard?.on('keydown-DOWN', () => this.move(1));
-      this.input.keyboard?.on('keydown-ENTER', () => this.purchaseSelected());
-      this.input.keyboard?.on('keydown-ESC', () => this.leave());
-    }
+    // Bound on every create, not once: Phaser's KeyboardPlugin drops all of its
+    // listeners in shutdown(), so a "bind once" guard would leave the scene deaf
+    // from its second visit onward.
+    this.input.keyboard?.on('keydown-LEFT', () => this.move(-1));
+    this.input.keyboard?.on('keydown-RIGHT', () => this.move(1));
+    this.input.keyboard?.on('keydown-UP', () => this.move(-1));
+    this.input.keyboard?.on('keydown-DOWN', () => this.move(1));
+    this.input.keyboard?.on('keydown-ENTER', () => this.purchaseSelected());
+    this.input.keyboard?.on('keydown-ESC', () => this.leave());
   }
 
   private offers(): MerchantOffer[] {

@@ -18,7 +18,7 @@ import { StatName } from '../types';
  */
 export type ItemUsableIn = 'combat' | 'combat_non_boss' | 'map' | 'both';
 
-export type ItemTargeting = 'living_ally' | 'downed_ally' | 'enemy' | 'none';
+export type ItemTargeting = 'living_ally' | 'downed_ally' | 'enemy' | 'none' | 'all_living_allies';
 
 export interface ItemDefinition {
   id: string;
@@ -80,9 +80,9 @@ export const ITEMS: Record<string, ItemDefinition> = {
   power_increase: {
     id: 'power_increase',
     name: 'Power Increase',
-    description: "Raises one ally's STR by a stage.",
+    description: "Raises the whole party's STR by a stage.",
     usableIn: 'combat',
-    targeting: 'living_ally',
+    targeting: 'all_living_allies',
     effect: { kind: 'buff', stat: 'str', stages: 1 },
   },
   grave_ash: {

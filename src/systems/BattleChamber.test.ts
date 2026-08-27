@@ -30,8 +30,7 @@ describe('Battle Chamber presets', () => {
       .toEqual(['Iron', 'Ash', 'Salt']);
   });
 
-  it('contains isolated extra-turn and double-action experiments', () => {
-    expect(getBattleChamberPreset('attrition').encoreRelay).toBe(true);
+  it('contains an isolated double-action experiment', () => {
     expect(getBattleChamberPreset('mini_boss').bossDoubleAction).toBe(true);
   });
 

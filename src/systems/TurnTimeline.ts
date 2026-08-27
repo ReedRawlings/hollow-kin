@@ -1,11 +1,11 @@
 import { CombatCreature } from '../types';
 import { calculateTurnOrder } from './CombatEngine';
 
-export type TurnSlotSource = 'standard' | 'boss_extra' | 'relic_extra';
+export type TurnSlotSource = 'standard' | 'boss_extra';
 
 /**
  * One scheduled action. Slots, rather than creatures, are the timeline identity:
- * a boss or an explicit run modifier may therefore schedule the same actor twice.
+ * a boss may therefore schedule the same actor twice.
  */
 export interface TurnSlot {
   slotId: string;
@@ -48,16 +48,5 @@ export function buildTurnSlots(
   }
 
   return slots;
-}
-
-export function createExtraTurnSlot(
-  actor: CombatCreature,
-  round: number,
-): TurnSlot {
-  return {
-    slotId: `r${round}:relic-extra:${actor.instance.instanceId}`,
-    actor,
-    source: 'relic_extra',
-  };
 }
 

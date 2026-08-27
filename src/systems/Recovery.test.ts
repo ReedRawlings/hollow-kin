@@ -38,7 +38,6 @@ function runFor(party: CreatureInstance[]): RunState {
     partyHp: Object.fromEntries(party.map(c => [c.instanceId, c.currentStats.hp])),
     partyMp: Object.fromEntries(party.map(c => [c.instanceId, c.currentStats.mp])),
     partyKO: Object.fromEntries(party.map(c => [c.instanceId, false])),
-    xpEarned: 0,
     autoCombat: false,
     activeBoons: [],
   };

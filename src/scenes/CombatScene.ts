@@ -266,7 +266,10 @@ export class CombatScene extends Phaser.Scene {
     if (slotIndex === -1) return;
     const def = getItem(itemId);
 
-    if (def.targeting === 'none') {
+    if (def.targeting === 'none' || def.targeting === 'all_living_allies') {
+      // 'all_living_allies' takes no single target either — Battle.useItem
+      // resolves it against the whole player party, same as 'none' resolves
+      // against nothing.
       this.useItem(itemId, slotIndex, null);
       return;
     }
@@ -382,7 +385,7 @@ export class CombatScene extends Phaser.Scene {
     if (this.subOpen === 'RELAY') {
       const candidate = this.battle.relayCandidatesForCurrentTurn()[this.subRowIndex];
       return candidate
-        ? `Queue ${candidate.actor.template.name} to ${candidate.source === 'relic_extra' ? 'act again' : 'act next'} after this action. Tempo is paid afterward.`
+        ? `Queue ${candidate.actor.template.name} to act next after this action. Tempo is paid afterward.`
         : 'Cancel the queued Relay without spending Tempo.';
     }
     return this.rootDetails()[this.cmdIndex] ?? '';
@@ -467,9 +470,7 @@ export class CombatScene extends Phaser.Scene {
       const candidates = this.battle.relayCandidatesForCurrentTurn();
       const rows: SubRowSpec[] = candidates.map((candidate, i) => ({
         label: `QUEUE ${candidate.actor.template.name.toUpperCase()}`,
-        meta: candidate.source === 'relic_extra'
-          ? 'ENCORE · ACT AGAIN · COST 3'
-          : 'ACT NEXT AFTER THIS ACTION · COST 3',
+        meta: 'ACT NEXT AFTER THIS ACTION · COST 3',
         selected: i === this.subRowIndex,
         disabled: false,
         onHover: () => { this.subRowIndex = i; this.redraw(); },
@@ -586,7 +587,7 @@ export class CombatScene extends Phaser.Scene {
     if (!this.currentTarget && aliveEnemies.length > 0) this.currentTarget = aliveEnemies[0];
 
     const turnOrderChips: ChipSpec[] = this.turnOrder.slice(this.currentTurnIndex, this.currentTurnIndex + 6).map(slot => ({
-      label: `${slot.actor.template.name.toUpperCase()}${slot.source === 'boss_extra' ? ' II' : slot.source === 'relic_extra' ? ' +' : ''}`,
+      label: `${slot.actor.template.name.toUpperCase()}${slot.source === 'boss_extra' ? ' II' : ''}`,
       color: slot.actor.isPlayerOwned ? UI.hi : UI.mutedBright,
       border: slot.actor.isPlayerOwned ? UI.gold : UI.line,
       bg: slot.actor.isPlayerOwned ? UI.plate : UI.void,

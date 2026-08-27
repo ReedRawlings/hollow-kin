@@ -102,8 +102,8 @@ export interface ItemOffer {
 export const MERCHANT_ITEM_OFFERS: readonly ItemOffer[] = [
   { itemId: 'mending_draught', cost: 15 },
   { itemId: 'moonwater', cost: 15 },
-  { itemId: 'power_increase', cost: 15 },
   { itemId: 'clearroot', cost: 20 },
+  { itemId: 'power_increase', cost: 22 },
   { itemId: 'grave_ash', cost: 25 },
   { itemId: 'null_salt', cost: 30 },
   { itemId: 'hollow_candle', cost: 45 },
@@ -114,8 +114,8 @@ export const MERCHANT_ITEM_OFFERS: readonly ItemOffer[] = [
 export const TOWN_ITEM_OFFERS: readonly ItemOffer[] = [
   { itemId: 'mending_draught', cost: 8 },
   { itemId: 'moonwater', cost: 8 },
-  { itemId: 'power_increase', cost: 8 },
   { itemId: 'clearroot', cost: 10 },
+  { itemId: 'power_increase', cost: 11 },
   { itemId: 'grave_ash', cost: 12 },
   { itemId: 'null_salt', cost: 15 },
   { itemId: 'hollow_candle', cost: 22 },

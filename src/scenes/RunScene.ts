@@ -19,7 +19,6 @@ import { drawBagPanel, resetBagPanel } from './run/BagPanel';
 
 export class RunScene extends Phaser.Scene {
   private selected = 0;
-  private keyboardBound = false;
   private ending = false;
   private confirmingDeparture = false;
   /** Set when the player picked a room while departure was open — the commit modal. */
@@ -52,7 +51,7 @@ export class RunScene extends Phaser.Scene {
       gameState.currentRun = {
         startFloor, currentEncounterIndex: -1, encounters, choices: [],
         obols: 0, partyHp: {}, partyMp: {}, partyKO: {},
-        xpEarned: 0, autoCombat: false, activeBoons,
+        autoCombat: false, activeBoons,
       };
       for (const c of gameState.runParty) {
         gameState.currentRun.partyHp[c.instanceId] = effectiveMaxHp(c.currentStats.hp, activeBoons);
@@ -66,35 +65,35 @@ export class RunScene extends Phaser.Scene {
   create(): void {
     this.selected = 0;
     this.draw();
-    if (!this.keyboardBound) {
-      this.keyboardBound = true;
-      this.input.keyboard?.on('keydown-LEFT', () => this.move(-1));
-      this.input.keyboard?.on('keydown-RIGHT', () => this.move(1));
-      this.input.keyboard?.on('keydown-ENTER', () => {
-        if (this.ending) this.returnToTown();
-        else if (this.confirmingCommit) {
-          const staged = this.confirmingCommit;
-          this.confirmingCommit = null;
-          this.selectEncounter(staged);
-        }
-        else if (this.confirmingDeparture) this.confirmDeparture();
-        else this.commitSelected();
-      });
-      this.input.keyboard?.on('keydown-TAB', (e: KeyboardEvent) => { e.preventDefault(); this.toggleAuto(); });
-      this.input.keyboard?.on('keydown-ESC', () => {
-        if (this.ending) return;
-        if (this.showingBag) { this.showingBag = false; resetBagPanel(); this.draw(); return; }
-        if (this.confirmingCommit) {
-          this.confirmingCommit = null;
-          this.draw();
-        } else if (this.confirmingDeparture) {
-          this.confirmingDeparture = false;
-          this.draw();
-        } else {
-          this.requestDeparture();
-        }
-      });
-    }
+    // Bound on every create, not once: Phaser's KeyboardPlugin drops all of its
+    // listeners in shutdown(), so a "bind once" guard would leave the scene deaf
+    // from its second visit onward.
+    this.input.keyboard?.on('keydown-LEFT', () => this.move(-1));
+    this.input.keyboard?.on('keydown-RIGHT', () => this.move(1));
+    this.input.keyboard?.on('keydown-ENTER', () => {
+      if (this.ending) this.returnToTown();
+      else if (this.confirmingCommit) {
+        const staged = this.confirmingCommit;
+        this.confirmingCommit = null;
+        this.selectEncounter(staged);
+      }
+      else if (this.confirmingDeparture) this.confirmDeparture();
+      else this.commitSelected();
+    });
+    this.input.keyboard?.on('keydown-TAB', (e: KeyboardEvent) => { e.preventDefault(); this.toggleAuto(); });
+    this.input.keyboard?.on('keydown-ESC', () => {
+      if (this.ending) return;
+      if (this.showingBag) { this.showingBag = false; resetBagPanel(); this.draw(); return; }
+      if (this.confirmingCommit) {
+        this.confirmingCommit = null;
+        this.draw();
+      } else if (this.confirmingDeparture) {
+        this.confirmingDeparture = false;
+        this.draw();
+      } else {
+        this.requestDeparture();
+      }
+    });
   }
 
   private refreshChoices(): void {
@@ -428,22 +427,7 @@ export class RunScene extends Phaser.Scene {
     } else if (encounter.type === 'rest') {
       this.scene.start('RestScene', { encounter });
     } else {
-      run.obols += 15;
-      run.xpEarned += 10;
-      for (const c of gameState.runParty) {
-        if (!run.partyKO[c.instanceId]) {
-          c.xp += 10;
-          gameState.tryLevelUp(c);
-          const maxHp = effectiveMaxHp(c.currentStats.hp, run.activeBoons);
-          run.partyHp[c.instanceId] = Math.min(
-            run.partyHp[c.instanceId] + Math.floor(maxHp * 0.1),
-            maxHp,
-          );
-        }
-      }
-      this.refreshChoices();
-      this.selected = 0;
-      this.draw();
+      this.scene.start('EventScene', { encounter });
     }
   }
 
