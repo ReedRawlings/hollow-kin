@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
-  generateDescent, generatePickNextChoices, injectStoryCombat,
+  generateDescent, generatePickNextChoices, injectStoryCombat, makeEncounter,
   openingEncounterPool, poolForFloor,
 } from './RunGenerator';
-import { TOWER_FLOORS, TOWER_BAND_SIZE, bandForFloor } from '../types';
+import {
+  TOWER_FLOORS, TOWER_BAND_SIZE, WILD_ENEMY_DEEP_BAND, WILD_ENEMY_OPENER_FLOORS,
+  bandForFloor, maxEnemiesForBand, maxEnemiesForFloor,
+} from '../types';
 import { getTemplate, STARTER_HAND_LOADOUTS, STARTER_TRIO_A } from '../data/creatures';
 import { getAbility } from '../data/abilities';
 
@@ -26,6 +29,56 @@ describe('poolForFloor', () => {
     // break encounter generation outright.
     expect(poolForFloor(TOWER_BAND_SIZE * 9 + 1).length).toBeGreaterThan(0);
     expect(poolForFloor(1).length).toBeGreaterThan(0);
+  });
+});
+
+describe('wild-fight enemy counts', () => {
+  const firstFloorOfBand = (band: number) => (band - 1) * TOWER_BAND_SIZE + 1;
+  const shallowFloor = firstFloorOfBand(WILD_ENEMY_DEEP_BAND - 1) + WILD_ENEMY_OPENER_FLOORS;
+  const deepFloor = firstFloorOfBand(WILD_ENEMY_DEEP_BAND) + WILD_ENEMY_OPENER_FLOORS;
+  const counts = (floor: number, n = 300) => Array.from({ length: n }, () => (
+    makeEncounter('combat', floor, 1).enemies!.length
+  ));
+
+  it('caps shallow bands below deep bands, and the opener below both', () => {
+    expect(maxEnemiesForBand(1)).toBe(maxEnemiesForBand(WILD_ENEMY_DEEP_BAND - 1));
+    expect(maxEnemiesForBand(WILD_ENEMY_DEEP_BAND)).toBeGreaterThan(maxEnemiesForBand(1));
+    expect(maxEnemiesForFloor(1)).toBeLessThan(maxEnemiesForBand(1));
+    expect(maxEnemiesForFloor(shallowFloor)).toBe(maxEnemiesForBand(bandForFloor(shallowFloor)));
+  });
+
+  it('never exceeds the helper for the floor\'s band', () => {
+    for (const floor of [1, 2, shallowFloor, deepFloor, TOWER_BAND_SIZE * 9 + 5]) {
+      for (const count of counts(floor)) {
+        expect(count).toBeGreaterThanOrEqual(1);
+        expect(count).toBeLessThanOrEqual(maxEnemiesForFloor(floor));
+        expect(count).toBeLessThanOrEqual(maxEnemiesForBand(bandForFloor(floor)));
+      }
+    }
+  });
+
+  it('bands 1-2 never exceed three', () => {
+    for (const floor of [4, TOWER_BAND_SIZE, shallowFloor, TOWER_BAND_SIZE * 2]) {
+      expect(Math.max(...counts(floor))).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it('band 3+ can reach five', () => {
+    expect(Math.max(...counts(deepFloor, 600))).toBe(5);
+  });
+
+  it('draws a real enemy list on a band with no authored creatures', () => {
+    // All 30 alpha creatures sit in bands 1-2; a band-3 floor must still fight.
+    const e = makeEncounter('combat', deepFloor, 1);
+    expect(e.enemies!.length).toBeGreaterThan(0);
+    expect(e.enemies).toEqual(expect.arrayContaining(e.enemies!.filter(id => poolForFloor(deepFloor).includes(id))));
+    expect(poolForFloor(deepFloor)).toEqual(poolForFloor(TOWER_BAND_SIZE * 2));
+  });
+
+  it('leaves boss counts alone: two for a mini, three for a major', () => {
+    expect(makeEncounter('boss', 5, 4).enemies).toHaveLength(2);
+    expect(makeEncounter('boss', 10, 9).enemies).toHaveLength(3);
+    expect(makeEncounter('boss', deepFloor + 2, 1).enemies!.length).toBeLessThanOrEqual(3);
   });
 });
 

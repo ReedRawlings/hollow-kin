@@ -6,7 +6,7 @@ import { Archetype, CreatureTemplate, RiteDef, ARCHETYPE_COLORS } from '../types
  *
  * Identity — id, name, archetype, role, towerIds — is authored. Everything else
  * on these templates is GENERATED from those four plus the tables in
- * `creature-roster-and-generation.md`: base stats from tier budget x role
+ * `docs/design/creature-roster-and-generation.md`: base stats from tier budget x role
  * weights, the first ability from archetype, the second from role, capture
  * prices from each band's range, and the trait pool from role staples plus
  * archetype flavour. Do not hand-tune a generated value here — change the table

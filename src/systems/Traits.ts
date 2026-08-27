@@ -7,7 +7,7 @@ import { CREATURE_TEMPLATES } from '../data/creatures';
  * STAR_LEVEL_CAPS — each star tier through 3★ buys exactly one more slot, and a
  * creature's final reachable slot opens the same beat it hits its cap and becomes
  * breed-ready. If STAR_LEVEL_CAPS changes for those tiers, this moves with it —
- * see traits-system.md.
+ * see docs/design/traits-system.md.
  */
 export const TRAIT_SLOT_LEVELS: number[] = [
   STAR_LEVEL_CAPS[0], STAR_LEVEL_CAPS[1], STAR_LEVEL_CAPS[2], STAR_LEVEL_CAPS[3],
@@ -47,7 +47,7 @@ const TRAIT_UPGRADE_COSTS: Record<1 | 2 | 3, number> = {
 
 /**
  * Essence cost to upgrade a trait from `fromLevel` to `fromLevel + 1`. Placeholders —
- * see traits-system.md: roughly one mid-game permanent level per upgrade. Retune
+ * see docs/design/traits-system.md: roughly one mid-game permanent level per upgrade. Retune
  * alongside LEVEL_COST_BASE/LEVEL_COST_EXPONENT if that curve moves.
  */
 export function traitUpgradeCost(fromLevel: 1 | 2 | 3): number {

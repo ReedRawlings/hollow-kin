@@ -1,5 +1,6 @@
 import {
-  Encounter, EncounterType, TOWER_FLOORS, bandForFloor, isBossFloor, bossTierForFloor,
+  Encounter, EncounterType, TOWER_FLOORS, TOWER_BAND_COUNT, bandForFloor, isBossFloor,
+  bossTierForFloor, maxEnemiesForFloor,
 } from '../types';
 import {
   getTemplate, poolForBand, STARTER_HAND_LOADOUTS, STARTER_TRIO_A,
@@ -7,13 +8,22 @@ import {
 import { getAbility } from '../data/abilities';
 
 /**
- * Wild pool for a floor, via its tower band. Bands with no creatures authored
- * yet fall back to band 1 rather than returning empty — an empty pool would
+ * Wild pool for a floor, via its tower band. A band with no creatures authored
+ * yet falls back to the deepest populated band above it (then to the deepest
+ * populated band anywhere) rather than returning empty — an empty pool would
  * break encounter generation the moment the floor cap moves past the roster.
  */
 export function poolForFloor(floor: number): string[] {
-  const pool = poolForBand(bandForFloor(floor));
-  return pool.length > 0 ? pool : poolForBand(1);
+  const band = bandForFloor(floor);
+  for (let b = band; b >= 1; b--) {
+    const pool = poolForBand(b);
+    if (pool.length > 0) return pool;
+  }
+  for (let b = TOWER_BAND_COUNT; b > band; b--) {
+    const pool = poolForBand(b);
+    if (pool.length > 0) return pool;
+  }
+  return [];
 }
 
 /**
@@ -67,10 +77,11 @@ export function makeEncounter(type: EncounterType, floor: number, index: number)
   } else if (type === 'combat') {
     const openingPool = floor === 1 && index === 0 ? openingEncounterPool() : [];
     const pool = openingPool.length > 0 ? openingPool : poolForFloor(floor);
-    const isEarly = floor <= 3;
-    const enemyCount = isEarly ? 1 + Math.floor(Math.random() * 2) : 1 + Math.floor(Math.random() * 3);
+    // Group size derives from the floor's band (see maxEnemiesForFloor); the
+    // opener floors stay small regardless of band.
+    const enemyCount = 1 + Math.floor(Math.random() * maxEnemiesForFloor(floor));
     e.enemies = [];
-    for (let i = 0; i < enemyCount; i++) {
+    for (let i = 0; i < enemyCount && pool.length > 0; i++) {
       e.enemies.push(pool[Math.floor(Math.random() * pool.length)]);
     }
     e.enemyLevels = Math.max(1, Math.floor(floor * 0.8));

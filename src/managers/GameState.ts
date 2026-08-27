@@ -47,7 +47,7 @@ export const SAVE_VERSION = 10;
  * baked in — inflating the child's heritable baseline on top of the child separately
  * re-inheriting the trait at L1, compounding every generation. Reading `statBaseline`
  * directly would have thrown out level scaling too, which is intentionally load-bearing
- * for inheritance (see breeding-and-inheritance.md — stats are meant to compound with
+ * for inheritance (see docs/design/breeding-and-inheritance.md — stats are meant to compound with
  * level across generations, just not with trait strength). This function keeps exactly
  * the level-scaling half and drops only the trait half, so BreedingSystem can import it
  * and feed parents' pre-trait, level-scaled stats into the averaging instead.

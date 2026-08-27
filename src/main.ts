@@ -238,16 +238,22 @@ Promise.all([
         stopActiveScenes();
         game.scene.start('GatekeeperScene');
       },
-      openCombat: () => {
+      // `enemies` may be a count (drawn cyclically from a fixed list, up to 5+)
+      // or an explicit species-id list.
+      openCombat: (enemies: number | string[] = 2) => {
         testControls.ensureNewGame();
         gameState.setRunParty(gameState.defaultParty);
         stopActiveScenes();
         game.scene.start('RunScene');
         const run = gameState.currentRun;
         if (!run) return;
+        const roster = ['kin_013', 'kin_087', 'kin_070', 'kin_050', 'kin_029'];
+        const enemyIds = Array.isArray(enemies)
+          ? enemies
+          : Array.from({ length: Math.max(1, enemies) }, (_, i) => roster[i % roster.length]);
         const encounter = {
           type: 'combat' as const,
-          enemies: ['kin_013', 'kin_087'],
+          enemies: enemyIds,
           enemyLevels: 1,
           floor: 1,
           index: 0,
@@ -289,7 +295,7 @@ Promise.all([
       } else if (event.detail.screen === 'gary-gate') {
         testControls.openGaryGate(event.detail.funds);
       } else if (event.detail.screen === 'combat') {
-        testControls.openCombat();
+        testControls.openCombat(event.detail.funds);
       } else if (event.detail.screen === 'chamber') {
         testControls.openChamber();
       }
@@ -305,7 +311,7 @@ Promise.all([
         else if (requestedScreen === 'merchant') testControls.openMerchant(funds);
         else if (requestedScreen === 'gary-run') testControls.openGaryRun(funds);
         else if (requestedScreen === 'gary-gate') testControls.openGaryGate(funds);
-        else if (requestedScreen === 'combat') testControls.openCombat();
+        else if (requestedScreen === 'combat') testControls.openCombat(funds);
         else testControls.openChamber();
       }, 100);
     }

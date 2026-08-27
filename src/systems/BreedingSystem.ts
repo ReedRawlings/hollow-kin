@@ -89,7 +89,7 @@ export function calculateOffspringStats(
   // that would inflate the offspring's heritable statBaseline with the parent's trait
   // strength — on top of the offspring separately re-inheriting the trait itself at L1
   // (resolveInheritedTraitSlots) — compounding every generation. Level scaling itself is
-  // intentionally still here: breeding-and-inheritance.md is explicit that stats compound
+  // intentionally still here: docs/design/breeding-and-inheritance.md is explicit that stats compound
   // with level across generations, which is exactly why breeding too early founds a weak
   // line. calculateLevelScaledStats (GameState.ts) is the level-scaling half alone.
   const scaledA = calculateLevelScaledStats(parentA);

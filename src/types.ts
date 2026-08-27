@@ -17,7 +17,7 @@ export type Role =
 /**
  * The wards. Damage types are named for folk remedies rather than elements — the chart is
  * folk knowledge, not physics, which is why resistances are authored per creature and are
- * deliberately not inferable from archetype or appearance. See `combat-system.md` → The Wards.
+ * deliberately not inferable from archetype or appearance. See `docs/design/combat-system.md` → The Wards.
  *
  * Renamed from Fighting/Electric/Wind/Fire/Ice/Ghost on 2026-08-02; Bane, Rust, Honey and
  * Thorn are new and have no abilities yet, so they are currently resistance/weakness-only.
@@ -338,6 +338,32 @@ export const TOWER_BAND_COUNT = 10;
 export function bandForFloor(floor: number): number {
   const band = Math.floor((floor - 1) / TOWER_BAND_SIZE) + 1;
   return Math.max(1, Math.min(TOWER_BAND_COUNT, band));
+}
+
+/**
+ * Wild-fight enemy counts by band (placeholders). Bands 1-2 field at most 3;
+ * band 3 and deeper open up to 5. The first few floors of the tower are held
+ * to 2 regardless of band so the opener stays readable. Boss counts are fixed
+ * separately in RunGenerator and do not use these.
+ */
+export const WILD_ENEMY_MAX_SHALLOW = 3;
+export const WILD_ENEMY_MAX_DEEP = 5;
+export const WILD_ENEMY_DEEP_BAND = 3;
+export const WILD_ENEMY_OPENER_FLOORS = 3;
+export const WILD_ENEMY_OPENER_MAX = 2;
+
+/** Largest wild-fight enemy group a band can draw (see the constants above). */
+export function maxEnemiesForBand(band: number): number {
+  return band >= WILD_ENEMY_DEEP_BAND ? WILD_ENEMY_MAX_DEEP : WILD_ENEMY_MAX_SHALLOW;
+}
+
+/**
+ * Largest wild-fight enemy group a floor can draw: its band's ceiling, capped
+ * on the opener floors.
+ */
+export function maxEnemiesForFloor(floor: number): number {
+  const bandMax = maxEnemiesForBand(bandForFloor(floor));
+  return floor <= WILD_ENEMY_OPENER_FLOORS ? Math.min(bandMax, WILD_ENEMY_OPENER_MAX) : bandMax;
 }
 
 /** A floor is a boss floor iff it is a multiple of 5. */

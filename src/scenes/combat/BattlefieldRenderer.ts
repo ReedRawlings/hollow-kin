@@ -226,7 +226,8 @@ function drawHeader(scene: Phaser.Scene, view: BattlefieldView): void {
 
 // ---------- Enemy field ----------
 
-const ENEMY_TILE_W = 200;
+const ENEMY_TILE_W = 200;           // preferred width; shrinks when more than 3 share the row
+const ENEMY_TILE_MIN_W = 150;       // wide enough for the HP bar and an intent label
 const ENEMY_SPRITE_H = 108;
 const ENEMY_COL_GAP = 8;
 const ENEMY_ROW_GAP = 4;
@@ -259,9 +260,16 @@ class EnemyFieldView extends Phaser.GameObjects.Container {
     const innerRight = contentRight - 15;
     const innerTop = enemyFieldTop + 15;
     const innerBottom = enemyFieldBottom - 15;
-    const columns = Math.min(3, Math.max(1, view.enemyParty.length));
-    const rows = Math.ceil(view.enemyParty.length / 3);
-    const groupWidth = columns * ENEMY_TILE_W + (columns - 1) * ENEMY_COL_GAP;
+    // Up to five tiles share one row (band 3+ wild fights). Tiles keep their
+    // preferred width while it fits and shrink together — never below
+    // ENEMY_TILE_MIN_W — before wrapping to a second row.
+    const count = Math.max(1, view.enemyParty.length);
+    const innerWidth = innerRight - innerLeft;
+    const fitsAtMin = Math.max(1, Math.floor((innerWidth + ENEMY_COL_GAP) / (ENEMY_TILE_MIN_W + ENEMY_COL_GAP)));
+    const columns = Math.min(count, fitsAtMin);
+    const rows = Math.ceil(count / columns);
+    const tileW = Math.min(ENEMY_TILE_W, Math.floor((innerWidth - (columns - 1) * ENEMY_COL_GAP) / columns));
+    const groupWidth = columns * tileW + (columns - 1) * ENEMY_COL_GAP;
     const groupHeight = rows * ENEMY_TILE_H + (rows - 1) * ENEMY_ROW_GAP;
     const groupLeft = innerLeft + Math.max(0, (innerRight - innerLeft - groupWidth) / 2);
     const groupTop = innerTop + Math.max(0, (innerBottom - innerTop - groupHeight) / 2);
@@ -281,13 +289,13 @@ class EnemyFieldView extends Phaser.GameObjects.Container {
         this.tiles.set(id, tile);
         this.add(tile);
       }
-      const column = index % 3;
-      const row = Math.floor(index / 3);
+      const column = index % columns;
+      const row = Math.floor(index / columns);
       tile.setPosition(
-        groupLeft + column * (ENEMY_TILE_W + ENEMY_COL_GAP) + ENEMY_TILE_W / 2,
+        groupLeft + column * (tileW + ENEMY_COL_GAP) + tileW / 2,
         groupTop + row * (ENEMY_TILE_H + ENEMY_ROW_GAP),
       );
-      tile.update(enemy, view);
+      tile.update(enemy, view, tileW);
     });
   }
 }
@@ -304,6 +312,7 @@ class EnemyTile extends Phaser.GameObjects.Container {
   private readonly targetMarker: Phaser.GameObjects.Graphics;
   private enemy: CombatCreature | null = null;
   private view: BattlefieldView | null = null;
+  private tileWidth = ENEMY_TILE_W;
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
@@ -345,22 +354,29 @@ class EnemyTile extends Phaser.GameObjects.Container {
     });
   }
 
-  update(enemy: CombatCreature, view: BattlefieldView): void {
+  update(enemy: CombatCreature, view: BattlefieldView, width = ENEMY_TILE_W): void {
     this.enemy = enemy;
     this.view = view;
+    if (width !== this.tileWidth) {
+      this.tileWidth = width;
+      this.intentBg.setSize(width - 12, 17);
+      this.hotspot.setSize(width, ENEMY_TILE_H);
+      if (this.hotspot.input) this.hotspot.input.hitArea.setSize(width, ENEMY_TILE_H);
+    }
     const targeted = view.currentTarget === enemy && !enemy.isKnockedOut;
     const color = archetypeColor(enemy.template.archetype);
     const alpha = enemy.isKnockedOut ? 0.12 : (targeted ? 0.35 : 0.27);
 
     this.stripes.clear();
     this.stripes.lineStyle(5, color, alpha);
-    const left = -ENEMY_TILE_W / 2;
-    const right = ENEMY_TILE_W / 2;
-    for (let d = -ENEMY_SPRITE_H; d < ENEMY_TILE_W; d += 10) {
+    const tileW = this.tileWidth;
+    const left = -tileW / 2;
+    const right = tileW / 2;
+    for (let d = -ENEMY_SPRITE_H; d < tileW; d += 10) {
       const x1 = Math.max(left, left + d);
       const y1 = Math.max(0, -d);
       const x2 = Math.min(right, left + d + ENEMY_SPRITE_H);
-      const y2 = ENEMY_SPRITE_H - Math.max(0, d + ENEMY_SPRITE_H - ENEMY_TILE_W);
+      const y2 = ENEMY_SPRITE_H - Math.max(0, d + ENEMY_SPRITE_H - tileW);
       this.stripes.lineBetween(x1, y1, x2, y2);
     }
 

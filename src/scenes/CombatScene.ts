@@ -163,12 +163,12 @@ export class CombatScene extends Phaser.Scene {
     const relay = this.queuedRelayTargetSlotId
       ? 'Relay queued. Choose it again to change or cancel the target.'
       : !canSpendRelay(this.packTempo)
-        ? `RELAY — earn ${this.packTempo.cap - this.packTempo.points} more Tempo through Weakness, Omen, Break, or Rebound.`
+        ? `RELAY — earn ${this.packTempo.cap - this.packTempo.points} more Tempo — land a hit on an enemy's weakness.`
         : 'RELAY READY — remains banked until used. Pull an unused ally forward for all 3 Tempo.';
     return [
       this.battle.usesSharedActions()
-        ? 'BASIC — costs 0 AP. Tempo comes from authored combat accomplishments.'
-        : 'FIGHT — costs 0 MP. Tempo comes from authored combat accomplishments.',
+        ? 'BASIC — costs 0 AP. Landing a hit on a weakness earns Tempo.'
+        : 'FIGHT — costs 0 MP. Landing a hit on a weakness earns Tempo.',
       this.battle.usesSharedActions()
         ? 'MOVES — spend shared Action Points on learned actions; FIGHT is always free.'
         : 'MAGIC — spend this Kin\'s MP on a move.',

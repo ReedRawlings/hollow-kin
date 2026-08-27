@@ -1,6 +1,6 @@
 /**
- * Trait library data. See `traits-system.md` for the full design and
- * `docs/superpowers/specs/2026-07-26-traits-system-design.md` for the design spec.
+ * Trait library data. See `docs/design/traits-system.md` for the full design and
+ * `docs/decisions/2026-07-26-traits-system-design.md` for the design spec.
  *
  * Traits are passive/triggered effects a creature can hold in an unlocked trait slot.
  * A slot holds a trait id + a level (1-4); this file only defines *what a trait id means*
